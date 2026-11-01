@@ -1,11 +1,16 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth
-from django.urls import path
+from django.urls import path, include
 from erp import views as v
+from accounts.auth_views import SignInView
+from django.views.generic import RedirectView
 urlpatterns = [
+    # Keep privileged sign-in on the same throttled, styled authentication flow.
+    path('admin/login/', SignInView.as_view(), name='admin_signin'),
+    path('admin/password_change/', RedirectView.as_view(pattern_name='password_change')),
+    path('admin/password_change/done/', RedirectView.as_view(pattern_name='password_change_done')),
     path('admin/', admin.site.urls),
-    path('accounts/login/', auth.LoginView.as_view(template_name='registration/login.html'), name='login'),
-    path('accounts/logout/', auth.LogoutView.as_view(), name='logout'),
+    path('accounts/', include('accounts.urls')),
     path('', v.dashboard, name='dashboard'),
     path('sales/', v.orders, {'kind': 'Sale'}, name='sales'),
     path('purchases/', v.orders, {'kind': 'Purchase'}, name='purchases'),

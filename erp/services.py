@@ -24,13 +24,14 @@ def move_stock(user, site, product, quantity, source, kind, notes=''):
 @transaction.atomic
 def transition_order(user, pk, action):
     order = scope(Order.objects.select_for_update(), user).get(pk=pk)
+    from accounts.roles import order_permission
+    if action in ['submit', 'approve', 'post', 'cancel'] and not order_permission(user, order.kind, action):
+        raise PermissionDenied
     if action == 'submit':
-        permitted(user, 'change_order')
         if order.status != 'Draft': raise ValidationError('Only draft orders can be submitted.')
         if not order.lines.exists(): raise ValidationError('Add at least one order line.')
         order.status = 'Submitted'
     elif action == 'approve':
-        permitted(user, 'approve_order')
         if order.status != 'Submitted': raise ValidationError('Only submitted orders can be approved.')
         if order.created_by_id == user.pk: raise ValidationError('A different user must approve this order (maker-checker).')
         if not order.partner.active: raise ValidationError('The partner is inactive.')
@@ -42,7 +43,6 @@ def transition_order(user, pk, action):
                 raise ValidationError('Dealer credit limit exceeded. Exposure includes all approved/completed orders; receipt accounting is not implemented yet.')
         order.status, order.approved_by = 'Approved', user
     elif action == 'post':
-        permitted(user, 'post_order')
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')
         if not order.site.active or not order.partner.active: raise ValidationError('Site and partner must be active.')
         for line in order.lines.select_related('product').order_by('product_id', 'pk'):
@@ -50,7 +50,6 @@ def transition_order(user, pk, action):
             move_stock(user, order.site, line.product, line.quantity if order.kind == 'Purchase' else -line.quantity, f'order:{order.pk}:line:{line.pk}', 'Receipt' if order.kind == 'Purchase' else 'Dispatch')
         order.status = 'Completed'
     elif action == 'cancel':
-        permitted(user, 'change_order')
         if order.status not in ['Draft', 'Submitted', 'Approved']: raise ValidationError('Completed or cancelled orders cannot be cancelled.')
         order.status = 'Cancelled'
     else: raise ValidationError('Unknown action.')

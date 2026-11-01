@@ -63,7 +63,11 @@ class Order(Document):
     status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Completed', 'Cancelled']])
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='approved_orders')
     class Meta(Document.Meta):
-        permissions = [('approve_order', 'Approve orders'), ('post_order', 'Receive or dispatch orders')]
+        permissions = [('approve_order', 'Approve orders (legacy)'), ('post_order', 'Receive or dispatch orders (legacy)')] + [
+            (f'{action}_{kind}_order', f'{action.title()} {kind} orders')
+            for kind in ['sales', 'purchase']
+            for action in ['view', 'create', 'submit', 'approve', 'post', 'cancel']
+        ]
     @property
     def total(self): return sum((line.quantity * line.rate for line in self.lines.all()), Decimal('0'))
     def __str__(self): return f'{self.kind} {self.number}'
@@ -91,7 +95,7 @@ class StockMovement(Document):
     source = models.CharField(max_length=100, unique=True)
     kind = models.CharField(max_length=20, choices=[('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output')])
     class Meta(Document.Meta):
-        permissions = [('post_opening', 'Post opening stock')]
+        permissions = [('post_opening', 'Post opening stock'), ('export_stockmovement', 'Export stock ledger')]
 
 class Production(Document):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)

@@ -10,13 +10,28 @@ Python 3.12 or newer is recommended. Open PowerShell in this folder:
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py setup_roles
 .\.venv\Scripts\python.exe manage.py seed_demo
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
 Open **http://127.0.0.1:8000/**. The seed command prints a generated password for `admin`, `operator` and `approver`. It will refuse to overwrite existing demo users. For a clean installation without sample data, replace `seed_demo` with `createsuperuser`.
 
-Use `admin` for master data, users, groups and site assignments. Use `operator` to create and submit an order, then sign in as `approver` to approve it. The creator cannot approve their own order, including when the creator is a superuser. Each non-superuser needs both Django permissions and a SiteAccess assignment. User management is at `/admin/`.
+Use `admin` for master data and the **Access control** workspace at `/accounts/access/` to create team members, edit role matrices and assign sites. Use `operator` to create and submit an order, then sign in as `approver` to approve it. The creator cannot approve their own order, including when the creator is a superuser. Each non-superuser needs both role permissions and a SiteAccess assignment. Super administrator accounts are managed separately at `/admin/`.
+
+## Authentication and access control
+
+- Poppins fonts are hosted locally with their SIL Open Font License. Authentication pages share a responsive interface, keyboard focus states, field errors and password visibility toggles.
+- Sign in using a case-insensitive email address or username. Ambiguous legacy emails and disabled users are rejected. The team editor enforces case-insensitive email/username uniqueness for new accounts; existing duplicates must be corrected by an administrator.
+- Sessions expire when the browser closes by default, with an optional 8-hour persistent session. Browser session restore can retain session cookies. Password change keeps the current session and invalidates other sessions. Password reset links expire after 30 minutes and cannot be reused.
+- Login (including `/admin/login/`) has persistent hashed identifier/IP throttle windows: five identity attempts and thirty IP attempts in fifteen minutes. Successful login clears its identity counter. Password recovery uses equivalent windows and generic confirmation for unknown/disabled addresses. Current-password checks are also limited. Run `python manage.py purge_auth_limits` daily to clear expired counters. Production reverse-proxy rate limiting and concurrent PostgreSQL testing remain necessary.
+- Forgot password, reset link sent, new password, invalid/expired link, reset complete, change password, signed out, access help and My account pages are implemented. There is no public registration; administrators create company accounts.
+- Recovery emails default to the **console backend**. Development reset links appear only in the local server terminal. No real email is delivered until SMTP environment variables are configured. Never expose the development console or reset links publicly.
+- **Email OTP remains inactive and commented out** in `accounts/otp.py` and settings. The scaffold describes hashed codes, expiry, attempt limits, session binding, resend cooldown and single use. Challenge persistence, delivery, routes, verification UI and two-step authentication tests must be implemented before enabling it. Password login does not send an OTP or claim an email is verified.
+- Role permissions are separate for Sales and Purchase: View, Create, Submit, Approve, Post and Cancel. Stock export is separately permissioned. Navigation, dashboard records, action buttons, views and posting services follow these permissions. Legacy generic order grants no longer grant Sales/Purchase access.
+- Default roles: Operations maker, Operations approver, Sales executive, Purchase officer, Warehouse operator, Production operator, Quality manager and Internal auditor. `setup_roles` creates missing presets without replacing edits; `setup_roles --reset` explicitly restores all named presets. On upgrade from v0.1, review and migrate legacy groups with this command or the role matrix. New schema migration alone does not rewrite existing roles.
+- Only a super administrator can manage roles, users and site assignments, including in Django admin. Ordinary team accounts cannot grant staff/superuser flags. Multiple roles and direct grants combine; separately managed permissions are disclosed and preserved in the role editor. Site assignments constrain operational documents, while products/partners are shared internal masters.
+- Sign-in/out, password changes/resets, role edits and team access changes are audited. Security events without a site are visible to super administrators; ordinary audit views remain scoped to assigned sites. Disabling a user and changing their roles/sites takes effect on their next request.
 
 ## Implemented workflows
 
@@ -38,7 +53,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 
 | SRS area | Current status / remaining work |
 | --- | --- |
-| Organisation and access | Single company; basic sites and roles. Legal entities, GST registrations, financial periods, territory/record restrictions and MFA remain. |
+| Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Legal entities, GST registrations, financial periods, territory/dealer isolation and MFA remain. |
 | CRM and dealer network | Partner master only. Leads, KYC attachments/approvals, territory hierarchy, visits and project pipeline remain. |
 | Sales | Basic net-value orders. Versioned price lists, quotations, credit ageing, stock reservations/ATP, partial delivery and revision workflow remain. Approval does not reserve stock; availability is enforced at posting. |
 | Procurement | Basic order and full receipt. PR/RFQ, GRN inspection/holds and three-way matching remain. Purchase receipts become available immediately. |
@@ -59,7 +74,9 @@ python manage.py check
 python manage.py test
 ```
 
-Tests exercise permission and site isolation, maker-checker, insufficient stock rollback, duplicate posting, credit limits, quality release and HTTP pages.
+For repeatable desktop/mobile visual checks, install the optional Playwright package and Chromium, start the local server, set `ERP_DEMO_PASSWORD` to the local demo password, then run `python scripts/browser_smoke.py`. The script captures 14 authentication/access pages at both sizes into ignored `test-results/` and checks Poppins, page overflow, password visibility and logout. Do not use production credentials or run it against a production server; it generates a local reset token for the demo operator without submitting a new password.
+
+Tests exercise authentication, throttling, password recovery and token expiry/single-use, session invalidation, role/permission injection, Sales/Purchase isolation, disabled users, site isolation, maker-checker, stock rollback, credit limits, quality release and HTTP pages.
 
 ## Project layout
 

@@ -5,6 +5,7 @@ from django.contrib.auth.models import User, Group, Permission
 from django.db import transaction
 from erp.models import Site, SiteAccess, Product, Partner, Order, OrderLine, Production, QualityTest
 from erp.services import move_stock, audit, transition_order
+from accounts.roles import initialize_roles
 
 class Command(BaseCommand):
     help = 'Create fictional demo records and operator, approver and administrator accounts. Run on an empty local database.'
@@ -18,13 +19,9 @@ class Command(BaseCommand):
         admin = User.objects.create_superuser('admin', 'admin@example.test', password)
         operator = User.objects.create_user('operator', password=password, first_name='Plant', last_name='Operator')
         approver = User.objects.create_user('approver', password=password, first_name='Operations', last_name='Approver')
-        makers, _ = Group.objects.get_or_create(name='Operations maker')
-        checkers, _ = Group.objects.get_or_create(name='Operations approver')
-        views = Permission.objects.filter(content_type__app_label='erp', codename__startswith='view_')
-        makers.permissions.set(views)
-        makers.permissions.add(*Permission.objects.filter(content_type__app_label='erp', codename__in=['add_order', 'change_order', 'add_production', 'complete_production', 'add_qualitytest', 'post_order']))
-        checkers.permissions.set(views)
-        checkers.permissions.add(*Permission.objects.filter(content_type__app_label='erp', codename__in=['approve_order', 'release_production', 'post_order']))
+        initialize_roles()
+        makers = Group.objects.get(name='Operations maker')
+        checkers = Group.objects.get(name='Operations approver')
         operator.groups.add(makers)
         approver.groups.add(checkers)
         plant = Site.objects.create(code='PLT-01', name='Satna Cement Works', kind='Plant', address='Satna, Madhya Pradesh (fictional demo site)')

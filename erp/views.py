@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from .models import Site, Product, Partner, Order, StockBalance, StockMovement, Production, QualityTest, AuditEvent
 from .forms import SiteForm, ProductForm, PartnerForm, OrderForm, Lines, ProductionForm, QualityForm, OpeningForm
 from .services import scope, permitted, audit, move_stock, transition_order, transition_production
+from accounts.roles import order_permission
 
 def sites(user):
     qs = Site.objects.filter(active=True)
@@ -22,7 +23,8 @@ def table(request, title, subtitle, headers, rows, create=None, filters=False):
 
 @login_required
 def dashboard(request):
-    orders = scope(Order.objects.select_related('partner', 'site').prefetch_related('lines'), request.user) if request.user.has_perm('erp.view_order') else Order.objects.none()
+    allowed_kinds = [kind for kind in ['Sale', 'Purchase'] if order_permission(request.user, kind, 'view')]
+    orders = scope(Order.objects.filter(kind__in=allowed_kinds).select_related('partner', 'site').prefetch_related('lines'), request.user)
     balances = scope(StockBalance.objects.select_related('product', 'site'), request.user) if request.user.has_perm('erp.view_stockbalance') else StockBalance.objects.none()
     batches = scope(Production.objects.all(), request.user) if request.user.has_perm('erp.view_production') else Production.objects.none()
     sales = orders.filter(kind='Sale')
@@ -69,17 +71,21 @@ def master_form(request, module, pk=None):
 
 @login_required
 def orders(request, kind):
-    permitted(request.user, 'view_order')
+    if not order_permission(request.user, kind, 'view'):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
     qs = scope(Order.objects.filter(kind=kind).select_related('partner', 'site').prefetch_related('lines'), request.user)
     if request.GET.get('q'): qs = qs.filter(Q(number__icontains=request.GET['q']) | Q(partner__name__icontains=request.GET['q']))
     if request.GET.get('status'): qs = qs.filter(status=request.GET['status'])
     rows = [{'cells': [o.number, o.partner.name, o.site.code, o.due_date, f'INR {o.total:,.2f}', o.status], 'url': f'/orders/{o.pk}/'} for o in qs]
-    return table(request, 'Sales orders' if kind == 'Sale' else 'Purchase orders', 'Track documents from draft through approval and stock posting. Values exclude tax and freight.', ['Document', 'Partner', 'Site', 'Due date', 'Net value', 'Status'], rows, f'/orders/new/{kind}/' if request.user.has_perm('erp.add_order') else None, True)
+    return table(request, 'Sales orders' if kind == 'Sale' else 'Purchase orders', 'Track documents from draft through approval and stock posting. Values exclude tax and freight.', ['Document', 'Partner', 'Site', 'Due date', 'Net value', 'Status'], rows, f'/orders/new/{kind}/' if order_permission(request.user, kind, 'create') else None, True)
 
 @login_required
 def order_new(request, kind):
     if kind not in ['Sale', 'Purchase']: raise Http404
-    permitted(request.user, 'add_order')
+    if not order_permission(request.user, kind, 'create'):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
     obj = Order(kind=kind, created_by=request.user)
     form = OrderForm(request.POST or None, instance=obj)
     form.fields['site'].queryset = sites(request.user)
@@ -98,9 +104,12 @@ def order_new(request, kind):
 
 @login_required
 def order_detail(request, pk):
-    permitted(request.user, 'view_order')
     obj = get_object_or_404(scope(Order.objects.select_related('partner', 'site', 'created_by', 'approved_by').prefetch_related('lines__product'), request.user), pk=pk)
-    return render(request, 'erp/order_detail.html', {'title': str(obj), 'order': obj})
+    if not order_permission(request.user, obj.kind, 'view'):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+    actions = {f'can_{action}': order_permission(request.user, obj.kind, action) for action in ['submit', 'approve', 'post', 'cancel']}
+    return render(request, 'erp/order_detail.html', {'title': str(obj), 'order': obj, **actions})
 
 @login_required
 @require_POST
@@ -203,6 +212,7 @@ def reports(request):
     permitted(request.user, 'view_stockmovement')
     movements = scope(StockMovement.objects.select_related('product', 'site', 'created_by'), request.user)
     if request.GET.get('export') == 'csv':
+        permitted(request.user, 'export_stockmovement')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="stock-ledger.csv"'
         writer = csv.writer(response)
@@ -215,4 +225,4 @@ def reports(request):
             writer.writerow([safe(v) for v in [localtime(m.created_at).isoformat(), m.site.code, m.product.code, m.product.name, m.quantity, m.product.unit, m.kind, m.source]])
         AuditEvent.objects.create(actor=request.user, action='Stock ledger exported', reference='CSV', detail='All permitted sites')
         return response
-    return table(request, 'Stock movement report', 'Source-linked posted movements. Export contains only your permitted sites.', ['Document', 'Site', 'Product', 'Quantity', 'UOM', 'Type', 'Source'], [{'cells': [m.number, m.site.code, m.product.name, m.quantity, m.product.unit, m.kind, m.source]} for m in movements], '/reports/?export=csv')
+    return table(request, 'Stock movement report', 'Source-linked posted movements. Export contains only your permitted sites.', ['Document', 'Site', 'Product', 'Quantity', 'UOM', 'Type', 'Source'], [{'cells': [m.number, m.site.code, m.product.name, m.quantity, m.product.unit, m.kind, m.source]} for m in movements], '/reports/?export=csv' if request.user.has_perm('erp.export_stockmovement') else None)
