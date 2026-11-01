@@ -5,6 +5,8 @@ from . import auth_views as av, views as v
 
 urlpatterns = [
     path('login/', av.SignInView.as_view(), name='login'),
+    path('otp/verify/', av.OTPVerifyView.as_view(), name='otp_verify'),
+    path('otp/resend/', av.otp_resend, name='otp_resend'),
     path('logout/', auth.LogoutView.as_view(), name='logout'),
     path('signed-out/', TemplateView.as_view(template_name='registration/logged_out.html'), name='signed_out'),
     path('access-help/', TemplateView.as_view(template_name='registration/access_help.html'), name='access_help'),

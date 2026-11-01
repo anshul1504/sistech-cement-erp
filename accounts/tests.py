@@ -14,6 +14,7 @@ from .models import AuthRateLimit
 from .roles import initialize_roles, MANAGED_CODES
 
 
+@override_settings(EMAIL_OTP_ENABLED=False)
 class AuthenticationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -150,13 +151,15 @@ class AuthenticationTests(TestCase):
         self.assertEqual(other.get(reverse('profile')).status_code, 302)
 
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
-    def test_otp_remains_disabled_and_login_sends_no_email(self):
+    def test_explicit_otp_feature_flag_disables_challenge(self):
         self.sign_in()
         self.assertEqual(len(mail.outbox), 0)
-        for url in ['/accounts/otp/verify/', '/accounts/otp/resend/']:
-            with self.assertRaises(Resolver404): resolve(url)
+        self.client.logout()
+        self.assertRedirects(self.client.get('/accounts/otp/verify/'), reverse('login'))
+        self.assertRedirects(self.client.post('/accounts/otp/resend/'), reverse('login'))
 
 
+@override_settings(EMAIL_OTP_ENABLED=False)
 class RoleAccessTests(TestCase):
     @classmethod
     def setUpTestData(cls):

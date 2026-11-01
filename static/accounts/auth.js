@@ -25,3 +25,13 @@ document.querySelectorAll('.auth-form').forEach(form => form.addEventListener('s
 window.addEventListener('pageshow', () => document.querySelectorAll('[aria-busy=true]').forEach(button => {
   button.disabled = false; button.removeAttribute('aria-busy');
 }));
+document.querySelectorAll('[data-resend-seconds]').forEach(button => {
+  let remaining = Number(button.dataset.resendSeconds);
+  if (!remaining) return;
+  const timer = window.setInterval(() => {
+    remaining -= 1;
+    button.disabled = remaining > 0;
+    button.textContent = remaining > 0 ? `Resend code (${remaining}s)` : 'Resend code';
+    if (remaining <= 0) window.clearInterval(timer);
+  }, 1000);
+});

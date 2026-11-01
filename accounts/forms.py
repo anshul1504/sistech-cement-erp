@@ -31,6 +31,12 @@ class SignInForm(AuthenticationForm):
         return super().clean()
 
 
+class OTPForm(forms.Form):
+    code = forms.RegexField(regex=r'^\d{6}$', label='6-digit verification code', max_length=6,
+        error_messages={'invalid': 'Enter the 6-digit code from your email.'},
+        widget=forms.TextInput(attrs={'class': 'form-control otp-input', 'inputmode': 'numeric', 'autocomplete': 'one-time-code', 'pattern': '[0-9]{6}', 'placeholder': '000000', 'autofocus': True}))
+
+
 class RecoveryForm(PasswordResetForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -8,4 +8,5 @@
 - Run `python manage.py check` and relevant Django tests before pushing functional changes.
 - Use locally hosted Poppins fonts throughout the interface.
 - Work module by module. Authentication and role/site access are the current priority.
-- Email OTP is intentionally commented and inactive. Do not enable OTP delivery or routes until the user requests activation.
+- The user authorized email OTP activation. Password-first, email-code verification is now required by default, including admin sign-in. Keep SMTP secrets only in ignored local configuration or the deployment environment.
+- Use a cement-grey, charcoal and industrial-yellow theme. Do not restore green branding. Keep Poppins text readable with strong contrast.

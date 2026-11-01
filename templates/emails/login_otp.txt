@@ -1,0 +1,8 @@
+Hello {{ name }},
+
+Your Sistech Cement ERP sign-in code is: {{ code }}
+
+This code expires in {{ minutes }} minutes and works only in the browser where you started signing in.
+Never share your code. If you did not try to sign in, ignore this email and contact your administrator.
+
+Sistech Cement ERP

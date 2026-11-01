@@ -2,11 +2,12 @@ from decimal import Decimal
 from django.contrib.auth.models import User, Permission
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import IntegrityError
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from .models import Site, SiteAccess, Product, Partner, Order, OrderLine, StockBalance, StockMovement, Production, QualityTest, AuditEvent
 from .services import move_stock, transition_order, transition_production
 
+@override_settings(EMAIL_OTP_ENABLED=False)
 class WorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
