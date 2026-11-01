@@ -31,6 +31,8 @@ class EmailOTPTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [self.user.email])
         self.assertTrue(mail.outbox[0].alternatives)
+        self.assertIn('cid:sistech-brand', mail.outbox[0].alternatives[0].content)
+        self.assertEqual(mail.outbox[0].attachments[0]['Content-ID'], '<sistech-brand>')
         challenge = EmailOTPChallenge.objects.get()
         self.assertNotEqual(challenge.code_hash, self.code())
         self.assertNotIn(self.code(), repr(dict(self.client.session)))

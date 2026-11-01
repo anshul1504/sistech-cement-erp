@@ -1,0 +1,130 @@
+/* Brand palette from the supplied Sistech Cement & TMT reference. */
+:root {
+  --brand-blue: #073777;
+  --brand-navy: #082859;
+  --brand-gold: #f4bd18;
+  --brand-grey: #62666c;
+  --ink: #24344a;
+  --teal: #073777;
+  --canvas: #f3f5f8;
+  --border: #dce2e9;
+}
+body { color: #24344a; background: #f3f5f8; }
+a { color: #073777; }
+a:hover { color: #052350; }
+.company-logo { display: block; width: 100%; height: auto; }
+.sidebar .brand {
+  display: flex; flex-direction: column; gap: 5px; align-items: center;
+  background: #fff; border-radius: 10px; border-bottom: 3px solid #f4bd18;
+  padding: 12px 12px 13px; margin-bottom: 4px; text-decoration: none;
+}
+.sidebar .company-logo { width: 194px; max-width: 100%; }
+.company-caption { font-size: 10px; font-weight: 600; color: #62666c; letter-spacing: 1.1px; line-height: 1.5; }
+.sidebar { background: #082859; }
+.workspace { background: #10356a; border-color: #335283; }
+.workspace small { color: #c1cee2; }
+.nav-label, .version { color: #abbfdd; }
+.nav-item { color: #d3dff0; }
+.nav-item:hover { background: #143e77; color: #fff; }
+.nav-item.active { background: #f4bd18; color: #082859; }
+.sidebar-bottom p { color: #c2cee0; }
+.sidebar-bottom a { color: #ffda66; }
+.workspace-dot { background: #f4bd18; }
+.auth-story { background: #082859; }
+.auth-story:before { background: radial-gradient(ellipse at 20% 65%, #14509e66, transparent 72%); }
+.auth-story .auth-brand {
+  display: block; width: 278px; max-width: 100%; padding: 15px 17px;
+  background: #fff; border: 1px solid #e4e8ed; border-bottom: 4px solid #f4bd18;
+  border-radius: 12px; box-shadow: 0 8px 22px #03162f26;
+}
+.auth-story .auth-brand .company-logo { width: 100%; height: auto; }
+.story-content { padding-top: 43px; }
+.story-content h1>span { color: #ffd04d; }
+.story-content>p { color: #c4d3e9; }
+.story-kicker, .story-chips { color: #dce6f5; }
+.story-kicker>span, .scene-dot { background: #f4bd18; }
+.story-chips svg, .scene-note>svg { color: #ffd04d; }
+.plant-scene { background: #154078; border-color: #41628f; }
+.scene-note { background: #0b2b5a; border-color: #41628f; }
+.scene-note small { color: #bdcde4; }
+.scene-check { background: #f4bd18; color: #082859; }
+.scene-caption { color: #d5e0f0; }
+.story-footer { color: #b6c8e3; }
+.auth-page { background: #fafbfc; }
+.auth-card h2 { color: #082859; }
+.auth-eyebrow, .eyebrow { color: #5c6d85; }
+.auth-top a, .auth-help a, .auth-label-row a, .auth-secondary-link, .auth-back { color: #073777; }
+.auth-symbol, .auth-symbol.success { background: #edf3fc; color: #073777; border-color: #d3dff0; }
+.auth-symbol.warning { background: #fff4cf; border-color: #e9d394; color: #795a00; }
+.auth-small-note { background: #edf1f7; color: #53647c; }
+.auth-notice { background: #f0f4fa; border-color: #d6e0ee; }
+.auth-notice p { color: #59697f; }
+.auth-notice strong { color: #173965; }
+.auth-submit { background: #073777; border-color: #073777; color: #fff; box-shadow: 0 4px 10px #07377720; }
+.auth-submit:hover { background: #052b60; border-color: #052b60; color: #fff; }
+.input-wrap .form-control:focus, .form-control:focus, .form-select:focus { border-color: #3864a0; box-shadow: 0 0 0 3px #07377714; }
+.password-toggle:hover, .password-toggle[aria-pressed=true] { background: #edf3fc; color: #073777; }
+.auth-options .form-check-input:checked, .form-check-input:checked { background-color: #073777; border-color: #073777; }
+.auth-options input, .assignment-list input { accent-color: #073777; }
+.otp-resend-form button { color: #073777; }
+.otp-success { background: #edf3fc; color: #173965; border-color: #cad9ee; }
+.auth-divider:before, .auth-divider:after { background: #dce2e9; }
+.auth-footer { border-color: #dce2e9; }
+.access-steps span { background: #edf3fc; color: #073777; }
+.btn-primary {
+  --bs-btn-color: #fff; --bs-btn-bg: #073777; --bs-btn-border-color: #073777;
+  --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #052b60; --bs-btn-hover-border-color: #052b60;
+  --bs-btn-active-color: #fff; --bs-btn-active-bg: #04234d; --bs-btn-active-border-color: #04234d;
+  --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: #8299b8; --bs-btn-disabled-border-color: #8299b8;
+  --bs-btn-focus-shadow-rgb: 7, 55, 119;
+}
+.heading-dot { color: #c18f00; }
+.welcome-banner { background: #0a3065; border-left-color: #f4bd18; }
+.banner-label { color: #ffd04d; }
+.welcome-banner p { color: #cfdbef; }
+.banner-art i { background: linear-gradient(90deg, #2b5b9b, #6d91c0); }
+.banner-art i:nth-child(2) { background: linear-gradient(90deg, #c99b1a, #f4c736); }
+.metric-value { color: #082859; }
+.metric-label span { color: #315c94; }
+.table-link, .panel-heading>a { color: #073777; }
+.table thead th { background: #f0f3f8; color: #4b5f7c; }
+.status[data-status='Approved'], .status[data-status='Completed'], .status[data-status='Released'],
+.status[data-status='Available'], .status[data-status='Pass'] { background: #e8f0fc; color: #204d87; }
+.status[data-status='Submitted'], .status[data-status='Quality hold'], .status[data-status='Low stock'] { background: #fff1bf; color: #775500; }
+.action-icon, .purple, .gray { background: #edf3fc; color: #073777; }
+.gold { background: #fff1bf; color: #775500; }
+.activity-dot { background: #315c94; border-color: #e4edf9; }
+.tiny-dot { background: #315c94; }
+.tiny-dot.amber { background: #b88a00; }
+.access-banner { background: #edf3fc; border-color: #d2dfef; border-left: 4px solid #f4bd18; }
+.access-banner h2 { color: #082859; }
+.access-banner p { color: #586c87; }
+.access-banner .eyebrow { color: #506a8e; }
+.access-banner-stats strong { color: #073777; }
+.access-banner-stats small { color: #536b8c; }
+.role-card { color: #173965; }
+.role-card:hover { border-color: #8da9cf; color: #073777; }
+.role-card strong { color: #073777; }
+.role-card-icon, .step-number { background: #edf3fc; color: #315c94; }
+.directory-count { background: #edf3fc; color: #315c94; }
+.permission-pill { background: #edf3fc; color: #315c94; }
+.permission-pill.admin-pill { background: #fff1bf; color: #775500; }
+.site-pill { background: #edf0f4; color: #526379; }
+.profile-avatar, .security-icon { background: #edf3fc; color: #073777; }
+.avatar { background: #fff1bf; color: #775500; }
+.matrix-legend>span { background: #073777; }
+.matrix-footnote { background: #f0f4fa; border-color: #d6e0ee; }
+.matrix-footnote strong { color: #173965; }
+.matrix-footnote p { color: #586b86; }
+.info-note { background: #f0f4fa; border-color: #d6e0ee; color: #526581; }
+.alert-success { background: #edf3fc; border-color: #d2dfef; color: #173965; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline-color: #315c94; }
+@media (max-width: 900px) {
+  .auth-story .auth-brand { width: 220px; padding: 11px 14px; border-radius: 9px; }
+  .story-content { padding-top: 24px; }
+}
+@media (max-width: 600px) {
+  .auth-story .auth-brand { width: 194px; padding: 10px 12px; }
+  .auth-story { padding-top: 22px; padding-bottom: 25px; }
+  .story-content { padding-top: 20px; }
+}

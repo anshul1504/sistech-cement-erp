@@ -2,6 +2,7 @@
 import secrets
 from datetime import timedelta
 from smtplib import SMTPException
+from email.mime.image import MIMEImage
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password, check_password
@@ -66,9 +67,17 @@ def issue_challenge(request, user, password_verified_at=None):
             password_verified_at=password_verified_at or now,
             expires_at=now+timedelta(seconds=settings.EMAIL_OTP_TTL_SECONDS),
         )
-    context = {'code': code, 'name': user.first_name or user.username, 'minutes': settings.EMAIL_OTP_TTL_SECONDS // 60}
+    logo_path = settings.BASE_DIR / 'static' / 'brand' / 'sistech-logo-email.png'
+    logo_bytes = logo_path.read_bytes() if logo_path.is_file() else None
+    context = {'code': code, 'name': user.first_name or user.username, 'minutes': settings.EMAIL_OTP_TTL_SECONDS // 60, 'has_brand_logo': bool(logo_bytes)}
     message = EmailMultiAlternatives('Your Sistech ERP sign-in code', render_to_string('emails/login_otp.txt', context), settings.DEFAULT_FROM_EMAIL, [email])
     message.attach_alternative(render_to_string('emails/login_otp.html', context), 'text/html')
+    if logo_bytes:
+        message.mixed_subtype = 'related'
+        logo = MIMEImage(logo_bytes, _subtype='png')
+        logo.add_header('Content-ID', '<sistech-brand>')
+        logo.add_header('Content-Disposition', 'inline', filename='sistech-logo.png')
+        message.attach(logo)
     try:
         if message.send(fail_silently=False) != 1:
             raise OSError('Email transport did not accept the message')

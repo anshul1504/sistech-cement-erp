@@ -9,4 +9,4 @@
 - Use locally hosted Poppins fonts throughout the interface.
 - Work module by module. Authentication and role/site access are the current priority.
 - The user authorized email OTP activation. Password-first, email-code verification is now required by default, including admin sign-in. Keep SMTP secrets only in ignored local configuration or the deployment environment.
-- Use a cement-grey, charcoal and industrial-yellow theme. Do not restore green branding. Keep Poppins text readable with strong contrast.
+- Follow the supplied Sistech Cement & TMT logo: deep brand blue, golden-yellow accents and cement-grey neutrals. Keep Poppins readable and do not restore green branding. Reuse local assets in static/brand rather than the placeholder S badge.

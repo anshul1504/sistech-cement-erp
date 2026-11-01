@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc"><title id="title">Sistech Cement and TMT Private Limited</title><desc id="desc">Blue Sistech wordmark with golden-yellow and blue roof peaks. Solid foundation, strong future.</desc><defs>
+<linearGradient id="blue" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#124c9c"/><stop offset=".5" stop-color="#00357c"/><stop offset="1" stop-color="#082961"/></linearGradient>
+<linearGradient id="roof" x1="0" y1="0" x2="1" y2=".2"><stop stop-color="#f8c323"/><stop offset=".42" stop-color="#f2b914"/><stop offset=".72" stop-color="#164889"/><stop offset="1" stop-color="#063575"/></linearGradient>
+<path id="s" d="M120 0H40C15 0 0 16 0 40s15 38 40 38h40c9 0 14 5 14 12s-5 12-14 12H4v28h80c26 0 40-16 40-40s-14-39-40-39H43c-9 0-14-5-14-12s5-11 14-11h77Z"/>
+<path id="i" d="M0 0h30v130H0Z"/>
+<path id="t" d="M0 0h124v28H77v102H47V28H0Z"/>
+<path id="e" d="M124 0H46C17 0 0 22 0 65s17 65 46 65h78v-28H49c-11 0-17-7-19-23h94V51H30c2-16 8-23 19-23h75Z"/>
+<path id="c" d="M124 0H47C17 0 0 23 0 65s17 65 47 65h77v-28H50c-14 0-20-12-20-37s6-37 20-37h74Z"/>
+<path id="h" d="M0 0h30v51h64V0h30v130H94V79H30v51H0Z"/>
+</defs><rect width="256" height="256" rx="46" fill="#fff"/><g transform="translate(8 78) scale(.98)"><path d="M0 90 88 8Q92 4 96 8L186 90H150L92 38 34 90Z" fill="url(#roof)"/><path d="m117 20 19-16q4-4 8 0l96 78-26 9-74-61-7 6Z" fill="url(#blue)"/></g></svg>
