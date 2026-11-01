@@ -1,0 +1,2 @@
+def navigation(request):
+    return {'navigation': [('dashboard', 'Overview', '◫'), ('sales', 'Sales orders', '↗'), ('purchases', 'Purchase orders', '↙'), ('inventory', 'Inventory', '▦'), ('production', 'Production', '⚙'), ('quality', 'Quality lab', '◈'), ('partners', 'Business partners', '♧'), ('products', 'Products & materials', '▤'), ('sites', 'Plants & depots', '⌂'), ('reports', 'Reports', '▥'), ('audit', 'Audit trail', '◷')]}
