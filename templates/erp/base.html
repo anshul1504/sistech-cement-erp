@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#082859">
 <meta name="robots" content="noindex, nofollow">
-<title>{{ title|default:'Sign in' }} · Sistech ERP</title>
+<title>{{ title|default:'Sign in' }} · {{ org.display_name|title }} ERP</title>
 <script>try{if(localStorage.getItem('sistech.sidebar')==='collapsed')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
 <link href="{% static 'vendor/bootstrap.min.css' %}?v={{ asset_version }}" rel="stylesheet">
 <link href="{% static 'erp/app.css' %}?v={{ asset_version }}" rel="stylesheet">
@@ -14,7 +14,8 @@
 <link href="{% static 'erp/industrial.css' %}?v={{ asset_version }}" rel="stylesheet">
 <link href="{% static 'erp/brand.css' %}?v={{ asset_version }}" rel="stylesheet">
 <link href="{% static 'erp/shell.css' %}?v={{ asset_version }}" rel="stylesheet">
-<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">
+{% block extra_head %}{% endblock %}
+{% if org_icon_url %}<link rel="icon" href="{{ org_icon_url }}">{% else %}<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">{% endif %}
 </head>
 <body class="{% if user.is_authenticated %}app-body{% endif %}">
 {% if user.is_authenticated %}
@@ -57,9 +58,9 @@
 <div class="app">
   <aside class="app-sidebar" id="app-sidebar" aria-label="Main navigation">
     <div class="sb-brand">
-      <a class="sb-logo" href="{% url 'dashboard' %}" aria-label="Sistech ERP dashboard">
-        <img class="sb-logo-mark" src="{% static 'brand/favicon.svg' %}" alt="" width="40" height="40">
-        <span class="sb-logo-text"><strong>SISTECH</strong><small>Cement &amp; TMT Pvt. Ltd.</small></span>
+      <a class="sb-logo" href="{% url 'dashboard' %}" aria-label="{{ org.legal_name }} dashboard">
+        <img class="sb-logo-mark" src="{% if org_icon_url %}{{ org_icon_url }}{% else %}{% static 'brand/favicon.svg' %}{% endif %}" alt="" width="40" height="40">
+        <span class="sb-logo-text"><strong>{{ org.display_name }}</strong>{% if org.subtitle %}<small>{{ org.subtitle }}</small>{% endif %}</span>
       </a>
       <button class="sb-close" type="button" data-sidebar-close aria-label="Close menu"><svg><use href="#ic-close"/></svg></button>
     </div>
@@ -82,11 +83,11 @@
   <div class="app-main">
     <header class="app-header">
       <button class="hd-icon-btn hd-toggle" type="button" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar"><svg class="ic-open"><use href="#ic-collapse"/></svg><svg class="ic-menu"><use href="#ic-menu"/></svg></button>
-      <a class="hd-logo" href="{% url 'dashboard' %}" aria-label="Sistech ERP dashboard"><img src="{% static 'brand/sistech-logo-compact.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd." width="960" height="330"></a>
+      <a class="hd-logo" href="{% url 'dashboard' %}" aria-label="{{ org.legal_name }} dashboard"><img src="{% if org_logo_url %}{{ org_logo_url }}{% else %}{% static 'brand/sistech-logo-compact.svg' %}{% endif %}" alt="{{ org.legal_name }}"></a>
       <span class="hd-divider" aria-hidden="true"></span>
       <nav class="hd-breadcrumb" aria-label="Breadcrumb">
         <ol>
-          <li class="bc-home"><a href="{% url 'dashboard' %}">Sistech ERP</a></li>
+          <li class="bc-home"><a href="{% url 'dashboard' %}">{{ org.display_name|title }} ERP</a></li>
           {% if nav_current and nav_current.group != 'Overview' %}<li class="bc-group"><span>{{ nav_current.group }}</span></li>{% endif %}
           {% if nav_current and nav_current.label != title %}<li class="bc-section"><a href="{{ nav_current.url }}">{{ nav_current.label }}</a></li>{% endif %}
           <li aria-current="page"><span>{{ title|default:'Dashboard' }}</span></li>
@@ -132,7 +133,7 @@
     </main>
 
     <footer class="app-footer">
-      <span>© {% now 'Y' %} Sistech Cement &amp; TMT Pvt. Ltd.</span>
+      <span>© {% now 'Y' %} {{ org.legal_name }}</span>
       <a class="dev-credit" href="https://thewebfix.in" target="_blank" rel="noopener">Design &amp; developed by <strong>The Webfix</strong></a>
     </footer>
   </div>

@@ -1,0 +1,96 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page">
+  {% with active_tab='profile' %}{% include 'erp/_org_tabs.html' %}{% endwith %}
+
+  <section class="org-hero">
+    <div class="org-hero-logo"><img src="{% if org_logo_url %}{{ org_logo_url }}{% else %}{% static 'brand/sistech-logo-compact.svg' %}{% endif %}" alt="{{ org.legal_name }}"></div>
+    <div class="org-hero-text">
+      <h1>{{ org.legal_name }}</h1>
+      <p>{% if org.trade_name %}{{ org.trade_name }} · {% endif %}{{ org.get_constitution_display }}{% if org.tagline %} · {{ org.tagline }}{% endif %}</p>
+      <div class="org-chips">
+        {% for line in org.business_lines %}<span class="org-chip is-brand">{{ line }}</span>{% endfor %}
+        <span class="org-chip">GST: {{ org.get_gst_registration_type_display }}</span>
+        <span class="org-chip">FY {{ org.fy_label }}</span>
+        <span class="org-chip">{{ locations.plants }} plant{{ locations.plants|pluralize }} · {{ locations.depots }} depot{{ locations.depots|pluralize }}</span>
+      </div>
+    </div>
+    <div class="org-hero-side">
+      {% if can_edit %}<a class="org-btn is-primary" href="{% url 'organization_edit' %}"><svg><use href="#ic-key"/></svg>{% if org.updated_by %}Edit details{% else %}Set up organisation{% endif %}</a>{% endif %}
+      <div class="org-mini-progress"><span>Profile {{ org.completeness }}% complete</span><div class="org-progress-bar"><span style="width: {{ org.completeness }}%"></span></div></div>
+      <small>{% if org.updated_by %}Updated {{ org.updated_at|date:'d M Y, H:i' }} by {{ org.updated_by.get_full_name|default:org.updated_by.username }}{% else %}Not saved yet{% endif %}</small>
+    </div>
+  </section>
+
+  <div class="org-view-grid">
+    <section class="org-card org-view">
+      <header><h2>Registered office</h2></header>
+      <dl>
+        <div class="is-wide"><dt>Address</dt><dd>{{ org.full_address|default:'—' }}</dd></div>
+        <div><dt>State code</dt><dd>{{ org.state|default:'—' }}</dd></div>
+        <div><dt>PIN code</dt><dd>{{ org.pincode|default:'—' }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header><h2>Tax &amp; statutory</h2></header>
+      <dl>
+        <div><dt>GSTIN</dt><dd class="is-mono">{{ org.gstin|default:'—' }}</dd></div>
+        <div><dt>PAN</dt><dd class="is-mono">{{ org.pan|default:'—' }}</dd></div>
+        <div><dt>TAN</dt><dd class="is-mono">{{ org.tan|default:'—' }}</dd></div>
+        <div><dt>CIN / LLPIN</dt><dd class="is-mono">{{ org.cin|default:'—' }}</dd></div>
+        <div><dt>Udyam</dt><dd class="is-mono">{{ org.udyam|default:'—' }}</dd></div>
+        <div><dt>IEC</dt><dd class="is-mono">{{ org.iec|default:'—' }}</dd></div>
+        <div><dt>E-invoicing</dt><dd>{{ org.einvoice_applicable|yesno:'Applicable,Not applicable' }}</dd></div>
+        <div><dt>E-way bill</dt><dd>{{ org.eway_bill_applicable|yesno:'Applicable,Not applicable' }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header><h2>Business &amp; licences</h2></header>
+      <dl>
+        <div><dt>BIS – cement</dt><dd>{{ org.bis_cement_licence|default:'—' }}</dd></div>
+        <div><dt>BIS – TMT</dt><dd>{{ org.bis_tmt_licence|default:'—' }}</dd></div>
+        <div><dt>Incorporated</dt><dd>{{ org.incorporation_date|date:'d M Y'|default:'—' }}</dd></div>
+        <div><dt>Standard bag</dt><dd>{{ org.default_bag_weight|floatformat:'-2' }} kg</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header><h2>Bank details</h2></header>
+      <dl>
+        <div><dt>Bank</dt><dd>{{ org.bank_name|default:'—' }}{% if org.bank_branch %}, {{ org.bank_branch }}{% endif %}</dd></div>
+        <div><dt>IFSC</dt><dd class="is-mono">{{ org.bank_ifsc|default:'—' }}</dd></div>
+        <div><dt>Account holder</dt><dd>{{ org.bank_account_name|default:'—' }}</dd></div>
+        <div><dt>Account no.</dt><dd class="is-mono">{{ org.masked_account|default:'—' }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header><h2>Contact &amp; signatory</h2></header>
+      <dl>
+        <div><dt>Phone</dt><dd>{{ org.phone|default:'—' }}{% if org.alt_phone %} · {{ org.alt_phone }}{% endif %}</dd></div>
+        <div><dt>Customer care</dt><dd>{{ org.customer_care|default:'—' }}</dd></div>
+        <div><dt>WhatsApp</dt><dd>{{ org.whatsapp|default:'—' }}</dd></div>
+        <div><dt>Email</dt><dd>{% if org.email %}<a href="mailto:{{ org.email }}">{{ org.email }}</a>{% else %}—{% endif %}</dd></div>
+        <div><dt>Website</dt><dd>{% if org.website %}<a href="{{ org.website }}" target="_blank" rel="noopener">{{ org.website }}</a>{% else %}—{% endif %}</dd></div>
+        <div><dt>Signatory</dt><dd>{{ org.signatory_name|default:'—' }}{% if org.signatory_designation %} · {{ org.signatory_designation }}{% endif %}</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header><h2>Branding &amp; documents</h2></header>
+      <div class="org-view-brand">
+        <img src="{% if org_icon_url %}{{ org_icon_url }}{% else %}{% static 'brand/favicon.svg' %}{% endif %}" alt="Logo icon">
+        <div><strong>{{ org.display_name }}</strong><small>{{ org.subtitle }}</small></div>
+      </div>
+      <dl>
+        <div class="is-wide"><dt>Terms &amp; conditions</dt><dd class="is-clamp">{{ org.terms_conditions|default:'—'|linebreaksbr }}</dd></div>
+        <div class="is-wide"><dt>Document footer</dt><dd>{{ org.document_footer|default:'—' }}</dd></div>
+        <div class="is-wide"><dt>Company documents</dt><dd><a href="{% url 'organization_documents' %}">{{ counts.total }} on file{% if counts.expired %} · {{ counts.expired }} expired{% endif %}{% if counts.expiring %} · {{ counts.expiring }} expiring{% endif %} →</a></dd></div>
+      </dl>
+    </section>
+  </div>
+</div>
+{% endblock %}

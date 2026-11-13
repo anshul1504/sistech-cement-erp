@@ -1,0 +1,4 @@
+<nav class="org-tabs" aria-label="Organisation sections">
+  <a href="{% url 'organization' %}" class="org-tab{% if active_tab == 'profile' %} is-active{% endif %}"{% if active_tab == 'profile' %} aria-current="page"{% endif %}><svg><use href="#ic-building"/></svg>Profile &amp; branding</a>
+  <a href="{% url 'organization_documents' %}" class="org-tab{% if active_tab == 'documents' %} is-active{% endif %}"{% if active_tab == 'documents' %} aria-current="page"{% endif %}><svg><use href="#ic-clipboard"/></svg>Documents<span class="org-tab-count">{{ counts.total }}</span>{% if counts.expired or counts.expiring %}<span class="org-tab-alert" title="{{ counts.expired }} expired, {{ counts.expiring }} expiring within 30 days">{{ counts.expired|add:counts.expiring }}</span>{% endif %}</a>
+</nav>

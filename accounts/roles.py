@@ -13,6 +13,7 @@ MODULES = [
     ('sites', 'Plants & depots', {'view': 'view_site', 'create': 'add_site', 'edit': 'change_site'}),
     ('reports', 'Stock reports', {'view': 'view_stockmovement', 'export': 'export_stockmovement'}),
     ('audit', 'Audit trail', {'view': 'view_auditevent'}),
+    ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
 ALL_VIEWS = {p['view'] for _, _, p in MODULES}

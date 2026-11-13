@@ -1,0 +1,73 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page">
+  <div class="org-head">
+    <div>
+      <div class="eyebrow">ADMINISTRATION · ORGANISATION SETUP</div>
+      <h1>Company documents</h1>
+      <p>Registrations, licences and compliance certificates with expiry tracking. Visible only to users with Organisation setup access.</p>
+    </div>
+    {% if can_edit %}<a class="org-btn is-primary" href="{% url 'organization_document_new' %}"><svg><use href="#ic-plus"/></svg>Upload document</a>{% endif %}
+  </div>
+
+  {% with active_tab='documents' %}{% include 'erp/_org_tabs.html' %}{% endwith %}
+
+  <div class="doc-stats" role="list">
+    <a role="listitem" class="doc-stat{% if not selected_status %} is-active{% endif %}" href="?{% if selected_type %}type={{ selected_type }}{% endif %}"><strong>{{ counts.total }}</strong><span>All documents</span></a>
+    <a role="listitem" class="doc-stat is-danger{% if selected_status == 'expired' %} is-active{% endif %}" href="?status=expired{% if selected_type %}&type={{ selected_type }}{% endif %}"><strong>{{ counts.expired }}</strong><span>Expired</span></a>
+    <a role="listitem" class="doc-stat is-warning{% if selected_status == 'expiring' %} is-active{% endif %}" href="?status=expiring{% if selected_type %}&type={{ selected_type }}{% endif %}"><strong>{{ counts.expiring }}</strong><span>Expiring in 30 days</span></a>
+  </div>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Documents on file</h2><p>{{ documents|length }} shown{% if query or selected_type or selected_status %} · <a href="{% url 'organization_documents' %}">Clear filters</a>{% endif %}</p></div>
+      <form method="get" class="doc-filter">
+        {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+        <label class="visually-hidden" for="doc-search">Search documents</label>
+        <input id="doc-search" class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search title, number, file…">
+        <label class="visually-hidden" for="doc-type-filter">Filter by type</label>
+        <select id="doc-type-filter" name="type" class="form-select" onchange="this.form.submit()">
+          <option value="">All types</option>
+          {% for group, items in document_types %}<optgroup label="{{ group }}">{% for code, label in items %}<option value="{{ code }}"{% if code == selected_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}
+        </select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+
+    {% if documents %}
+    <ul class="doc-list">
+      {% for doc in documents %}{% with state=doc.status %}
+      <li class="doc-row">
+        <span class="doc-icon{% if doc.content_type == 'application/pdf' %} is-pdf{% endif %}">{% if doc.content_type == 'application/pdf' %}PDF{% else %}IMG{% endif %}</span>
+        <div class="doc-main">
+          <a class="doc-title" href="{% url 'organization_document' doc.pk %}">{{ doc.display_title }}</a>
+          <small>{{ doc.get_doc_type_display }}{% if doc.number %} · No. {{ doc.number }}{% endif %} · {% if doc.site %}{{ doc.site.code }} · {{ doc.site.name }}{% else %}Company-wide{% endif %}</small>
+          <small class="doc-meta">{{ doc.file_name }} · {{ doc.size|filesizeformat }} · uploaded {{ doc.uploaded_at|date:'d M Y' }}</small>
+        </div>
+        <div class="doc-validity">
+          {% if state.0 == 'expired' %}<span class="doc-badge is-danger">Expired</span><small>{{ doc.valid_until|date:'d M Y' }}</small>
+          {% elif state.0 == 'expiring' %}<span class="doc-badge is-warning">{% if state.1 == 0 %}Expires today{% else %}{{ state.1 }} day{{ state.1|pluralize }} left{% endif %}</span><small>{{ doc.valid_until|date:'d M Y' }}</small>
+          {% elif state.0 == 'valid' %}<span class="doc-badge is-ok">Valid</span><small>till {{ doc.valid_until|date:'d M Y' }}</small>
+          {% else %}<span class="doc-badge">No expiry</span>{% if doc.issued_on %}<small>issued {{ doc.issued_on|date:'d M Y' }}</small>{% endif %}{% endif %}
+        </div>
+        <div class="doc-actions">
+          <a class="org-btn is-light is-sm" href="{% url 'organization_document' doc.pk %}">View</a>
+          <a class="org-btn is-light is-sm" href="{% url 'organization_document_file' doc.pk %}?download=1">Download</a>
+          {% if can_edit %}<a class="org-btn is-light is-sm" href="{% url 'organization_document_edit' doc.pk %}">Edit</a>
+          <form method="post" action="{% url 'organization_document_delete' doc.pk %}" data-confirm="Delete “{{ doc.display_title }}”? This cannot be undone.">{% csrf_token %}<button class="org-btn is-danger is-sm" type="submit">Delete</button></form>{% endif %}
+        </div>
+      </li>
+      {% endwith %}{% endfor %}
+    </ul>
+    {% else %}
+    <div class="doc-empty">
+      <svg><use href="#ic-clipboard"/></svg>
+      <strong>{% if query or selected_type or selected_status %}No documents match this filter{% else %}No documents uploaded yet{% endif %}</strong>
+      <span>{% if can_edit %}Keep GST, PAN, BIS licences, factory licence, pollution consent and other certificates here.{% else %}Documents uploaded by an administrator will appear here.{% endif %}</span>
+      {% if can_edit and not query and not selected_type and not selected_status %}<a class="org-btn is-primary" href="{% url 'organization_document_new' %}"><svg><use href="#ic-plus"/></svg>Upload first document</a>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

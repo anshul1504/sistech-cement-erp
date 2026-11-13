@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.3.2'
+ASSET_VERSION = '0.4.1'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -59,6 +59,7 @@ NAV_GROUPS = [
     ('Administration', [
         _item('access_control', 'Users & roles', 'shield', superuser=True,
               match=('member_new', 'member_edit', 'role_new', 'role_edit')),
+        _item('organization', 'Organisation setup', 'settings', 'view_organization', match=('organization_edit', 'organization_documents', 'organization_document', 'organization_document_new', 'organization_document_edit')),
         _item('profile', 'My account', 'user', match=('password_change', 'password_change_done')),
     ]),
 ]
@@ -86,10 +87,18 @@ def _active_route(request):
     return name
 
 
+def branding():
+    """Organisation name and logo URLs for every page (sign-in pages included)."""
+    from erp.models import Organization
+    org = Organization.objects.defer('logo', 'icon').filter(pk=1).first() or Organization()
+    url = lambda kind: f"{reverse('brand_asset', args=[kind])}?v={org.version}" if getattr(org, f'{kind}_type') else None
+    return {'org': org, 'org_logo_url': url('logo'), 'org_icon_url': url('icon')}
+
+
 def navigation(request):
     user = request.user
     # Bump ASSET_VERSION whenever CSS/JS changes so browsers fetch fresh files.
-    context = {'local_server': settings.DEBUG, 'app_version': 'v0.2', 'asset_version': ASSET_VERSION}
+    context = {'local_server': settings.DEBUG, 'app_version': 'v0.2', 'asset_version': ASSET_VERSION, **branding()}
     if not user.is_authenticated:
         return context
     active = _active_route(request)

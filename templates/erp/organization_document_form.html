@@ -1,0 +1,73 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page">
+  <div class="org-head">
+    <div>
+      <div class="eyebrow">ADMINISTRATION · COMPANY DOCUMENTS</div>
+      <h1>{% if doc %}Edit document{% else %}Upload document{% endif %}</h1>
+      <p>{% if doc %}Update the details of “{{ doc.display_title }}”. Upload a new file only if you want to replace the current one.{% else %}Add a registration, licence or compliance certificate. PDF, PNG, JPG or WebP, up to 5 MB.{% endif %}</p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="doc-form" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+
+    <div class="doc-form-grid">
+      <section class="org-card">
+        <header><h2>Document details</h2><p>Type, reference and validity. Expiry dates drive the expired / expiring alerts.</p></header>
+        <div class="org-grid">
+          {% for field in form %}{% if field.name != 'upload' %}
+          <div class="org-field{% if field.name == 'notes' or field.name == 'title' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}{% endfor %}
+        </div>
+      </section>
+
+      <section class="org-card doc-file-card">
+        <header><h2>{{ form.upload.label }}{% if form.upload.field.required %} <span class="required">*</span>{% endif %}</h2><p>{{ form.upload.help_text }}</p></header>
+        {% if doc %}<div class="doc-current"><span class="doc-icon{% if doc.content_type == 'application/pdf' %} is-pdf{% endif %}">{% if doc.content_type == 'application/pdf' %}PDF{% else %}IMG{% endif %}</span><div><strong>Current file</strong><small>{{ doc.file_name }} · {{ doc.size|filesizeformat }}</small><a href="{% url 'organization_document_file' doc.pk %}" target="_blank" rel="noopener">Open current file</a></div></div>{% endif %}
+        <label class="doc-drop{% if form.upload.errors %} has-error{% endif %}" data-drop>
+          {{ form.upload }}
+          <svg><use href="#ic-plus"/></svg>
+          <strong data-file-label>{% if doc %}Choose a replacement file{% else %}Choose a file or drag it here{% endif %}</strong>
+          <small data-file-meta>PDF, PNG, JPG or WebP · max 5 MB</small>
+          <img class="doc-drop-preview" data-file-preview alt="" hidden>
+        </label>
+        {% for e in form.upload.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+      </section>
+    </div>
+
+    <div class="org-actions">
+      <span>{% if doc %}Changes are recorded in the audit trail.{% else %}Uploads are recorded in the audit trail.{% endif %}</span>
+      <div class="org-actions-buttons"><a class="org-btn is-light" href="{% if doc %}{% url 'organization_document' doc.pk %}{% else %}{% url 'organization_documents' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if doc %}Save changes{% else %}Upload document{% endif %}</button></div>
+    </div>
+  </form>
+</div>
+<script>
+(() => {
+  const drop = document.querySelector('[data-drop]');
+  const input = drop?.querySelector('input[type=file]');
+  if (!input) return;
+  const label = drop.querySelector('[data-file-label]'), meta = drop.querySelector('[data-file-meta]'), preview = drop.querySelector('[data-file-preview]');
+  const show = () => {
+    const file = input.files[0];
+    if (!file) return;
+    label.textContent = file.name;
+    meta.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB${file.size > 5 * 1024 * 1024 ? ' · too large (max 5 MB)' : ''}`;
+    drop.classList.toggle('has-error', file.size > 5 * 1024 * 1024);
+    if (/^image\/(png|jpeg|webp)$/.test(file.type)) { preview.src = URL.createObjectURL(file); preview.hidden = false; } else { preview.hidden = true; }
+    drop.classList.add('has-file');
+  };
+  input.addEventListener('change', show);
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('is-over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('is-over'); }));
+  drop.addEventListener('drop', e => { if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; show(); } });
+})();
+</script>
+{% endblock %}

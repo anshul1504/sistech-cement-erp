@@ -26,6 +26,15 @@ urlpatterns = [
     path('quality/new/', v.quality_new, name='quality_new'),
     path('reports/', v.reports, name='reports'),
     path('audit/', v.audit_list, name='audit'),
+    path('organisation/', v.organization, name='organization'),
+    path('organisation/edit/', v.organization_edit, name='organization_edit'),
+    path('organisation/documents/', v.organization_documents, name='organization_documents'),
+    path('organisation/documents/new/', v.organization_document_form, name='organization_document_new'),
+    path('organisation/documents/<int:pk>/', v.organization_document, name='organization_document'),
+    path('organisation/documents/<int:pk>/edit/', v.organization_document_form, name='organization_document_edit'),
+    path('organisation/documents/<int:pk>/file/', v.organization_document_file, name='organization_document_file'),
+    path('organisation/documents/<int:pk>/delete/', v.organization_document_delete, name='organization_document_delete'),
+    path('brand/<str:kind>/', v.brand_asset, name='brand_asset'),
 ]
 for module in ['sites', 'products', 'partners']:
     urlpatterns += [path(f'{module}/', v.master_list, {'module': module}, name=module), path(f'{module}/new/', v.master_form, {'module': module}, name=module+'_new'), path(f'{module}/<int:pk>/edit/', v.master_form, {'module': module}, name=module+'_edit')]

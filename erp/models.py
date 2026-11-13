@@ -122,3 +122,192 @@ class AuditEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         ordering = ['-created_at']
+
+
+
+INDIAN_STATES = [
+    ('01', 'Jammu and Kashmir'), ('02', 'Himachal Pradesh'), ('03', 'Punjab'), ('04', 'Chandigarh'), ('05', 'Uttarakhand'),
+    ('06', 'Haryana'), ('07', 'Delhi'), ('08', 'Rajasthan'), ('09', 'Uttar Pradesh'), ('10', 'Bihar'), ('11', 'Sikkim'),
+    ('12', 'Arunachal Pradesh'), ('13', 'Nagaland'), ('14', 'Manipur'), ('15', 'Mizoram'), ('16', 'Tripura'), ('17', 'Meghalaya'),
+    ('18', 'Assam'), ('19', 'West Bengal'), ('20', 'Jharkhand'), ('21', 'Odisha'), ('22', 'Chhattisgarh'), ('23', 'Madhya Pradesh'),
+    ('24', 'Gujarat'), ('26', 'Dadra and Nagar Haveli and Daman and Diu'), ('27', 'Maharashtra'), ('29', 'Karnataka'), ('30', 'Goa'),
+    ('31', 'Lakshadweep'), ('32', 'Kerala'), ('33', 'Tamil Nadu'), ('34', 'Puducherry'), ('35', 'Andaman and Nicobar Islands'),
+    ('36', 'Telangana'), ('37', 'Andhra Pradesh'), ('38', 'Ladakh'), ('97', 'Other Territory'),
+]
+CONSTITUTIONS = [
+    ('private_limited', 'Private Limited Company'), ('public_limited', 'Public Limited Company'), ('opc', 'One Person Company'),
+    ('llp', 'Limited Liability Partnership'), ('partnership', 'Partnership firm'), ('proprietorship', 'Proprietorship'),
+]
+GST_REGISTRATION_TYPES = [('regular', 'Regular'), ('composition', 'Composition'), ('sez', 'SEZ unit'), ('unregistered', 'Unregistered')]
+MONTHS = [(i, m) for i, m in enumerate(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], 1)]
+
+
+class Organization(models.Model):
+    """Single company profile, statutory details and branding (row pk=1), edited from Organisation setup.
+
+    Logos are stored in the database (small PNG/JPEG/WebP only) and served by erp.views.brand_asset,
+    so branding works for every user without media-server configuration. Plant-level details
+    (factory address, plant GST registrations) belong to Plants & depots.
+    """
+    # Identity & branding
+    legal_name = models.CharField('Legal name', max_length=150, default='Sistech Cement & TMT Pvt. Ltd.')
+    trade_name = models.CharField('Brand / trade name', max_length=100, blank=True, default='Sistech')
+    display_name = models.CharField('Sidebar name', max_length=30, default='SISTECH', help_text='Short name shown beside the logo in the sidebar.')
+    subtitle = models.CharField('Sidebar subtitle', max_length=60, blank=True, default='Cement & TMT Pvt. Ltd.')
+    tagline = models.CharField(max_length=120, blank=True, default='Solid foundation, strong future.')
+    logo = models.BinaryField(null=True, blank=True, editable=False)
+    logo_type = models.CharField(max_length=20, blank=True, editable=False)
+    icon = models.BinaryField(null=True, blank=True, editable=False)
+    icon_type = models.CharField(max_length=20, blank=True, editable=False)
+    constitution = models.CharField('Company type', max_length=20, choices=CONSTITUTIONS, default='private_limited')
+    incorporation_date = models.DateField('Date of incorporation', null=True, blank=True)
+    # Registered office
+    address = models.TextField('Registered office address', blank=True)
+    city = models.CharField(max_length=80, blank=True)
+    district = models.CharField(max_length=80, blank=True)
+    state = models.CharField(max_length=2, choices=INDIAN_STATES, blank=True, help_text='Also sets the GST state code.')
+    pincode = models.CharField('PIN code', max_length=6, blank=True)
+    # Tax & statutory
+    gstin = models.CharField('GSTIN', max_length=15, blank=True)
+    pan = models.CharField('PAN', max_length=10, blank=True)
+    tan = models.CharField('TAN', max_length=10, blank=True)
+    cin = models.CharField('CIN / LLPIN', max_length=21, blank=True)
+    udyam = models.CharField('Udyam (MSME) registration', max_length=19, blank=True)
+    iec = models.CharField('Import Export Code (IEC)', max_length=10, blank=True)
+    gst_registration_type = models.CharField('GST registration type', max_length=15, choices=GST_REGISTRATION_TYPES, default='regular')
+    einvoice_applicable = models.BooleanField('E-invoicing applicable', default=True, help_text='Turnover above the e-invoice threshold.')
+    eway_bill_applicable = models.BooleanField('E-way bill applicable', default=True, help_text='Goods movement above the e-way bill limit.')
+    # Business
+    deals_cement = models.BooleanField('Cement', default=True)
+    deals_tmt = models.BooleanField('TMT bars', default=True)
+    bis_cement_licence = models.CharField('BIS licence – cement', max_length=40, blank=True, help_text='e.g. CM/L-1234567 (IS 269 / IS 1489).')
+    bis_tmt_licence = models.CharField('BIS licence – TMT', max_length=40, blank=True, help_text='e.g. CM/L-7654321 (IS 1786).')
+    fy_start_month = models.PositiveSmallIntegerField('Financial year starts', choices=MONTHS, default=4)
+    default_bag_weight = models.DecimalField('Standard cement bag (kg)', max_digits=5, decimal_places=2, default=50, help_text='Used as the default pack weight for new cement products.')
+    # Banking (printed on invoices)
+    bank_name = models.CharField(max_length=100, blank=True)
+    bank_branch = models.CharField('Branch', max_length=100, blank=True)
+    bank_account_name = models.CharField('Account holder name', max_length=150, blank=True)
+    bank_account_number = models.CharField('Account number', max_length=18, blank=True)
+    bank_ifsc = models.CharField('IFSC', max_length=11, blank=True)
+    # Contact & signatory
+    phone = models.CharField(max_length=20, blank=True)
+    alt_phone = models.CharField('Alternate phone', max_length=20, blank=True)
+    email = models.EmailField('Company email', blank=True)
+    website = models.URLField(blank=True)
+    customer_care = models.CharField('Customer care / toll-free', max_length=20, blank=True)
+    whatsapp = models.CharField('WhatsApp number', max_length=20, blank=True)
+    signatory_name = models.CharField('Authorised signatory', max_length=100, blank=True)
+    signatory_designation = models.CharField('Designation', max_length=80, blank=True)
+    # Documents
+    terms_conditions = models.TextField('Default terms & conditions', blank=True, help_text='Printed on sales orders and invoices.')
+    document_footer = models.CharField('Document footer note', max_length=200, blank=True, help_text='e.g. Subject to Bhopal jurisdiction. This is a computer-generated document.')
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        verbose_name = 'organisation'
+
+    def __str__(self):
+        return self.legal_name
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # singleton
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def current(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def version(self):
+        return int(self.updated_at.timestamp()) if self.updated_at else 0
+
+    @property
+    def masked_account(self):
+        n = self.bank_account_number
+        return ('•' * max(len(n) - 4, 0) + n[-4:]) if n else ''
+
+    @property
+    def full_address(self):
+        parts = [self.address.strip(), self.city, self.district,
+                 f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
+        return ', '.join(p for p in parts if p)
+
+    @property
+    def fy_label(self):
+        months = dict(MONTHS)
+        end = 12 if self.fy_start_month == 1 else self.fy_start_month - 1
+        return f'{months[self.fy_start_month]} – {months[end]}'
+
+    @property
+    def business_lines(self):
+        return [label for flag, label in [(self.deals_cement, 'Cement'), (self.deals_tmt, 'TMT bars')] if flag]
+
+    @property
+    def completeness(self):
+        """Share of key profile fields filled in, for the setup checklist."""
+        keys = ['legal_name', 'address', 'city', 'state', 'pincode', 'gstin', 'pan', 'phone', 'email', 'bank_account_number', 'bank_ifsc', 'signatory_name']
+        filled = sum(1 for k in keys if getattr(self, k))
+        return round(100 * filled / len(keys))
+
+
+DOCUMENT_TYPES = [
+    ('Registrations', [
+        ('gst_certificate', 'GST registration certificate'), ('pan_card', 'PAN card'), ('tan', 'TAN allotment letter'),
+        ('incorporation', 'Certificate of incorporation'), ('moa_aoa', 'MOA / AOA'), ('udyam', 'Udyam (MSME) certificate'),
+        ('iec', 'IEC certificate'), ('trade_licence', 'Trade licence'),
+    ]),
+    ('Quality & product', [
+        ('bis_cement', 'BIS licence – cement'), ('bis_tmt', 'BIS licence – TMT'), ('iso', 'ISO certificate'),
+    ]),
+    ('Plant & statutory', [
+        ('factory_licence', 'Factory licence'), ('pcb_consent', 'Pollution control consent (CTE / CTO)'),
+        ('mining_lease', 'Mining lease'), ('explosives_licence', 'Explosives licence'), ('fire_noc', 'Fire NOC'),
+        ('legal_metrology', 'Legal metrology / weighbridge certificate'),
+    ]),
+    ('Finance', [
+        ('cancelled_cheque', 'Cancelled cheque / bank letter'), ('insurance', 'Insurance policy'),
+    ]),
+    ('Other', [('other', 'Other document')]),
+]
+DOCUMENT_LABELS = {code: label for _, items in DOCUMENT_TYPES for code, label in items}
+
+
+class OrganizationDocument(models.Model):
+    """Company registration, licence and compliance documents with expiry tracking.
+    Files (PDF/PNG/JPEG/WebP, max 5 MB) are stored in the database and served only to permitted users."""
+    doc_type = models.CharField('Document type', max_length=30, choices=DOCUMENT_TYPES)
+    title = models.CharField(max_length=120, blank=True, help_text='Optional. Defaults to the document type.')
+    number = models.CharField('Number / reference', max_length=60, blank=True)
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Applies to', help_text='Leave blank for company-wide documents.')
+    issued_on = models.DateField('Issued on', null=True, blank=True)
+    valid_until = models.DateField('Valid until', null=True, blank=True, help_text='Leave blank if it does not expire.')
+    notes = models.CharField(max_length=200, blank=True)
+    file = models.BinaryField(editable=False)
+    file_name = models.CharField(max_length=150, editable=False)
+    content_type = models.CharField(max_length=40, editable=False)
+    size = models.PositiveIntegerField(editable=False)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['valid_until', 'doc_type']
+        verbose_name = 'organisation document'
+
+    def __str__(self):
+        return self.display_title
+
+    @property
+    def display_title(self):
+        return self.title or DOCUMENT_LABELS.get(self.doc_type, 'Document')
+
+    @property
+    def status(self):
+        """('expired'|'expiring'|'valid'|'none', days_left)."""
+        from django.utils import timezone
+        if not self.valid_until:
+            return 'none', None
+        days = (self.valid_until - timezone.localdate()).days
+        return ('expired' if days < 0 else 'expiring' if days <= 30 else 'valid'), days

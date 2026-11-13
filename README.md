@@ -40,6 +40,22 @@ Use `admin` for master data and the **Access control** workspace at `/accounts/a
 - Passwords must be at least 10 characters (plus Django similarity, common-password and numeric checks).
 - Sign-in/out, password changes/resets, role edits and team access changes are audited. Security events without a site are visible to super administrators; ordinary audit views remain scoped to assigned sites. Disabling a user and changing their roles/sites takes effect on their next request.
 
+## Organisation setup
+
+Super administrators (and any role granted **Organisation setup → View/Edit** in the role matrix) manage the company profile at `/organisation/`:
+
+- **Company identity:** legal and trade name, company type, date of incorporation, sidebar name/subtitle and tagline.
+- **Branding:** full logo and square icon (PNG, JPG or WebP up to 1 MB; checked by file content, SVG rejected). Stored in the database and served from `/brand/logo/` and `/brand/icon/`, so every user sees them in the sidebar, phone header, sign-in page and browser tab with no media-server setup. The built-in Sistech logo is used until one is uploaded.
+- **Registered office** with Indian state list (GST state codes) and PIN code.
+- **Tax and statutory:** GSTIN (cross-checked against PAN and state code), PAN, TAN, CIN/LLPIN, Udyam and IEC, each format-validated.
+- **Business and licences:** cement / TMT business lines, BIS licence numbers, financial-year start month.
+- **Bank details** for invoices (IFSC and account number validated) and **contact and authorised signatory**.
+
+- **GST settings** (registration type, e-invoicing, e-way bill), **standard cement bag weight** (pre-filled on new products), customer care / WhatsApp numbers, and default **terms & conditions** and document footer text.
+- **Company documents** tab (`/organisation/documents/`): upload GST certificate, PAN, incorporation, Udyam, IEC, BIS licences (cement / TMT), ISO, factory licence, pollution consent (CTE/CTO), mining lease, explosives licence, fire NOC, legal metrology, cancelled cheque, insurance and other files (PDF, PNG, JPG or WebP up to 5 MB, checked by content). Each has number, plant (or company-wide), issue and expiry dates; expired and expiring-within-30-days counts and filters are shown. Files are served only to users with Organisation setup access; uploads and deletions are audited.
+
+Changes are audited. Plant-level addresses, GST registrations and factory licences belong to Plants & depots. Invoice printing that uses these details arrives with the Finance module.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.

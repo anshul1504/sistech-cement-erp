@@ -1,0 +1,62 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page">
+  {% with state=doc.status %}
+  <div class="org-head">
+    <div>
+      <div class="eyebrow"><a href="{% url 'organization_documents' %}">← Company documents</a></div>
+      <h1>{{ doc.display_title }}</h1>
+      <p>{{ doc.get_doc_type_display }}{% if doc.number %} · No. {{ doc.number }}{% endif %} · {% if doc.site %}{{ doc.site.code }} · {{ doc.site.name }}{% else %}Company-wide{% endif %}</p>
+    </div>
+    <div class="doc-head-actions">
+      <a class="org-btn is-light" href="{% url 'organization_document_file' doc.pk %}?download=1">Download</a>
+      {% if can_edit %}<a class="org-btn is-light" href="{% url 'organization_document_edit' doc.pk %}">Edit</a>
+      <form method="post" action="{% url 'organization_document_delete' doc.pk %}" data-confirm="Delete “{{ doc.display_title }}”? This cannot be undone.">{% csrf_token %}<button class="org-btn is-danger" type="submit">Delete</button></form>{% endif %}
+    </div>
+  </div>
+
+  <div class="doc-detail">
+    <section class="org-card doc-preview">
+      {% if doc.content_type == 'application/pdf' %}
+      <iframe src="{% url 'organization_document_file' doc.pk %}" title="Preview of {{ doc.display_title }}" loading="lazy"></iframe>
+      {% else %}
+      <img src="{% url 'organization_document_file' doc.pk %}" alt="{{ doc.display_title }}">
+      {% endif %}
+      <a class="doc-preview-open" href="{% url 'organization_document_file' doc.pk %}" target="_blank" rel="noopener">Open in new tab ↗</a>
+    </section>
+
+    <aside class="doc-info">
+      <section class="org-card">
+        <header><h2>Validity</h2></header>
+        <div class="doc-validity-big is-{{ state.0 }}">
+          {% if state.0 == 'expired' %}<strong>Expired</strong><span>on {{ doc.valid_until|date:'d M Y' }} · {{ state.1|stringformat:'d'|slice:'1:' }} day{{ state.1|pluralize }} ago</span>
+          {% elif state.0 == 'expiring' %}<strong>{% if state.1 == 0 %}Expires today{% else %}{{ state.1 }} day{{ state.1|pluralize }} left{% endif %}</strong><span>valid until {{ doc.valid_until|date:'d M Y' }} — renew soon</span>
+          {% elif state.0 == 'valid' %}<strong>Valid</strong><span>until {{ doc.valid_until|date:'d M Y' }} · {{ state.1 }} days left</span>
+          {% else %}<strong>No expiry</strong><span>This document does not expire.</span>{% endif %}
+        </div>
+      </section>
+      <section class="org-card org-summary">
+        <header><h2>Details</h2></header>
+        <dl>
+          <div><dt>Type</dt><dd>{{ doc.get_doc_type_display }}</dd></div>
+          <div><dt>Number</dt><dd>{{ doc.number|default:'—' }}</dd></div>
+          <div><dt>Applies to</dt><dd>{% if doc.site %}{{ doc.site.name }}{% else %}Company-wide{% endif %}</dd></div>
+          <div><dt>Issued on</dt><dd>{{ doc.issued_on|date:'d M Y'|default:'—' }}</dd></div>
+          <div><dt>Valid until</dt><dd>{{ doc.valid_until|date:'d M Y'|default:'—' }}</dd></div>
+          <div><dt>File</dt><dd>{{ doc.file_name }} · {{ doc.size|filesizeformat }}</dd></div>
+          <div><dt>Uploaded</dt><dd>{{ doc.uploaded_at|date:'d M Y, H:i' }}{% if doc.uploaded_by %} · {{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}{% endif %}</dd></div>
+          {% if doc.notes %}<div><dt>Notes</dt><dd>{{ doc.notes }}</dd></div>{% endif %}
+        </dl>
+      </section>
+      <section class="org-card">
+        <header><h2>History</h2></header>
+        <ul class="doc-history">
+          {% for event in history %}<li><strong>{{ event.action|cut:'Organisation document ' }}</strong><small>{{ event.created_at|date:'d M Y, H:i' }}{% if event.actor %} · {{ event.actor.get_full_name|default:event.actor.username }}{% endif %}</small></li>{% empty %}<li><small>No history recorded.</small></li>{% endfor %}
+        </ul>
+      </section>
+    </aside>
+  </div>
+  {% endwith %}
+</div>
+{% endblock %}

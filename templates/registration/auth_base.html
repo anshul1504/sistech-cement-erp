@@ -7,12 +7,12 @@
 <meta name="theme-color" content="#082859">
 <meta name="robots" content="noindex, nofollow">
 <meta name="format-detection" content="telephone=no">
-<title>{% block title %}Sign in{% endblock %} · Sistech Cement ERP</title>
+<title>{% block title %}Sign in{% endblock %} · {{ org.display_name|title }} ERP</title>
 <link rel="preload" href="{% static 'fonts/Poppins-Regular.ttf' %}" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="{% static 'fonts/Poppins-SemiBold.ttf' %}" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="{% static 'erp/fonts.css' %}">
 <link rel="stylesheet" href="{% static 'accounts/auth.css' %}">
-<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">
+{% if org_icon_url %}<link rel="icon" href="{{ org_icon_url }}">{% else %}<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">{% endif %}
 </head>
 <body class="auth-page">
 <a class="skip-link" href="#auth-main">Skip to form</a>
@@ -20,9 +20,9 @@
 
 <div class="auth-shell">
   <aside class="auth-story" aria-label="About Sistech Cement ERP">
-    <a href="{% url 'login' %}" class="auth-brand" aria-label="Sistech Cement ERP home"><img src="{% static 'brand/sistech-logo.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd." width="960" height="450"></a>
+    <a href="{% url 'login' %}" class="auth-brand" aria-label="{{ org.legal_name }} sign-in"><img src="{% if org_logo_url %}{{ org_logo_url }}{% else %}{% static 'brand/sistech-logo.svg' %}{% endif %}" alt="{{ org.legal_name }}"></a>
     <div class="story-content">
-      <div class="story-kicker"><span></span>Sistech Cement &amp; TMT Pvt. Ltd.</div>
+      <div class="story-kicker"><span></span>{{ org.legal_name }}</div>
       <h1>Cement and TMT operations, <span>in one Sistech ERP.</span></h1>
       <p>Sales and purchase orders, production, quality release and stock for every Sistech plant and depot, managed in one internal system.</p>
       <ul class="story-chips">
@@ -31,12 +31,12 @@
         <li><svg><use href="#i-check"/></svg>Plants &amp; depots</li>
       </ul>
     </div>
-    <div class="story-footer"><span>Solid foundation, strong future.</span><span>Sistech internal ERP</span></div>
+    <div class="story-footer"><span>{{ org.tagline }}</span><span>Sistech internal ERP</span></div>
   </aside>
 
   <div class="auth-right">
     <header class="auth-top">
-      <a href="{% url 'login' %}" class="auth-top-brand" aria-label="Sistech Cement ERP home"><img src="{% static 'brand/sistech-logo-compact.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd." width="960" height="330"></a>
+      <a href="{% url 'login' %}" class="auth-top-brand" aria-label="{{ org.legal_name }} sign-in"><img src="{% if org_logo_url %}{{ org_logo_url }}{% else %}{% static 'brand/sistech-logo-compact.svg' %}{% endif %}" alt="{{ org.legal_name }}"></a>
       <span class="auth-top-label">Sistech ERP · Staff sign-in</span>
       <a class="auth-top-help" href="{% url 'access_help' %}"><svg><use href="#i-help"/></svg><span>Need access?</span></a>
     </header>
@@ -46,7 +46,7 @@
         {% block auth_content %}{% endblock %}
       </div>
     </main>
-    <footer class="auth-footer"><span>© {% now 'Y' %} Sistech Cement &amp; TMT Pvt. Ltd.</span><a class="dev-credit" href="https://thewebfix.in" target="_blank" rel="noopener">Design &amp; developed by <strong>The Webfix</strong></a><span><svg><use href="#i-lock"/></svg>For Sistech staff only</span></footer>
+    <footer class="auth-footer"><span>© {% now 'Y' %} {{ org.legal_name }}</span><a class="dev-credit" href="https://thewebfix.in" target="_blank" rel="noopener">Design &amp; developed by <strong>The Webfix</strong></a><span><svg><use href="#i-lock"/></svg>For Sistech staff only</span></footer>
   </div>
 </div>
 <script src="{% static 'accounts/auth.js' %}" defer></script>

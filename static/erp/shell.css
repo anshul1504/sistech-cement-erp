@@ -53,7 +53,7 @@ html:has(.app-body), .app-body { overflow-x: clip; max-width: 100%; }
 .hd-toggle .ic-open { transition: transform .2s ease; }
 .sb-collapsed .hd-toggle .ic-open { transform: scaleX(-1); }
 .hd-logo { display: none; align-items: center; flex: none; height: 40px; padding: 0 4px; border-radius: 8px; }
-.hd-logo img { display: block; height: 38px; width: auto; }
+.hd-logo img { display: block; height: 38px; width: auto; max-width: 180px; object-fit: contain; }
 .hd-divider { display: none; width: 1px; height: 28px; margin: 0 6px; background: var(--line); flex: none; }
 
 .hd-breadcrumb { flex: 1; min-width: 0; }
@@ -141,7 +141,7 @@ html:has(.app-body), .app-body { overflow-x: clip; max-width: 100%; }
   box-shadow: inset 0 -3px 0 var(--gold);
 }
 .sb-logo { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; height: 100%; text-decoration: none; }
-.sb-logo .sb-logo-mark { display: block; width: 40px; height: 40px; flex: none; }
+.sb-logo .sb-logo-mark { display: block; width: 40px; height: 40px; flex: none; object-fit: contain; }
 .sb-logo-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .sb-logo-text strong { color: #073777; font-size: 21px; font-weight: 800; letter-spacing: .06em; }
 .sb-logo-text small { color: #4a5668; font-size: 11px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

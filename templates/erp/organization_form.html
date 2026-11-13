@@ -1,0 +1,140 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page">
+  <div class="org-head">
+    <div>
+      <div class="eyebrow">ADMINISTRATION</div>
+      <h1>{% if org.updated_by %}Edit organisation{% else %}Set up organisation{% endif %}</h1>
+      <p>Fill in each section, then save once. The name and logo set here are shown to every user.</p>
+    </div>
+    <div class="org-progress" aria-label="Profile {{ org.completeness }}% complete">
+      <div class="org-progress-top"><span>Profile completeness</span><strong>{{ org.completeness }}%</strong></div>
+      <div class="org-progress-bar"><span style="width: {{ org.completeness }}%"></span></div>
+      <small>{% if org.updated_by %}Last updated by {{ org.updated_by.get_full_name|default:org.updated_by.username }} · {{ org.updated_at|date:'d M Y, H:i' }}{% else %}Not saved yet{% endif %}</small>
+    </div>
+  </div>
+
+  {% with active_tab='profile' %}{% include 'erp/_org_tabs.html' %}{% endwith %}
+
+  <form method="post" enctype="multipart/form-data" class="org-steps-layout" novalidate data-steps>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert org-span" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields. Sections with errors are marked in red.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+
+    <nav class="org-steps" aria-label="Organisation sections">
+      <button type="button" class="org-step{% if form.icon_file.errors or form.logo_file.errors %} has-error{% endif %}" data-step="branding"><svg><use href="#ic-building"/></svg><span>Branding</span></button>
+      {% for title, note, fields, anchor in form.sections %}
+      <button type="button" class="org-step{% for f in fields %}{% if f.errors %} has-error{% endif %}{% endfor %}" data-step="{{ anchor }}"><svg><use href="#ic-{% cycle 'user' 'handshake' 'receipt' 'factory' 'book' 'crm' 'quote' %}"/></svg><span>{{ title }}</span></button>
+      {% endfor %}
+    </nav>
+
+    <div class="org-panels">
+      <section class="org-card org-panel" id="branding" data-panel="branding">
+        <header><h2>Branding</h2><p>Logo and name shown in the sidebar, sign-in page and browser tab for every user.</p></header>
+        <div class="org-brand-grid">
+          <div class="org-preview" aria-label="Sidebar preview">
+            <span class="org-preview-label">Sidebar preview</span>
+            <div class="org-preview-bar">
+              <img data-preview="icon" src="{% if org_icon_url %}{{ org_icon_url }}{% else %}{% static 'brand/favicon.svg' %}{% endif %}" alt="">
+              <div><strong data-preview="display_name">{{ form.display_name.value|default:'' }}</strong><small data-preview="subtitle">{{ form.subtitle.value|default:'' }}</small></div>
+            </div>
+            <span class="org-preview-note">Change the sidebar name and subtitle under Company identity.</span>
+          </div>
+          <div>
+            <div class="org-upload{% if form.icon_file.errors %} has-error{% endif %}">
+              <div class="org-upload-thumb is-square"><img data-preview="icon" src="{% if org_icon_url %}{{ org_icon_url }}{% else %}{% static 'brand/favicon.svg' %}{% endif %}" alt="Current icon"></div>
+              <div class="org-upload-body">
+                <strong>{{ form.icon_file.label }}</strong>
+                <small>{{ form.icon_file.help_text }}</small>
+                <label class="org-file"><span class="org-file-btn">{% if org_icon_url %}Replace icon{% else %}Upload icon{% endif %}</span><span class="org-file-name" data-file-name="icon_file">No file selected</span>{{ form.icon_file }}</label>
+                {% for e in form.icon_file.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+                {% if org_icon_url %}<label class="org-remove">{{ form.remove_icon }}<span>Remove uploaded icon</span></label>{% endif %}
+              </div>
+            </div>
+            <div class="org-upload{% if form.logo_file.errors %} has-error{% endif %}">
+              <div class="org-upload-thumb"><img data-preview="logo" src="{% if org_logo_url %}{{ org_logo_url }}{% else %}{% static 'brand/sistech-logo-compact.svg' %}{% endif %}" alt="Current full logo"></div>
+              <div class="org-upload-body">
+                <strong>{{ form.logo_file.label }}</strong>
+                <small>{{ form.logo_file.help_text }}</small>
+                <label class="org-file"><span class="org-file-btn">{% if org_logo_url %}Replace logo{% else %}Upload logo{% endif %}</span><span class="org-file-name" data-file-name="logo_file">No file selected</span>{{ form.logo_file }}</label>
+                {% for e in form.logo_file.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+                {% if org_logo_url %}<label class="org-remove">{{ form.remove_logo }}<span>Remove uploaded logo</span></label>{% endif %}
+              </div>
+            </div>
+            {% if not org_logo_url or not org_icon_url %}<p class="org-hint">Until you upload, the built-in Sistech logo is used.</p>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      {% for title, note, fields, anchor in form.sections %}
+      <section class="org-card org-panel" id="{{ anchor }}" data-panel="{{ anchor }}">
+        <header><h2>{{ title }}</h2><p>{{ note }}</p></header>
+        <div class="org-grid">
+          {% for field in fields %}
+          {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="org-field org-check{% if field.errors %} has-error{% endif %}">
+            <label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>{{ field.label }}</strong>{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span></label>
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% else %}
+          <div class="org-field{% if field.name == 'address' or field.name == 'tagline' or field.name == 'terms_conditions' or field.name == 'document_footer' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% if anchor == 'registered-office' %}<p class="org-note">Plant and depot addresses, plant GST registrations and factory licences belong to each location in <a href="{% url 'sites' %}">Plants &amp; depots</a>.</p>{% endif %}
+      </section>
+      {% endfor %}
+
+      <div class="org-actions">
+        <div class="org-step-nav"><button type="button" class="org-btn is-light" data-step-prev>← Previous</button><button type="button" class="org-btn is-light" data-step-next>Next →</button></div>
+        <div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'organization' %}">Cancel</a><button class="org-btn is-primary" type="submit">Save organisation</button></div>
+      </div>
+    </div>
+  </form>
+</div>
+<script>
+(() => {
+  const root = document.querySelector('[data-steps]');
+  const steps = [...root.querySelectorAll('[data-step]')];
+  const panels = [...root.querySelectorAll('[data-panel]')];
+  const prev = root.querySelector('[data-step-prev]'), next = root.querySelector('[data-step-next]');
+  let current = 0;
+  const show = (i, focus) => {
+    current = Math.max(0, Math.min(i, panels.length - 1));
+    panels.forEach((p, n) => { p.hidden = n !== current; });
+    steps.forEach((s, n) => { s.classList.toggle('is-active', n === current); s.setAttribute('aria-current', n === current ? 'step' : 'false'); });
+    prev.disabled = current === 0; next.disabled = current === panels.length - 1;
+    history.replaceState(null, '', '#' + panels[current].id);
+    if (focus) panels[current].querySelector('input:not([type=hidden]):not([type=file]):not([disabled]), select, textarea')?.focus({ preventScroll: true });
+  };
+  steps.forEach((s, n) => s.addEventListener('click', () => show(n, true)));
+  prev.addEventListener('click', () => show(current - 1, true));
+  next.addEventListener('click', () => show(current + 1, true));
+  // Open the first section with errors, else the one in the URL hash, else Branding.
+  const firstError = steps.findIndex(s => s.classList.contains('has-error'));
+  const fromHash = panels.findIndex(p => '#' + p.id === location.hash);
+  show(firstError >= 0 ? firstError : fromHash >= 0 ? fromHash : 0, false);
+
+  // Live preview of sidebar name/subtitle and selected images (nothing is uploaded until Save).
+  ['display_name', 'subtitle'].forEach(name => {
+    const input = root.querySelector(`[name="${name}"]`), target = root.querySelector(`[data-preview="${name}"]`);
+    input?.addEventListener('input', () => { target.textContent = input.value; });
+  });
+  [['icon_file', 'icon'], ['logo_file', 'logo']].forEach(([field, kind]) => {
+    root.querySelector(`[name="${field}"]`)?.addEventListener('change', e => {
+      const file = e.target.files[0];
+      const label = root.querySelector(`[data-file-name="${field}"]`);
+      if (label) label.textContent = file ? file.name : 'No file selected';
+      if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
+      const url = URL.createObjectURL(file);
+      root.querySelectorAll(`[data-preview="${kind}"]`).forEach(img => { img.src = url; });
+    });
+  });
+})();
+</script>
+{% endblock %}
