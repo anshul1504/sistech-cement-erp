@@ -1,7 +1,57 @@
-{% extends 'erp/base.html' %}{% block content %}
-<div class="page-heading"><div><div class="eyebrow">ACCESS CONTROL / ROLE MATRIX</div><h1>{{ title }}</h1><p>Set exactly what this role can see and do.</p></div><a class="btn btn-outline-secondary" href="{% url 'access_control' %}">← Access control</a></div>
-<form method="post">{% csrf_token %}<section class="panel role-meta"><div><label for="role-name" class="form-label">Role name <span class="required">*</span></label><input id="role-name" class="form-control" name="name" value="{{ name }}" maxlength="150" placeholder="e.g. Regional sales manager" required></div><p>Use a name that describes a responsibility.<br>Assign this role to team members after saving.</p></section>{% if error %}<div class="alert alert-danger mt-3" role="alert">{{ error }}</div>{% endif %}
-<section class="panel mt-4"><div class="panel-heading"><div><h2>Permission matrix</h2><p>Enable View before selecting actions for a module.</p></div><span class="matrix-legend"><span></span> Allowed <i></i> Unavailable</span></div><div class="table-responsive"><table class="table permission-matrix"><thead><tr><th>MODULE / CAPABILITY</th>{% for key,label in actions %}<th>{{ label }}</th>{% endfor %}</tr></thead><tbody>{% for row in matrix %}<tr><th scope="row">{{ row.label }}</th>{% for cell in row.cells %}<td>{% if cell.code %}<label class="matrix-toggle"><input type="checkbox" class="form-check-input" name="permissions" value="{{ cell.code }}" {% if cell.checked %}checked{% endif %} aria-label="{{ cell.label }} {{ row.label }}"></label>{% else %}<span class="matrix-unavailable" title="Not applicable">—</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>
-{% if unmanaged %}<div class="info-note">Additional permissions managed outside this matrix are preserved: {% for p in unmanaged %}{{ p.content_type.app_label }}.{{ p.codename }}{% if not forloop.last %}, {% endif %}{% endfor %}. Review these in the administrator console.</div>{% endif %}
-<div class="matrix-footnote"><strong>How this works</strong><p>Post in Production moves output to quality hold. Approve releases passing batches to inventory. Inventory Post allows opening stock entries. Sales and Purchase Post performs full stock dispatch or receipt. This matrix covers the implemented modules.</p></div><div class="form-actions"><a class="btn btn-light" href="{% url 'access_control' %}">Cancel</a><button class="btn btn-primary" type="submit">Save permission matrix →</button></div></form>
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if role.pk %}{% url 'role_detail' role.pk %}{% else %}{% url 'roles' %}{% endif %}">← {% if role.pk %}{{ role.name }}{% else %}Roles &amp; permissions{% endif %}</a></div>
+      <h1>{{ title }}</h1>
+      <p>{% if source %}Starting from “{{ source.name }}”. Give the copy a new name and adjust it.{% elif role.pk %}Changes apply to its {{ member_count }} member{{ member_count|pluralize }} on their next request.{% else %}Name the responsibility, then tick what it can do.{% endif %}</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate data-matrix-form>
+    {% csrf_token %}
+    {% if error %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>{{ error }}</span></div>{% endif %}
+    <section class="org-card adm-role-meta">
+      <div class="org-field"><label class="form-label" for="role-name">Role name <span class="required">*</span></label><input id="role-name" class="form-control" name="name" value="{{ name }}" maxlength="150" placeholder="e.g. Dispatch supervisor" required></div>
+      <p class="acc-muted">Tip: tick <strong>View</strong> first — other actions for a module need it. Click a module name to toggle the whole row.</p>
+    </section>
+    <section class="org-card">
+      <header class="acc-card-head"><div><h2>Permission matrix</h2><p><span data-selected-count>0</span> permission(s) selected</p></div><div class="adm-matrix-tools"><button type="button" class="org-btn is-light is-sm" data-matrix-all>Select all</button><button type="button" class="org-btn is-light is-sm" data-matrix-none>Clear</button></div></header>
+      <div class="adm-matrix-wrap">
+        <table class="adm-matrix">
+          <thead><tr><th>Module</th>{% for key, label in actions %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in matrix %}<tr>
+              <th scope="row"><button type="button" class="adm-row-toggle" data-row-toggle>{{ row.label }}</button></th>
+              {% for cell in row.cells %}<td>{% if cell.code %}<label class="adm-cell-check"><input type="checkbox" name="permissions" value="{{ cell.code }}" {% if cell.checked %}checked{% endif %} {% if forloop.first %}data-view{% endif %} aria-label="{{ cell.label }} — {{ row.label }}"><span></span></label>{% else %}<span class="adm-na">—</span>{% endif %}</td>{% endfor %}
+            </tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if unmanaged %}<p class="acc-note">Extra permissions managed outside this matrix are kept: {% for p in unmanaged %}{{ p.codename }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+      <p class="acc-note"><strong>What the actions mean:</strong> Post in Production moves output to quality hold; Approve releases passing batches. Inventory Post allows opening stock. Sales and Purchase Post dispatch or receive stock.</p>
+    </section>
+    <div class="org-actions"><span>Recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% if role.pk %}{% url 'role_detail' role.pk %}{% else %}{% url 'roles' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if role.pk %}Save changes{% else %}Create role{% endif %}</button></div></div>
+  </form>
+</div>
+<script>
+(() => {
+  const form = document.querySelector('[data-matrix-form]');
+  const boxes = () => [...form.querySelectorAll('input[name=permissions]')];
+  const count = () => { form.querySelector('[data-selected-count]').textContent = boxes().filter(b => b.checked).length; };
+  form.addEventListener('change', e => {
+    const box = e.target; if (box.name !== 'permissions') return;
+    const row = box.closest('tr'), view = row.querySelector('[data-view]');
+    if (box.checked && box !== view && view) view.checked = true;          // actions need View
+    if (!box.checked && box === view) row.querySelectorAll('input').forEach(b => { b.checked = false; }); // no View, no actions
+    count();
+  });
+  form.querySelectorAll('[data-row-toggle]').forEach(btn => btn.addEventListener('click', () => {
+    const inputs = [...btn.closest('tr').querySelectorAll('input')]; const on = !inputs.every(b => b.checked);
+    inputs.forEach(b => { b.checked = on; }); count();
+  }));
+  form.querySelector('[data-matrix-all]').addEventListener('click', () => { boxes().forEach(b => { b.checked = true; }); count(); });
+  form.querySelector('[data-matrix-none]').addEventListener('click', () => { boxes().forEach(b => { b.checked = false; }); count(); });
+  count();
+})();
+</script>
 {% endblock %}

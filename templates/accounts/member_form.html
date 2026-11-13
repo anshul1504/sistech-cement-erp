@@ -1,4 +1,58 @@
-{% extends 'erp/base.html' %}{% block content %}
-<div class="page-heading"><div><div class="eyebrow">ACCESS CONTROL / TEAM</div><h1>{{ title }}</h1><p>Define this team member’s identity, responsibilities and working locations.</p></div><a href="{% url 'access_control' %}" class="btn btn-outline-secondary">← Team directory</a></div>
-<form method="post" class="member-form" autocomplete="off">{% csrf_token %}{{ form.non_field_errors }}<div class="row g-4"><div class="col-xl-7"><section class="panel form-panel"><div class="section-heading"><div><h2>Account details</h2><p>Use a unique company email address.</p></div><span class="step-number">01</span></div><div class="row g-3">{% for field in form %}{% if field.name != 'roles' and field.name != 'sites' %}<div class="{% if field.name == 'is_active' or field.name == 'email' or field.name == 'username' %}col-12{% else %}col-md-6{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}<div class="text-danger">{{ field.errors }}</div>{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endif %}{% endfor %}</div>{% if member.pk %}<p class="form-text mt-4">Password recovery is available through the sign-in page. Direct permission grants, if any, are managed in Django administration.</p>{% else %}<p class="form-text mt-4">Share the initial password securely. No invitation email is sent. The member can change their password under My account.</p>{% endif %}</section></div><div class="col-xl-5"><section class="panel assignment-panel"><div class="section-heading"><div><h2>Assigned roles</h2><p>Permissions from selected roles are combined.</p></div><span class="step-number">02</span></div><div class="assignment-list">{{ form.roles }}{{ form.roles.errors }}</div></section><section class="panel assignment-panel mt-4"><div class="section-heading"><div><h2>Site access</h2><p>Limit access to the locations this person needs.</p></div><span class="step-number">03</span></div><div class="assignment-list">{{ form.sites }}{{ form.sites.errors }}</div></section></div></div><div class="form-actions"><a class="btn btn-light" href="{% url 'access_control' %}">Cancel</a><button class="btn btn-primary">Save team member →</button></div></form>
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if member.pk %}{% url 'member_detail' member.pk %}{% else %}{% url 'access_control' %}{% endif %}">← {% if member.pk %}{{ member.get_full_name|default:member.username }}{% else %}Users{% endif %}</a></div>
+      <h1>{% if member.pk %}Edit user{% else %}Add user{% endif %}</h1>
+      <p>{% if member.pk %}Update details, roles and plant or depot access.{% else %}Create a sign-in for a team member and choose what they can access.{% endif %}</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate autocomplete="off">
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <div class="doc-form-grid">
+      <div class="adm-form-main">
+        <section class="org-card">
+          <header><h2>Person</h2><p>Name, sign-in and contact details.</p></header>
+          <div class="org-grid">
+            {% for field in form %}{% if field.name in 'first_name last_name username email phone designation department' %}
+            <div class="org-field{% if field.name == 'email' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+              {{ field }}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+              {% if field.name == 'email' %}<div class="form-text">Used for sign-in codes and password reset links.</div>{% endif %}
+            </div>
+            {% endif %}{% endfor %}
+          </div>
+        </section>
+        {% if form.password1 %}
+        <section class="org-card">
+          <header><h2>Initial password</h2><p>Share it securely. They can change it later from My account → Security.</p></header>
+          <div class="org-grid">
+            {% for field in form %}{% if field.name == 'password1' or field.name == 'password2' %}
+            <div class="org-field{% if field.errors %} has-error{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }} <span class="required">*</span></label>{{ field }}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+            {% endif %}{% endfor %}
+          </div>
+        </section>
+        {% endif %}
+      </div>
+      <div class="adm-form-side">
+        <section class="org-card">
+          <header><h2>Roles</h2><p>What this person can do. Multiple roles combine.</p></header>
+          <div class="adm-pick">{% for cb in form.roles %}<label class="adm-pick-item">{{ cb.tag }}<span>{{ cb.choice_label }}</span></label>{% empty %}<p class="acc-muted">No roles yet. <a href="{% url 'role_new' %}">Create one</a>.</p>{% endfor %}</div>
+        </section>
+        <section class="org-card">
+          <header><h2>Plants &amp; depots</h2><p>Where they can see and post records.</p></header>
+          <div class="adm-pick">{% for cb in form.sites %}<label class="adm-pick-item">{{ cb.tag }}<span>{{ cb.choice_label }}</span></label>{% empty %}<p class="acc-muted">No locations yet.</p>{% endfor %}</div>
+        </section>
+        <section class="org-card">
+          <label class="org-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active }}<span><strong>{{ form.is_active.label }}</strong><small>{{ form.is_active.help_text }}</small></span></label>
+        </section>
+      </div>
+    </div>
+    <div class="org-actions">
+      <span>{% if member.pk %}Changes apply on their next request.{% else %}They can sign in right after saving.{% endif %}</span>
+      <div class="org-actions-buttons"><a class="org-btn is-light" href="{% if member.pk %}{% url 'member_detail' member.pk %}{% else %}{% url 'access_control' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if member.pk %}Save changes{% else %}Create user{% endif %}</button></div>
+    </div>
+  </form>
+</div>
 {% endblock %}

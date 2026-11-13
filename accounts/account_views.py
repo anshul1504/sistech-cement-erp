@@ -33,23 +33,28 @@ def session_id(key):
     return hashlib.sha256(f'{settings.SECRET_KEY}:{key}'.encode()).hexdigest()[:20]
 
 
-def user_sessions(request):
-    """Active sessions of the current user, current device first."""
+def sessions_for(user, current_key=None):
+    """Active sessions of any user (current device first when current_key is given)."""
     rows = []
     for session in Session.objects.filter(expire_date__gt=timezone.now()):
         try:
             data = session.get_decoded()
         except Exception:
             continue
-        if data.get('_auth_user_id') != str(request.user.pk):
+        if data.get('_auth_user_id') != str(user.pk):
             continue
         signed_in = parse_datetime(data.get('signed_in_at', '') or '')
         rows.append({'id': session_id(session.session_key), 'key': session.session_key,
-                     'current': session.session_key == request.session.session_key,
+                     'current': session.session_key == current_key,
                      'client': data.get('client') or 'Device details not recorded (signed in before tracking)',
                      'signed_in_at': signed_in, 'expires': session.expire_date})
     rows.sort(key=lambda r: (not r['current'], -(r['signed_in_at'].timestamp() if r['signed_in_at'] else 0)))
     return rows
+
+
+def user_sessions(request):
+    """Active sessions of the signed-in user, this device first."""
+    return sessions_for(request.user, request.session.session_key)
 
 
 def other_sessions(request):

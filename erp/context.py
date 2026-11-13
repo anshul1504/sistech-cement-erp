@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.4.5'
+ASSET_VERSION = '0.4.8'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -57,9 +57,12 @@ NAV_GROUPS = [
         _item('audit', 'Audit trail', 'history', 'view_auditevent'),
     ]),
     ('Administration', [
-        _item('access_control', 'Users & roles', 'shield', superuser=True,
-              match=('member_new', 'member_edit', 'role_new', 'role_edit')),
+        _item('access_control', 'Users', 'crm', superuser=True,
+              match=('member_new', 'member_detail', 'member_edit', 'member_set_password')),
+        _item('roles', 'Roles & permissions', 'shield', superuser=True,
+              match=('role_new', 'role_detail', 'role_edit', 'role_duplicate')),
         _item('organization', 'Organisation setup', 'settings', 'view_organization', match=('organization_edit', 'organization_documents', 'organization_document', 'organization_document_new', 'organization_document_edit')),
+        _item('system_settings', 'System settings', 'sliders', superuser=True),
         _item('profile', 'My account', 'user', match=('password_change', 'password_change_done', 'profile_edit', 'account_security', 'account_activity', 'account_contacts', 'contact_new', 'contact_edit')),
     ]),
 ]
@@ -138,7 +141,8 @@ def navigation(request):
     if user.has_perm('erp.post_opening'):
         quick_create.append(('Opening stock', reverse('opening'), 'boxes'))
     if user.is_superuser:
-        quick_create.append(('Team member', reverse('member_new'), 'user'))
+        quick_create.append(('User', reverse('member_new'), 'user'))
+        quick_create.append(('Role', reverse('role_new'), 'shield'))
 
     if user.is_superuser:
         role_label = 'Super administrator'

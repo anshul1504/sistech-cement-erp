@@ -1,0 +1,78 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'access_control' %}">← Users</a></div></div>
+
+  <section class="org-hero acc-hero">
+    {% with u=member size='xl' %}{% include 'accounts/_user_avatar.html' %}{% endwith %}
+    <div class="org-hero-text">
+      <h1>{{ member.get_full_name|default:member.username }}{% if is_self %} <em class="adm-you">You</em>{% endif %}</h1>
+      <p>{% if member_profile.designation %}{{ member_profile.designation }}{% if member_profile.department %} · {{ member_profile.department }}{% endif %} · {% endif %}{{ member.email|default:'No email' }} · @{{ member.username }}</p>
+      <div class="org-chips">
+        {% if member.is_superuser %}<span class="org-chip is-gold">Super administrator</span>{% endif %}
+        {% for g in member.groups.all %}<a class="org-chip is-brand" href="{% url 'role_detail' g.pk %}">{{ g.name }}</a>{% endfor %}
+        {% if member.is_active %}<span class="org-chip is-ok">● Active</span>{% else %}<span class="org-chip is-danger">● Disabled</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side">
+      {% if not member.is_superuser %}<a class="org-btn is-primary" href="{% url 'member_edit' member.pk %}"><svg><use href="#ic-key"/></svg>Edit user</a>{% endif %}
+      <small>Joined {{ member.date_joined|date:'d M Y' }}<br>Last sign-in {{ member.last_login|date:'d M Y, H:i'|default:'never' }}</small>
+    </div>
+  </section>
+
+  {% if member.is_superuser %}
+  <div class="acc-banner is-info adm-banner">Super administrator accounts have full access and are not changed from these screens. {% if is_self %}Manage your own details in <a href="{% url 'profile' %}">My account</a>.{% endif %}</div>
+  {% else %}
+  <section class="adm-actions" aria-label="Account actions">
+    <form method="post" action="{% url 'member_reset_link' member.pk %}">{% csrf_token %}<button class="adm-action" type="submit"><svg><use href="#ic-quote"/></svg><span><strong>Send reset link</strong><small>Email a 30-minute link</small></span></button></form>
+    <a class="adm-action" href="{% url 'member_set_password' member.pk %}"><svg><use href="#ic-key"/></svg><span><strong>Set password</strong><small>Choose a new one now</small></span></a>
+    <form method="post" action="{% url 'member_sign_out' member.pk %}" data-confirm="Sign {{ member.get_full_name|default:member.username }} out of every device?">{% csrf_token %}<button class="adm-action" type="submit" {% if not sessions %}disabled{% endif %}><svg><use href="#ic-logout"/></svg><span><strong>Sign out everywhere</strong><small>{{ sessions|length }} active device{{ sessions|length|pluralize }}</small></span></button></form>
+    {% if not is_self %}<form method="post" action="{% url 'member_status' member.pk %}" data-confirm="{% if member.is_active %}Disable this account? They will be signed out and cannot sign in.{% else %}Enable this account so they can sign in again?{% endif %}">{% csrf_token %}<button class="adm-action {% if member.is_active %}is-danger{% else %}is-ok{% endif %}" type="submit"><svg><use href="#ic-power"/></svg><span><strong>{% if member.is_active %}Disable account{% else %}Enable account{% endif %}</strong><small>{% if member.is_active %}Blocks sign-in, keeps history{% else %}Allow sign-in again{% endif %}</small></span></button></form>{% endif %}
+  </section>
+  {% endif %}
+
+  <div class="acc-grid">
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Details</h2>{% if not member.is_superuser %}<a href="{% url 'member_edit' member.pk %}">Edit</a>{% endif %}</header>
+      <dl>
+        <div><dt>Full name</dt><dd>{{ member.get_full_name|default:'—' }}</dd></div>
+        <div><dt>Username</dt><dd>{{ member.username }}</dd></div>
+        <div class="is-wide"><dt>Email</dt><dd>{{ member.email|default:'—' }}</dd></div>
+        <div><dt>Mobile</dt><dd>{{ member_profile.phone|default:'—' }}</dd></div>
+        <div><dt>Designation</dt><dd>{{ member_profile.designation|default:'—' }}</dd></div>
+        <div><dt>Department</dt><dd>{{ member_profile.department|default:'—' }}</dd></div>
+        <div><dt>Password changed</dt><dd>{% if member_profile.password_age_days is None %}Not recorded{% elif member_profile.password_age_days == 0 %}Today{% else %}{{ member_profile.password_age_days }} days ago{% endif %}</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Signed-in devices</h2><span class="acc-muted">{{ sessions|length }} active</span></header>
+      {% if sessions %}
+      <ul class="acc-devices is-compact">{% for s in tracked_sessions|slice:':4' %}<li><span class="acc-device-icon"><svg><use href="#ic-dashboard"/></svg></span><div><strong>{{ s.client|cut:'Username + password · '|cut:'Email + code · '|cut:'Email + password · ' }}</strong><small>Signed in {{ s.signed_in_at|date:'d M, H:i' }}</small></div></li>{% endfor %}
+        {% if legacy_count %}<li class="is-legacy"><span class="acc-device-icon"><svg><use href="#ic-history"/></svg></span><div><strong>{{ legacy_count }} older session{{ legacy_count|pluralize }}</strong><small>Signed in before device details were recorded</small></div></li>{% endif %}
+      </ul>
+      {% else %}<p class="acc-muted">Not signed in on any device.</p>{% endif %}
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Admin changes</h2></header>
+      <ul class="acc-timeline">{% for e in changes %}<li><strong>{{ e.action }}</strong><small>{{ e.created_at|date:'d M Y, H:i' }} · by {{ e.actor.get_full_name|default:e.actor.username }}</small></li>{% empty %}<li><small>No administrator changes recorded.</small></li>{% endfor %}</ul>
+    </section>
+
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Access</h2>{% if not member.is_superuser %}<a href="{% url 'member_edit' member.pk %}">Change roles &amp; locations</a>{% endif %}</header>
+      <div class="acc-access-meta">
+        <div><dt>Roles</dt><dd>{% if member.is_superuser %}<span class="org-chip is-gold">Super administrator</span>{% else %}{% for g in member.groups.all %}<a class="org-chip is-brand" href="{% url 'role_detail' g.pk %}">{{ g.name }}</a>{% empty %}<span class="acc-muted">No role — this user cannot open any module</span>{% endfor %}{% endif %}</dd></div>
+        <div><dt>Locations</dt><dd>{% if member.is_superuser %}<span class="org-chip">All plants &amp; depots</span>{% else %}{% for a in assigned_sites %}<span class="org-chip">{{ a.site.code }} · {{ a.site.name }}</span>{% empty %}<span class="acc-muted">No location — operational records stay hidden</span>{% endfor %}{% endif %}</dd></div>
+      </div>
+      {% if access %}<div class="acc-perm-table">{% for row in access %}<div class="acc-perm-row"><span>{{ row.module }}</span><span>{% for a in row.actions %}<em>{{ a }}</em>{% endfor %}</span></div>{% endfor %}</div>{% endif %}
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Recent activity</h2></header>
+      <ul class="acc-timeline">{% for e in activity %}<li><strong>{{ e.action }}</strong><small>{{ e.created_at|date:'d M, H:i' }}{% if e.detail %} · {{ e.detail|truncatechars:50 }}{% endif %}</small></li>{% empty %}<li><small>No activity yet.</small></li>{% endfor %}</ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

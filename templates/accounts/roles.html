@@ -1,0 +1,29 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head">
+    <div><div class="eyebrow">ADMINISTRATION</div><h1>Roles &amp; permissions</h1><p>A role is a reusable set of permissions. Give people roles, then choose their plants and depots on the user page.</p></div>
+    <a class="org-btn is-primary" href="{% url 'role_new' %}"><svg><use href="#ic-plus"/></svg>Create role</a>
+  </div>
+  {% with admin_tab='roles' %}{% include 'accounts/_admin_tabs.html' %}{% endwith %}
+  <div class="adm-role-grid">
+    {% for r in rows %}
+    <article class="org-card adm-role">
+      <header>
+        <span class="adm-role-icon"><svg><use href="#ic-shield"/></svg></span>
+        <div><a class="adm-role-name" href="{% url 'role_detail' r.role.pk %}">{{ r.role.name }}</a>{% if r.preset %}<small>Standard role</small>{% else %}<small>Custom role</small>{% endif %}</div>
+      </header>
+      <div class="adm-role-meter" title="{{ r.modules|length }} of {{ module_total }} modules"><span style="width: {% widthratio r.modules|length module_total 100 %}%"></span></div>
+      <p class="adm-role-modules">{% for m in r.modules|slice:':4' %}{{ m }}{% if not forloop.last %} · {% endif %}{% empty %}No module access yet{% endfor %}{% if r.modules|length > 4 %} · +{{ r.modules|length|add:'-4' }} more{% endif %}</p>
+      <footer>
+        <span><strong>{{ r.members }}</strong> member{{ r.members|pluralize }} · <strong>{{ r.permissions }}</strong> permission{{ r.permissions|pluralize }}</span>
+        <span class="adm-role-links"><a href="{% url 'role_detail' r.role.pk %}">View</a><a href="{% url 'role_edit' r.role.pk %}">Edit</a><a href="{% url 'role_duplicate' r.role.pk %}" title="Duplicate"><svg><use href="#ic-copy"/></svg></a></span>
+      </footer>
+    </article>
+    {% empty %}
+    <div class="org-card doc-empty"><svg><use href="#ic-shield"/></svg><strong>No roles yet</strong><span>Create a role such as “Dispatch supervisor” and choose what it can do.</span><a class="org-btn is-primary" href="{% url 'role_new' %}">Create role</a></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

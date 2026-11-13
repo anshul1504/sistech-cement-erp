@@ -135,6 +135,36 @@
   });
 })();
 
+// ----- Toast notifications: auto-dismiss after 3 s, pause on hover, close button -----
+(() => {
+  const DURATION = {};  // every type closes after 3 s; hovering pauses it
+  const dismiss = toast => { if (toast.classList.contains('is-leaving')) return; toast.classList.add('is-leaving'); toast.addEventListener('animationend', () => toast.remove(), { once: true }); setTimeout(() => toast.remove(), 400); };
+  const arm = toast => {
+    const kind = (toast.className.match(/is-(success|error|warning|info)/) || [])[1];
+    const total = DURATION[kind] || 3000, timer = toast.querySelector('.toast-timer');
+    let remaining = total, started = Date.now(), handle;
+    const run = () => {
+      started = Date.now(); handle = setTimeout(() => dismiss(toast), remaining);
+      if (timer) { timer.style.transition = 'none'; timer.style.transform = `scaleX(${remaining / total})`; void timer.offsetWidth; timer.style.transition = `transform ${remaining}ms linear`; timer.style.transform = 'scaleX(0)'; }
+    };
+    const pause = () => { clearTimeout(handle); remaining -= Date.now() - started; if (timer) { const s = getComputedStyle(timer).transform; timer.style.transition = 'none'; timer.style.transform = s; } };
+    toast.addEventListener('mouseenter', pause); toast.addEventListener('mouseleave', run);
+    toast.addEventListener('focusin', pause); toast.addEventListener('focusout', run);
+    toast.querySelector('[data-toast-close]')?.addEventListener('click', () => dismiss(toast));
+    run();
+  };
+  document.querySelectorAll('[data-toast]').forEach((t, i) => setTimeout(() => arm(t), i * 120));
+  // Other scripts can raise a toast: window.erpToast('success', 'Saved')
+  window.erpToast = (kind, text) => {
+    const box = document.querySelector('[data-toasts]'); if (!box) return;
+    const titles = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Notice' };
+    const el = document.createElement('div'); el.className = `toast-card is-${kind}`; el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    el.innerHTML = '<span class="toast-bar"></span><div class="toast-body"><strong></strong><p></p></div><button type="button" class="toast-close" aria-label="Dismiss notification" data-toast-close><svg><use href="#ic-close"/></svg></button><span class="toast-timer"></span>';
+    el.querySelector('strong').textContent = titles[kind] || 'Notice'; el.querySelector('p').textContent = text;
+    box.appendChild(el); arm(el);
+  };
+})();
+
 // ----- Existing page behaviours -----
 document.querySelectorAll('[data-confirm]').forEach(form => form.addEventListener('submit', event => { if (!window.confirm(form.dataset.confirm)) event.preventDefault(); }));
 document.getElementById('add-line')?.addEventListener('click', () => {

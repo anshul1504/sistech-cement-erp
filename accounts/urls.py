@@ -28,9 +28,23 @@ urlpatterns = [
     path('profile/contacts/new/', acc.contact_form, name='contact_new'),
     path('profile/contacts/<int:pk>/edit/', acc.contact_form, name='contact_edit'),
     path('profile/contacts/<int:pk>/delete/', acc.contact_delete, name='contact_delete'),
+    # Administration: users
     path('access/', v.access_control, name='access_control'),
-    path('access/roles/new/', v.role_edit, name='role_new'),
-    path('access/roles/<int:pk>/', v.role_edit, name='role_edit'),
     path('access/users/new/', v.member_edit, name='member_new'),
-    path('access/users/<int:pk>/', v.member_edit, name='member_edit'),
+    path('access/users/<int:pk>/', v.member_detail, name='member_detail'),
+    path('access/users/<int:pk>/edit/', v.member_edit, name='member_edit'),
+    path('access/users/<int:pk>/status/', v.member_status, name='member_status'),
+    path('access/users/<int:pk>/sign-out/', v.member_sign_out, name='member_sign_out'),
+    path('access/users/<int:pk>/reset-link/', v.member_reset_link, name='member_reset_link'),
+    path('access/users/<int:pk>/set-password/', v.member_set_password, name='member_set_password'),
+    # Administration: roles & permissions
+    path('access/roles/', v.roles, name='roles'),
+    path('access/roles/new/', v.role_edit, name='role_new'),
+    path('access/roles/<int:pk>/', v.role_detail, name='role_detail'),
+    path('access/roles/<int:pk>/edit/', v.role_edit, name='role_edit'),
+    path('access/roles/<int:pk>/duplicate/', v.role_duplicate, name='role_duplicate'),
+    path('access/roles/<int:pk>/delete/', v.role_delete, name='role_delete'),
+    # Administration: system
+    path('system/', v.system_settings, name='system_settings'),
+    path('system/test-email/', v.system_test_email, name='system_test_email'),
 ]

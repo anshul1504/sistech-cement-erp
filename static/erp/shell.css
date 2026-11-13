@@ -201,6 +201,30 @@ a.sb-link:hover { background: var(--sb-hover); color: #fff; }
 .app-footer .dev-credit { margin: 0; color: var(--ink-3); }
 .app-footer .dev-credit strong { color: var(--brand); font-weight: 600; }
 
+/* ---------------- Toast notifications ---------------- */
+.toasts { position: fixed; top: calc(var(--hd-h) + 14px); right: 18px; z-index: 1090; display: grid; gap: 12px; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
+.toast-card {
+  --tc: #175cd3; position: relative; display: grid; grid-template-columns: 5px minmax(0, 1fr) auto; gap: 14px; align-items: start;
+  padding: 14px 12px 16px 14px; overflow: hidden; border-radius: 16px; background: #fff; pointer-events: auto;
+  box-shadow: 0 18px 40px -16px rgba(8, 40, 89, .35), 0 2px 6px rgba(8, 40, 89, .08);
+  animation: toast-in .28s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.toast-card.is-success { --tc: #12b76a; } .toast-card.is-error { --tc: #f04438; } .toast-card.is-warning { --tc: #f5b70a; } .toast-card.is-info { --tc: #2e90fa; }
+.toast-bar { align-self: stretch; width: 5px; border-radius: 99px; background: var(--tc); }
+.toast-body { min-width: 0; padding-top: 1px; }
+.toast-body strong { display: block; color: var(--tc); font-size: 15.5px; font-weight: 600; line-height: 1.3; }
+.toast-card.is-warning .toast-body strong { color: #c88a00; }
+.toast-body p { margin: 4px 0 0; color: #2f3b4c; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.toast-close { display: grid; place-items: center; width: 30px; height: 30px; margin: -4px -2px 0 0; border: 0; border-radius: 8px; background: none; color: #17233a; cursor: pointer; }
+.toast-close:hover { background: #f1f4f8; }
+.toast-close svg { width: 16px; height: 16px; stroke-width: 2.2; }
+.toast-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--tc); opacity: .35; transform-origin: left; }
+.toast-card.is-leaving { animation: toast-out .25s ease-in forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateX(24px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateX(24px); } }
+@media (max-width: 575.98px) { .toasts { right: 12px; left: 12px; width: auto; top: calc(var(--hd-h) + 10px); } }
+@media (prefers-reduced-motion: reduce) { .toast-card, .toast-card.is-leaving { animation-duration: .01ms; } }
+
 /* ---------------- Command palette ---------------- */
 .palette { position: fixed; inset: 0; z-index: 1080; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; background: rgba(6, 31, 69, .45); backdrop-filter: blur(2px); }
 .palette[hidden] { display: none; }

@@ -1,0 +1,22 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head">
+    <div><div class="eyebrow">ADMINISTRATION</div><h1>System settings</h1><p>Live configuration of this server. Values come from the server environment (.env); change them there and restart.</p></div>
+    <form method="post" action="{% url 'system_test_email' %}">{% csrf_token %}<button class="org-btn is-primary" type="submit"><svg><use href="#ic-quote"/></svg>Send test email</button></form>
+  </div>
+  {% with admin_tab='system' %}{% include 'accounts/_admin_tabs.html' %}{% endwith %}
+  <div class="acc-banner {% if warnings %}is-warn{% else %}is-ok{% endif %} adm-banner">{% if warnings %}{{ warnings }} item{{ warnings|pluralize }} need attention before going live.{% else %}Everything looks ready for production.{% endif %} The test email goes to {{ user.email|default:'your account email (not set)' }}.</div>
+  <div class="adm-sys-grid">
+    {% for title, note, rows in sections %}
+    <section class="org-card">
+      <header><h2>{{ title }}</h2><p>{{ note }}</p></header>
+      <ul class="adm-checks">
+        {% for r in rows %}<li class="is-{{ r.state }}"><span class="adm-check-dot"></span><div><strong>{{ r.label }}</strong><span>{{ r.value }}</span>{% if r.note %}<small>{{ r.note }}</small>{% endif %}</div></li>{% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -77,6 +77,9 @@ class ChangePasswordForm(PasswordChangeForm):
 class MemberForm(forms.ModelForm):
     roles = forms.ModelMultipleChoiceField(queryset=Group.objects.order_by('name'), required=False, widget=forms.CheckboxSelectMultiple)
     sites = forms.ModelMultipleChoiceField(queryset=Site.objects.order_by('code'), required=False, widget=forms.CheckboxSelectMultiple)
+    phone = forms.CharField(label='Mobile number', max_length=20, required=False)
+    designation = forms.CharField(max_length=80, required=False)
+    department = forms.CharField(max_length=80, required=False)
 
     class Meta:
         model = User
@@ -85,10 +88,26 @@ class MemberForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['email'].required = True
+        self.fields['is_active'].label = 'Account active'
+        self.fields['is_active'].help_text = 'Disabled users cannot sign in and are signed out on their next request.'
         style_fields(self)
+        self.fields['phone'].widget.attrs.update(placeholder='e.g. +91 98765 43210', inputmode='tel')
+        self.fields['designation'].widget.attrs['placeholder'] = 'e.g. Dispatch supervisor'
+        self.fields['department'].widget.attrs['placeholder'] = 'e.g. Logistics'
         if self.instance.pk:
             self.fields['roles'].initial = self.instance.groups.all()
             self.fields['sites'].initial = Site.objects.filter(siteaccess__user=self.instance)
+            profile = getattr(self.instance, 'profile', None)
+            if profile:
+                for name in ['phone', 'designation', 'department']:
+                    self.fields[name].initial = getattr(profile, name)
+
+    def clean_phone(self):
+        import re
+        value = self.cleaned_data['phone'].strip()
+        if value and not re.fullmatch(r'\+?[0-9][0-9 \-]{8,17}[0-9]', value):
+            raise forms.ValidationError('Enter a valid mobile number, e.g. +91 98765 43210.')
+        return value
 
     def clean_email(self):
         email = self.cleaned_data['email'].strip().lower()
@@ -104,7 +123,7 @@ class NewMemberForm(MemberForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.order_fields(['first_name', 'last_name', 'username', 'email', 'password1', 'password2', 'is_active', 'roles', 'sites'])
+        self.order_fields(['first_name', 'last_name', 'username', 'email', 'phone', 'designation', 'department', 'password1', 'password2', 'is_active', 'roles', 'sites'])
 
     def clean_username(self):
         username = self.cleaned_data['username'].strip()
@@ -191,3 +210,16 @@ class EmergencyContactForm(forms.ModelForm):
 
     def clean_alt_phone(self):
         return self._clean_phone('alt_phone', False)
+
+
+class AdminSetPasswordForm(SetPasswordForm):
+    """Administrator sets a new password for a team member (all their devices are signed out)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['new_password1'].label = 'New password'
+        self.fields['new_password2'].label = 'Confirm new password'
+        style_fields(self)
+        self.fields['new_password1'].widget.attrs['placeholder'] = 'At least 10 characters'
+        self.fields['new_password2'].widget.attrs['placeholder'] = 'Type the new password again'
+        self.fields['new_password1'].help_text = ''
+

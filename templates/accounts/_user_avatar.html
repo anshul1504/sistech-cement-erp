@@ -1,0 +1,1 @@
+<span class="adm-avatar{% if size %} is-{{ size }}{% endif %}">{% if u.profile.photo_type %}<img src="{% url 'profile_photo' u.pk %}?v={{ u.profile.photo_version }}" alt="">{% else %}{{ u.get_full_name|default:u.username|first|upper }}{% endif %}</span>

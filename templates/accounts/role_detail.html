@@ -1,0 +1,39 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'roles' %}">← Roles &amp; permissions</a></div><h1>{{ role.name }}</h1><p>{% if preset %}Standard role{% else %}Custom role{% endif %} · {{ members|length }} member{{ members|length|pluralize }} · {{ permission_count }} permission{{ permission_count|pluralize }}</p></div>
+    <div class="doc-head-actions">
+      <a class="org-btn is-light" href="{% url 'role_duplicate' role.pk %}"><svg><use href="#ic-copy"/></svg>Duplicate</a>
+      <a class="org-btn is-primary" href="{% url 'role_edit' role.pk %}"><svg><use href="#ic-key"/></svg>Edit permissions</a>
+    </div>
+  </div>
+  <div class="adm-role-layout">
+    <section class="org-card">
+      <header class="acc-card-head"><div><h2>Permission matrix</h2><p>✓ allowed · — not available for that module</p></div></header>
+      <div class="adm-matrix-wrap">
+        <table class="adm-matrix is-readonly">
+          <thead><tr><th>Module</th>{% for key, label in actions %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in matrix %}<tr><th scope="row">{{ row.label }}</th>{% for cell in row.cells %}<td>{% if not cell.code %}<span class="adm-na">—</span>{% elif cell.checked %}<span class="adm-yes" aria-label="Allowed">✓</span>{% else %}<span class="adm-no" aria-label="Not allowed"></span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+    <div class="adm-role-side">
+      <section class="org-card">
+        <header class="acc-card-head"><h2>Members</h2><a href="{% url 'access_control' %}?role={{ role.pk }}">Manage</a></header>
+        {% if members %}<ul class="adm-mini-users">{% for u in members %}<li><a href="{% url 'member_detail' u.pk %}">{% include 'accounts/_user_avatar.html' %}<span><strong>{{ u.get_full_name|default:u.username }}</strong><small>{{ u.email|default:'@'|add:u.username }}</small></span></a></li>{% endfor %}</ul>
+        {% else %}<p class="acc-muted">No one has this role yet. Assign it from a user's Edit page.</p>{% endif %}
+      </section>
+      <section class="org-card">
+        <header><h2>History</h2></header>
+        <ul class="acc-timeline">{% for e in history %}<li><strong>{{ e.action }}</strong><small>{{ e.created_at|date:'d M Y, H:i' }} · {{ e.actor.get_full_name|default:e.actor.username }}</small></li>{% empty %}<li><small>No changes recorded.</small></li>{% endfor %}</ul>
+      </section>
+      <section class="org-card adm-danger">
+        <header><h2>Delete role</h2><p>{% if members %}Remove this role from its {{ members|length }} member{{ members|length|pluralize }} before deleting it.{% else %}This role is not assigned to anyone and can be deleted.{% endif %}</p></header>
+        <form method="post" action="{% url 'role_delete' role.pk %}" data-confirm="Delete the role “{{ role.name }}”? This cannot be undone.">{% csrf_token %}<button class="org-btn is-danger is-block" type="submit" {% if members %}disabled{% endif %}><svg><use href="#ic-trash"/></svg>Delete role</button></form>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

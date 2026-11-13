@@ -1,0 +1,51 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head">
+    <div><div class="eyebrow">ADMINISTRATION</div><h1>Users</h1><p>Everyone who can sign in to the ERP, with their roles and plant or depot access.</p></div>
+    <a class="org-btn is-primary" href="{% url 'member_new' %}"><svg><use href="#ic-plus"/></svg>Add user</a>
+  </div>
+  {% with admin_tab='users' %}{% include 'accounts/_admin_tabs.html' %}{% endwith %}
+
+  <div class="doc-stats adm-stats" role="list">
+    <a role="listitem" class="doc-stat{% if not filters.status %} is-active{% endif %}" href="?"><strong>{{ stats.total }}</strong><span>All users</span></a>
+    <a role="listitem" class="doc-stat is-ok{% if filters.status == 'active' %} is-active{% endif %}" href="?status=active"><strong>{{ stats.active }}</strong><span>Active</span></a>
+    <a role="listitem" class="doc-stat is-danger{% if filters.status == 'disabled' %} is-active{% endif %}" href="?status=disabled"><strong>{{ stats.disabled }}</strong><span>Disabled</span></a>
+    <a role="listitem" class="doc-stat is-warning{% if filters.status == 'never' %} is-active{% endif %}" href="?status=never"><strong>{{ stats.never }}</strong><span>Never signed in</span></a>
+  </div>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Team</h2><p>{{ page.paginator.count }} shown{% if filters.q or filters.role or filters.site or filters.status %} · <a href="{% url 'access_control' %}">Clear filters</a>{% endif %}</p></div>
+      <form method="get" class="doc-filter">
+        {% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Search name, email, designation…" aria-label="Search users">
+        <select class="form-select" name="role" aria-label="Filter by role" onchange="this.form.submit()"><option value="">All roles</option>{% for r in roles %}<option value="{{ r.pk }}"{% if filters.role == r.pk|stringformat:'d' %} selected{% endif %}>{{ r.name }}</option>{% endfor %}</select>
+        <select class="form-select" name="site" aria-label="Filter by location" onchange="this.form.submit()"><option value="">All locations</option>{% for s in sites %}<option value="{{ s.pk }}"{% if filters.site == s.pk|stringformat:'d' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if page.object_list %}
+    <ul class="adm-users">
+      {% for u in page.object_list %}
+      <li class="{% if not u.is_active %}is-disabled{% endif %}">
+        <a class="adm-user-main" href="{% url 'member_detail' u.pk %}">
+          {% include 'accounts/_user_avatar.html' %}
+          <span><strong>{{ u.get_full_name|default:u.username }}{% if u == request.user %} <em class="adm-you">You</em>{% endif %}</strong><small>{% if u.profile.designation %}{{ u.profile.designation }} · {% endif %}{{ u.email|default:'No email' }} · @{{ u.username }}</small></span>
+        </a>
+        <div class="adm-cell adm-roles">{% if u.is_superuser %}<span class="org-chip is-gold">Super administrator</span>{% else %}{% for g in u.groups.all %}<span class="org-chip is-brand">{{ g.name }}</span>{% empty %}<span class="acc-muted">No role</span>{% endfor %}{% endif %}</div>
+        <div class="adm-cell adm-sites">{% if u.is_superuser %}<span class="org-chip">All locations</span>{% else %}{% for a in u.siteaccess_set.all %}<span class="org-chip">{{ a.site.code }}</span>{% empty %}<span class="acc-muted">No location</span>{% endfor %}{% endif %}</div>
+        <div class="adm-cell adm-last"><small>Last sign-in</small>{{ u.last_login|date:'d M Y'|default:'Never' }}</div>
+        <div class="adm-cell adm-state">{% if u.is_active %}<span class="doc-badge is-ok">Active</span>{% else %}<span class="doc-badge is-danger">Disabled</span>{% endif %}</div>
+        <a class="org-btn is-light is-sm adm-open" href="{% url 'member_detail' u.pk %}">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if page.paginator.num_pages > 1 %}<nav class="acc-pager">{% if page.has_previous %}<a class="org-btn is-light is-sm" href="?{% for k,v in filters.items %}{% if v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page.previous_page_number }}">← Previous</a>{% else %}<span></span>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="org-btn is-light is-sm" href="?{% for k,v in filters.items %}{% if v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page.next_page_number }}">Next →</a>{% else %}<span></span>{% endif %}</nav>{% endif %}
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-crm"/></svg><strong>No users match these filters</strong><span>Try a different search, or add a new user.</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

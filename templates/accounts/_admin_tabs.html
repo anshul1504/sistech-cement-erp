@@ -1,0 +1,6 @@
+<nav class="org-tabs adm-tabs" aria-label="Administration">
+  <a href="{% url 'access_control' %}" class="org-tab{% if admin_tab == 'users' %} is-active{% endif %}"><svg><use href="#ic-crm"/></svg>Users</a>
+  <a href="{% url 'roles' %}" class="org-tab{% if admin_tab == 'roles' %} is-active{% endif %}"><svg><use href="#ic-shield"/></svg>Roles &amp; permissions</a>
+  <a href="{% url 'organization' %}" class="org-tab"><svg><use href="#ic-building"/></svg>Organisation</a>
+  <a href="{% url 'system_settings' %}" class="org-tab{% if admin_tab == 'system' %} is-active{% endif %}"><svg><use href="#ic-sliders"/></svg>System</a>
+</nav>
