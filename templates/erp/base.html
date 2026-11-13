@@ -1,11 +1,151 @@
 {% load static %}<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ title|default:'Sign in' }} | Sistech Cement ERP</title><link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet"><link href="{% static 'erp/app.css' %}" rel="stylesheet"><link href="{% static 'erp/fonts.css' %}" rel="stylesheet"><link href="{% static 'accounts/access.css' %}" rel="stylesheet"><link rel="stylesheet" href="{% static 'erp/industrial.css' %}"><link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}"><link rel="stylesheet" href="{% static 'erp/brand.css' %}"></head>
-<body>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#082859">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ title|default:'Sign in' }} · Sistech ERP</title>
+<script>try{if(localStorage.getItem('sistech.sidebar')==='collapsed')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
+<link href="{% static 'vendor/bootstrap.min.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link href="{% static 'erp/app.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link href="{% static 'erp/fonts.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link href="{% static 'accounts/access.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link href="{% static 'erp/industrial.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link href="{% static 'erp/brand.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link href="{% static 'erp/shell.css' %}?v={{ asset_version }}" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">
+</head>
+<body class="{% if user.is_authenticated %}app-body{% endif %}">
 {% if user.is_authenticated %}
-<aside class="sidebar" id="sidebar"><a class="brand" href="{% url 'dashboard' %}"><img class="company-logo compact" src="{% static 'brand/sistech-logo-compact.svg' %}" alt="Sistech"><span class="company-caption">CEMENT &amp; TMT PVT. LTD.</span></a><div class="workspace"><span class="workspace-dot"></span> Sistech ERP <small>Cement &amp; TMT operations</small></div><div class="nav-label">MODULES</div><nav>{% for route,label,icon in navigation %}<a href="{% url route %}" class="nav-item {% if request.resolver_match.url_name == route %}active{% endif %}"><span class="nav-icon">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav><div class="sidebar-bottom"><span class="version">FOUNDATION · v0.1</span><p>Connected operations.<br>Controlled decisions.</p>{% if user.is_superuser %}<a href="/admin/">Administration ↗</a>{% endif %}</div></aside>
-<div class="main-shell"><header class="topbar"><div class="d-flex align-items-center gap-3"><button id="menu-toggle" class="btn btn-light d-lg-none" aria-label="Toggle navigation">☰</button><span class="breadcrumb-label">Sistech ERP <span>/</span> {{ title }}</span></div><div class="user-area"><span class="environment">● {% if local_server %}Local test server{% else %}Sistech ERP{% endif %}</span><span class="avatar">{{ user.username|first|upper }}</span><a class="account-link" href="{% url 'profile' %}">{{ user.get_full_name|default:user.username }}</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="logout" title="Sign out">Sign out</button></form></div></header><main>
-{% for message in messages %}<div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}" role="alert">{{ message }}</div>{% endfor %}
-{% block content %}{% endblock %}
-<footer>Sistech Cement ERP <span>Quantities retain each product’s configured unit · {% now 'd M Y, H:i' %} IST</span> <a class="dev-credit" href="https://thewebfix.in" target="_blank" rel="noopener">Design &amp; developed by <strong>The Webfix</strong></a></footer>
-</main></div>{% else %}{% block guest %}{% endblock %}{% endif %}
-<script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script><script src="{% static 'erp/app.js' %}"></script></body></html>
+<a class="app-skip" href="#main-content">Skip to content</a>
+<svg class="app-icons" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<symbol id="ic-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+<symbol id="ic-sales" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+<symbol id="ic-purchase" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L21.5 8H6"/></symbol>
+<symbol id="ic-quote" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+<symbol id="ic-crm" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></symbol>
+<symbol id="ic-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13"/><path d="M12 8C10 8 7 7.5 7.5 5S11 4 12 8c1-4 4-4.5 4.5-3S14 8 12 8"/></symbol>
+<symbol id="ic-clipboard" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></symbol>
+<symbol id="ic-factory" viewBox="0 0 24 24"><path d="M3 21V10l6 4v-4l6 4V6l6-3v18z"/><path d="M7 17h2m3 0h2m3 0h1"/></symbol>
+<symbol id="ic-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/><path d="M7.5 15h9"/></symbol>
+<symbol id="ic-boxes" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></symbol>
+<symbol id="ic-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
+<symbol id="ic-truck" viewBox="0 0 24 24"><path d="M2 6h12v10H2zM14 9h4l4 4v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+<symbol id="ic-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol>
+<symbol id="ic-book" viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14v-3"/></symbol>
+<symbol id="ic-package" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9M8 5.3l8 4.5"/></symbol>
+<symbol id="ic-handshake" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+<symbol id="ic-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/></symbol>
+<symbol id="ic-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17V9"/></symbol>
+<symbol id="ic-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+<symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.9 4.9 7 7m10 10 2.1 2.1M2 12h3m14 0h3M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+<symbol id="ic-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="ic-collapse" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m6-10-2 2 2 2"/></symbol>
+<symbol id="ic-logout" viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/></symbol>
+<symbol id="ic-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9m-3 3 3 3m-6 0 2 2"/></symbol>
+<symbol id="ic-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+<symbol id="ic-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="ic-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="app-sidebar" id="app-sidebar" aria-label="Main navigation">
+    <div class="sb-brand">
+      <a class="sb-logo" href="{% url 'dashboard' %}" aria-label="Sistech ERP dashboard">
+        <img class="sb-logo-mark" src="{% static 'brand/favicon.svg' %}" alt="" width="40" height="40">
+        <span class="sb-logo-text"><strong>SISTECH</strong><small>Cement &amp; TMT Pvt. Ltd.</small></span>
+      </a>
+      <button class="sb-close" type="button" data-sidebar-close aria-label="Close menu"><svg><use href="#ic-close"/></svg></button>
+    </div>
+    <nav class="sb-nav">
+      {% for group in nav_groups %}
+      <div class="sb-group{% if not group.live %} is-roadmap{% endif %}">
+        <div class="sb-group-label">{{ group.label }}</div>
+        <ul>
+          {% for item in group.items %}
+          <li>{% if item.soon %}<span class="sb-link is-soon" aria-disabled="true" data-tip="{{ item.label }} · planned"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span><span class="sb-badge">Soon</span></span>{% else %}<a href="{{ item.url }}" class="sb-link{% if item.active %} is-active{% endif %}"{% if item.active %} aria-current="page"{% endif %} data-tip="{{ item.label }}" data-nav-item data-group="{{ group.label }}"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span></a>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </nav>
+
+  </aside>
+  <div class="sb-backdrop" data-sidebar-close hidden></div>
+
+  <div class="app-main">
+    <header class="app-header">
+      <button class="hd-icon-btn hd-toggle" type="button" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar"><svg class="ic-open"><use href="#ic-collapse"/></svg><svg class="ic-menu"><use href="#ic-menu"/></svg></button>
+      <a class="hd-logo" href="{% url 'dashboard' %}" aria-label="Sistech ERP dashboard"><img src="{% static 'brand/sistech-logo-compact.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd." width="960" height="330"></a>
+      <span class="hd-divider" aria-hidden="true"></span>
+      <nav class="hd-breadcrumb" aria-label="Breadcrumb">
+        <ol>
+          <li class="bc-home"><a href="{% url 'dashboard' %}">Sistech ERP</a></li>
+          {% if nav_current and nav_current.group != 'Overview' %}<li class="bc-group"><span>{{ nav_current.group }}</span></li>{% endif %}
+          {% if nav_current and nav_current.label != title %}<li class="bc-section"><a href="{{ nav_current.url }}">{{ nav_current.label }}</a></li>{% endif %}
+          <li aria-current="page"><span>{{ title|default:'Dashboard' }}</span></li>
+        </ol>
+      </nav>
+
+      <div class="hd-actions">
+        <button class="hd-search" type="button" data-palette-open aria-haspopup="dialog" aria-label="Search menu">
+          <svg><use href="#ic-search"/></svg><span class="hd-search-text">Search menu…</span><kbd>⌘K</kbd>
+        </button>
+
+        {% if quick_create %}
+        <div class="dropdown">
+          <button class="hd-create" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Create new"><svg><use href="#ic-plus"/></svg><span>Create</span></button>
+          <div class="dropdown-menu dropdown-menu-end hd-menu">
+            <div class="hd-menu-label">Create new</div>
+            {% for label, url, icon in quick_create %}<a class="hd-menu-item" href="{{ url }}" data-quick-create><svg><use href="#ic-{{ icon }}"/></svg>{{ label }}</a>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="dropdown">
+          <button class="hd-user" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+            <span class="hd-avatar">{{ user.get_full_name|default:user.username|first|upper }}</span>
+            <span class="hd-user-text"><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user_role_label }}</small></span>
+            <svg class="hd-chevron"><use href="#ic-chevron"/></svg>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end hd-menu hd-user-menu">
+            <div class="hd-user-card"><span class="hd-avatar is-lg">{{ user.get_full_name|default:user.username|first|upper }}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user.email|default:'No email set' }}</small><span class="hd-role">{{ user_role_label }}</span></div></div>
+            <a class="hd-menu-item" href="{% url 'profile' %}"><svg><use href="#ic-user"/></svg>My account</a>
+            <a class="hd-menu-item" href="{% url 'password_change' %}"><svg><use href="#ic-key"/></svg>Change password</a>
+            {% if user.is_superuser %}<a class="hd-menu-item" href="{% url 'access_control' %}"><svg><use href="#ic-shield"/></svg>Users &amp; roles</a>{% endif %}
+            <div class="hd-menu-sep"></div>
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="hd-menu-item is-danger" type="submit"><svg><use href="#ic-logout"/></svg>Sign out</button></form>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-content" id="main-content" tabindex="-1">
+      {% for message in messages %}<div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}" role="alert">{{ message }}</div>{% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="app-footer">
+      <span>© {% now 'Y' %} Sistech Cement &amp; TMT Pvt. Ltd.</span>
+      <a class="dev-credit" href="https://thewebfix.in" target="_blank" rel="noopener">Design &amp; developed by <strong>The Webfix</strong></a>
+    </footer>
+  </div>
+</div>
+
+<div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="Search menu">
+  <div class="palette-box">
+    <div class="palette-input"><svg><use href="#ic-search"/></svg><input type="text" placeholder="Search modules and actions…" aria-label="Search modules and actions" autocomplete="off" spellcheck="false" data-palette-input><kbd>Esc</kbd></div>
+    <ul class="palette-list" role="listbox" data-palette-list></ul>
+    <div class="palette-empty" data-palette-empty hidden>No matching menu items.</div>
+  </div>
+</div>
+{% else %}{% block guest %}{% endblock %}{% endif %}
+<script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script><script src="{% static 'erp/app.js' %}?v={{ asset_version }}"></script>
+</body>
+</html>
