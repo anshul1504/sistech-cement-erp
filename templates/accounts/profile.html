@@ -1,1 +1,67 @@
-{% extends 'erp/base.html' %}{% block content %}<div class="page-heading"><div><div class="eyebrow">SISTECH ERP · MY ACCOUNT</div><h1>My account</h1><p>Your identity, access and sign-in preferences.</p></div></div><div class="row g-4"><div class="col-xl-7"><section class="panel profile-card"><div class="profile-heading"><span class="profile-avatar">{{ user.username|first|upper }}</span><div><h2>{{ user.get_full_name|default:user.username }}</h2><p>{{ user.email|default:'No email set — contact your administrator' }}</p></div><span class="status" data-status="Available">Active</span></div><dl class="profile-details"><div><dt>Username</dt><dd>{{ user.username }}</dd></div><div><dt>Assigned roles</dt><dd>{% if user.is_superuser %}<span class="permission-pill admin-pill">Super administrator</span>{% else %}{% for role in roles %}<span class="permission-pill">{{ role.name }}</span>{% empty %}No role assigned{% endfor %}{% endif %}</dd></div><div><dt>Accessible locations</dt><dd>{% if user.is_superuser %}All locations{% else %}{% for access in assigned_sites %}<span class="site-pill">{{ access.site.name }}</span>{% empty %}No locations assigned{% endfor %}{% endif %}</dd></div><div><dt>Last sign-in</dt><dd>{{ user.last_login|date:'d M Y, H:i' }} IST</dd></div><div><dt>Sign-in email</dt><dd>{{ user.email|default:'Not set' }}</dd></div></dl><div class="info-note">To update your email, role or site access, contact your administrator.</div></section><section class="panel activity-card"><h2>Recent sign-in activity</h2><p>Check that every sign-in below was you. If not, change your password and sign out other devices.</p><ul class="activity-list">{% for event in activity %}<li><span class="activity-dot{% if event.action == 'OTP delivery failed' %} is-warning{% endif %}"></span><div><strong>{{ event.action }}</strong>{% if event.detail %}<small>{{ event.detail }}</small>{% endif %}</div><time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'d M, H:i' }}</time></li>{% empty %}<li class="activity-empty">No sign-in activity recorded yet.</li>{% endfor %}</ul></section></div><div class="col-xl-5"><section class="panel security-card"><span class="security-icon">◎</span><h2>Keep your account secure.</h2><p>Use a unique password and sign out when using a shared workstation.</p><a class="btn btn-primary" href="{% url 'password_change' %}">Change password →</a><div class="security-session"><span class="tiny-dot"></span> Current session <small>{% if request.session.get_expire_at_browser_close %}Ends when your browser closes{% else %}Up to 8 hours from sign-in{% endif %}</small></div><form method="post" action="{% url 'sign_out_other_sessions' %}" class="session-form">{% csrf_token %}<div><strong>Other active sessions</strong><small>{{ other_sessions }} other device{{ other_sessions|pluralize }} or browser{{ other_sessions|pluralize }} signed in</small></div><button class="btn btn-light" type="submit" {% if not other_sessions %}disabled{% endif %}>Sign out other devices</button></form></section></div></div>{% endblock %}
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'accounts/account.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page">
+  {% include 'accounts/_account_tabs.html' %}
+  {% with show_edit=True %}{% include 'accounts/_account_head.html' %}{% endwith %}
+
+  <div class="acc-grid">
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Personal details</h2><a href="{% url 'profile_edit' %}">Edit</a></header>
+      <dl>
+        <div><dt>Full name</dt><dd>{{ user.get_full_name|default:'—' }}</dd></div>
+        <div><dt>Username</dt><dd>{{ user.username }}</dd></div>
+        <div class="is-wide"><dt>Email <span class="acc-lock" title="Managed by your administrator">🔒</span></dt><dd>{{ user.email|default:'Not set' }}</dd></div>
+        <div><dt>Mobile</dt><dd>{{ profile.phone|default:'—' }}</dd></div>
+        <div><dt>Designation</dt><dd>{{ profile.designation|default:'—' }}</dd></div>
+        <div><dt>Department</dt><dd>{{ profile.department|default:'—' }}</dd></div>
+        <div><dt>Member since</dt><dd>{{ user.date_joined|date:'d M Y' }}</dd></div>
+      </dl>
+      <p class="acc-note">Email, roles and locations are managed by your administrator because they control sign-in and access.</p>
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Security</h2><a href="{% url 'account_security' %}">Manage</a></header>
+      <ul class="acc-checks">
+        <li class="is-{% if profile.password_age_days is None %}info{% elif profile.password_age_days > password_review_days %}warn{% else %}ok{% endif %}">
+          <strong>Password</strong>
+          <span>{% if profile.password_age_days is None %}No change recorded yet{% elif profile.password_age_days == 0 %}Changed today{% else %}Changed {{ profile.password_age_days }} day{{ profile.password_age_days|pluralize }} ago{% endif %}{% if profile.password_age_days > password_review_days %} · time to update it{% endif %}</span>
+        </li>
+        <li class="is-{% if two_step.level == 'on' %}ok{% elif two_step.level == 'partial' or two_step.level == 'off' %}info{% else %}warn{% endif %}"><strong>Two-step sign-in</strong><span>{{ two_step.message }}</span></li>
+        <li class="is-{% if session_count > 1 %}info{% else %}ok{% endif %}"><strong>Signed-in devices</strong><span>{{ session_count }} active{% if session_count > 1 %} · review them in Security{% endif %}</span></li>
+      </ul>
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Emergency contacts</h2><a href="{% url 'account_contacts' %}">{% if contacts %}Manage{% else %}Add{% endif %}</a></header>
+      {% if contacts %}
+      <ul class="acc-contact-mini">
+        {% for c in contacts %}<li><span class="acc-initial">{{ c.name|first|upper }}</span><div><strong>{{ c.name }}{% if c.is_primary %} <em>Primary</em>{% endif %}</strong><small>{{ c.get_relationship_display }} · <a href="tel:{{ c.phone }}">{{ c.phone }}</a></small></div></li>{% endfor %}
+      </ul>
+      {% else %}
+      <div class="acc-empty-mini"><strong>No emergency contact yet</strong><span>Add someone the plant team can call if needed.</span><a class="org-btn is-light is-sm" href="{% url 'contact_new' %}">Add contact</a></div>
+      {% endif %}
+    </section>
+
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>What I can access</h2>{% if user.is_superuser %}<span class="org-chip is-gold">Full access</span>{% endif %}</header>
+      <div class="acc-access-meta">
+        <div><dt>Roles</dt><dd>{% if user.is_superuser %}<span class="org-chip is-gold">Super administrator</span>{% else %}{% for role in roles %}<span class="org-chip is-brand">{{ role.name }}</span>{% empty %}<span class="acc-muted">No role assigned</span>{% endfor %}{% endif %}</dd></div>
+        <div><dt>Locations</dt><dd>{% if user.is_superuser %}<span class="org-chip">All plants &amp; depots</span>{% else %}{% for a in assigned_sites %}<span class="org-chip">{{ a.site.code }} · {{ a.site.name }}</span>{% empty %}<span class="acc-muted">No location assigned</span>{% endfor %}{% endif %}</dd></div>
+      </div>
+      {% if access %}
+      <div class="acc-perm-table" role="table" aria-label="Permissions by module">
+        {% for row in access %}<div class="acc-perm-row" role="row"><span role="cell">{{ row.module }}</span><span role="cell">{% for a in row.actions %}<em>{{ a }}</em>{% endfor %}</span></div>{% endfor %}
+      </div>
+      {% else %}<p class="acc-muted">You have no module permissions yet. Ask your administrator to assign a role.</p>{% endif %}
+    </section>
+
+    <section class="org-card org-view acc-wide-sm">
+      <header class="acc-card-head"><h2>Recent activity</h2><a href="{% url 'account_activity' %}">View all</a></header>
+      <ul class="acc-timeline">
+        {% for e in recent %}<li><strong>{{ e.action }}</strong><small>{{ e.created_at|date:'d M, H:i' }}{% if e.detail %} · {{ e.detail|truncatechars:60 }}{% endif %}</small></li>{% empty %}<li><small>No activity yet.</small></li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

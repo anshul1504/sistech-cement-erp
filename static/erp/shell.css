@@ -98,6 +98,8 @@ html:has(.app-body), .app-body { overflow-x: clip; max-width: 100%; }
   background: linear-gradient(135deg, #ffd04d, #f4bd18); color: #3b2c00; font-size: 14px; font-weight: 700;
 }
 .hd-avatar.is-lg { width: 42px; height: 42px; font-size: 16px; }
+.hd-avatar { overflow: hidden; }
+.hd-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hd-user-text { display: flex; flex-direction: column; line-height: 1.25; max-width: 170px; }
 .hd-user-text strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hd-user-text small { color: var(--ink-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

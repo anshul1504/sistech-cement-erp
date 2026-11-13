@@ -1,0 +1,79 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'accounts/account.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'profile' %}">← My account</a></div><h1>Edit profile</h1><p>Update how colleagues see you across the ERP.</p></div>
+  </div>
+  <form method="post" enctype="multipart/form-data" class="doc-form" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.</span></div>{% endif %}
+    <div class="doc-form-grid">
+      <section class="org-card">
+        <header><h2>Personal details</h2><p>Name, mobile and role at work.</p></header>
+        <div class="org-grid">
+          {% for field in form %}{% if field.name != 'photo' and field.name != 'remove_photo' %}
+          <div class="org-field{% if field.errors %} has-error{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+            {{ field }}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}{% endfor %}
+          <div class="org-field is-wide">
+            <span class="form-label">Email</span>
+            <div class="acc-readonly-field"><span>{{ user.email|default:'Not set' }}</span><small>🔒 Managed by your administrator</small></div>
+          </div>
+        </div>
+      </section>
+      <section class="org-card" id="photo">
+        <header><h2>Profile photo</h2><p>Shown in the header and on your account. Tap the photo to change it.</p></header>
+        <div class="pp" data-pp data-initial="{{ user.get_full_name|default:user.username|first|upper }}">
+          <div class="pp-avatar-wrap">
+            <button type="button" class="pp-avatar" data-pp-trigger aria-haspopup="menu" aria-label="Change profile photo">
+              <span class="pp-image" data-pp-preview>{% if user_photo_url %}<img src="{{ user_photo_url }}" alt="">{% else %}<span class="pp-initial">{{ user.get_full_name|default:user.username|first|upper }}</span>{% endif %}</span>
+              <span class="pp-hover"><svg><use href="#ic-camera"/></svg>Change<br>photo</span>
+            </button>
+            <button type="button" class="pp-badge" data-pp-trigger aria-label="Change profile photo"><svg><use href="#ic-camera"/></svg></button>
+            <div class="pp-menu" role="menu" data-pp-menu hidden>
+              <button type="button" role="menuitem" data-pp-action="view" {% if not user_photo_url %}hidden{% endif %}><svg><use href="#ic-eye"/></svg>View photo</button>
+              <button type="button" role="menuitem" data-pp-action="camera"><svg><use href="#ic-camera"/></svg>Take photo</button>
+              <button type="button" role="menuitem" data-pp-action="upload"><svg><use href="#ic-image"/></svg>Upload photo</button>
+              <button type="button" role="menuitem" class="is-danger" data-pp-action="remove" {% if not user_photo_url %}hidden{% endif %}><svg><use href="#ic-trash"/></svg>Remove photo</button>
+            </div>
+          </div>
+          <div class="pp-status" data-pp-status>{% if user_photo_url %}Tap the photo or camera to change it.{% else %}No photo yet — add one so colleagues recognise you.{% endif %}</div>
+          {% for e in form.photo.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          <input type="file" name="photo" accept="image/*" class="pp-file" data-pp-file id="id_photo">
+          <input type="file" accept="image/*" capture="user" class="pp-file" data-pp-capture tabindex="-1" aria-hidden="true">
+          <input type="checkbox" name="remove_photo" class="pp-file" data-pp-remove tabindex="-1" aria-hidden="true">
+        </div>
+
+        <dialog class="pp-dialog" data-pp-crop aria-label="Adjust photo">
+          <header><h3>Adjust photo</h3><button type="button" class="pp-x" data-pp-close aria-label="Cancel"><svg><use href="#ic-close"/></svg></button></header>
+          <div class="pp-stage" data-pp-stage><canvas width="560" height="560" data-pp-canvas></canvas><div class="pp-ring"></div></div>
+          <p class="pp-hint">Drag to reposition · use the slider to zoom</p>
+          <label class="pp-zoom"><svg><use href="#ic-search"/></svg><input type="range" min="1" max="4" step="0.01" value="1" data-pp-zoom aria-label="Zoom"></label>
+          <footer><button type="button" class="org-btn is-light" data-pp-close>Cancel</button><button type="button" class="org-btn is-primary" data-pp-done>Done</button></footer>
+        </dialog>
+
+        <dialog class="pp-dialog" data-pp-cam aria-label="Take photo">
+          <header><h3>Take photo</h3><button type="button" class="pp-x" data-pp-close aria-label="Close camera"><svg><use href="#ic-close"/></svg></button></header>
+          <div class="pp-stage is-camera"><video playsinline muted data-pp-video></video><div class="pp-ring"></div></div>
+          <p class="pp-hint" data-pp-cam-msg>Look at the camera and press the shutter.</p>
+          <footer class="is-center"><button type="button" class="pp-shutter" data-pp-shoot aria-label="Capture photo"></button></footer>
+        </dialog>
+
+        <dialog class="pp-dialog is-view" data-pp-view aria-label="Profile photo">
+          <header><h3>{{ user.get_full_name|default:user.username }}</h3><button type="button" class="pp-x" data-pp-close aria-label="Close"><svg><use href="#ic-close"/></svg></button></header>
+          <img data-pp-full alt="Profile photo">
+        </dialog>
+      </section>
+    </div>
+    <div class="org-actions">
+      <span>Your photo and name appear in the header and on records you create.</span>
+      <div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'profile' %}">Cancel</a><button class="org-btn is-primary" type="submit">Save profile</button></div>
+    </div>
+  </form>
+</div>
+<script src="{% static 'accounts/profile_photo.js' %}?v={{ asset_version }}" defer></script>
+{% endblock %}

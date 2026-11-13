@@ -1,0 +1,79 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'accounts/account.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page">
+  {% include 'accounts/_account_tabs.html' %}
+  <div class="acc-sec-grid">
+    <section class="org-card">
+      <header><h2>Change password</h2><p>Use at least 10 characters that you don't use anywhere else. Other devices are signed out after a change.</p></header>
+      {% if profile.password_age_days is not None and profile.password_age_days > password_review_days %}<div class="acc-banner is-warn">Your password is {{ profile.password_age_days }} days old. Please update it.</div>
+      {% elif profile.password_age_days is not None %}<div class="acc-banner is-ok">Last changed {% if profile.password_age_days == 0 %}today{% else %}{{ profile.password_age_days }} day{{ profile.password_age_days|pluralize }} ago{% endif %}.</div>{% endif %}
+      <form method="post" action="{% url 'account_security' %}" class="acc-pass-form" novalidate>
+        {% csrf_token %}
+        {% for e in form.non_field_errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+        {% for field in form %}
+        <div class="org-field{% if field.errors %} has-error{% endif %}">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <div class="acc-pass-wrap">{{ field }}<button type="button" class="acc-eye" data-toggle-password="{{ field.id_for_label }}" aria-label="Show password"><svg><use href="#ic-eye"/></svg></button></div>
+          {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          {% if field.name == 'new_password1' %}<div class="acc-strength" data-strength><span></span><small>Password strength</small></div>{% endif %}
+        </div>
+        {% endfor %}
+        <button class="org-btn is-primary is-block" type="submit">Update password</button>
+      </form>
+    </section>
+
+    <div class="acc-sec-side">
+      <section class="org-card">
+        <header><h2>Two-step sign-in</h2></header>
+        <div class="acc-banner is-{% if two_step.level == 'on' %}ok{% elif two_step.level == 'warn' %}warn{% else %}info{% endif %}">{{ two_step.message }}</div>
+      </section>
+
+      <section class="org-card">
+        <header class="acc-card-head"><div><h2>Signed-in devices</h2><p>{{ session_total }} active session{{ session_total|pluralize }}</p></div>
+          {% if session_total > 1 %}<form method="post" action="{% url 'sign_out_other_sessions' %}" data-confirm="Sign out every other device? This device stays signed in.">{% csrf_token %}<button class="org-btn is-danger is-sm" type="submit">Sign out all others</button></form>{% endif %}
+        </header>
+        <ul class="acc-devices">
+          {% for s in sessions %}
+          <li class="{% if s.current %}is-current{% endif %}">
+            <span class="acc-device-icon"><svg><use href="#ic-{% if 'Android' in s.client or 'iOS' in s.client %}user{% else %}dashboard{% endif %}"/></svg></span>
+            <div>
+              <strong>{{ s.client|cut:'Username + password · '|cut:'Email + code · '|cut:'Email + password · ' }}</strong>
+              <small>{% if s.signed_in_at %}Signed in {{ s.signed_in_at|date:'d M Y, H:i' }}{% else %}Sign-in time not recorded{% endif %} · expires {{ s.expires|date:'d M, H:i' }}</small>
+            </div>
+            {% if s.current %}<span class="doc-badge is-ok">This device</span>
+            {% else %}<form method="post" action="{% url 'session_revoke' s.id %}" data-confirm="Sign out this device?">{% csrf_token %}<button class="org-btn is-light is-sm" type="submit">Sign out</button></form>{% endif %}
+          </li>
+          {% endfor %}
+          {% if legacy_sessions %}
+          <li class="is-legacy">
+            <span class="acc-device-icon"><svg><use href="#ic-history"/></svg></span>
+            <div>
+              <strong>{{ legacy_sessions|length }} older session{{ legacy_sessions|length|pluralize }}</strong>
+              <small>Signed in before device details were recorded · the last one expires {{ legacy_sessions.0.expires|date:'d M, H:i' }}</small>
+            </div>
+            <form method="post" action="{% url 'sign_out_legacy_sessions' %}" data-confirm="Sign out these {{ legacy_sessions|length }} older sessions?">{% csrf_token %}<button class="org-btn is-light is-sm" type="submit">Sign out</button></form>
+          </li>
+          {% endif %}
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('[data-toggle-password]').forEach(btn => btn.addEventListener('click', () => {
+  const input = document.getElementById(btn.dataset.togglePassword);
+  const show = input.type === 'password'; input.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); btn.classList.toggle('is-on', show);
+}));
+const meter = document.querySelector('[data-strength]');
+document.getElementById('id_new_password1')?.addEventListener('input', e => {
+  const v = e.target.value; let score = 0;
+  if (v.length >= 10) score++; if (v.length >= 14) score++;
+  if (/[a-z]/.test(v) && /[A-Z]/.test(v)) score++; if (/\d/.test(v)) score++; if (/[^A-Za-z0-9]/.test(v)) score++;
+  const level = v ? Math.min(4, Math.max(1, score - 1)) : 0;
+  meter.dataset.level = level;
+  meter.querySelector('small').textContent = ['Password strength', 'Weak', 'Fair', 'Good', 'Strong'][level];
+});
+</script>
+{% endblock %}

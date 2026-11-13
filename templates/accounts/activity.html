@@ -1,0 +1,37 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'accounts/account.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page">
+  {% include 'accounts/_account_tabs.html' %}
+  <section class="org-card">
+    <header class="acc-card-head">
+      <div><h2>My activity</h2><p>{{ page.paginator.count }} record{{ page.paginator.count|pluralize }} · everything you have done in the ERP, newest first.</p></div>
+      <div class="acc-filter" role="tablist">
+        <a role="tab" class="{% if kind == 'all' %}is-active{% endif %}" href="?kind=all">All</a>
+        <a role="tab" class="{% if kind == 'security' %}is-active{% endif %}" href="?kind=security">Sign-in &amp; security</a>
+        <a role="tab" class="{% if kind == 'work' %}is-active{% endif %}" href="?kind=work">Work actions</a>
+      </div>
+    </header>
+    {% if page.object_list %}
+    <ul class="acc-activity">
+      {% for e in page.object_list %}
+      <li>
+        <span class="acc-dot{% if e.action in security_actions %} is-security{% endif %}{% if 'failed' in e.action|lower %} is-danger{% endif %}"></span>
+        <div><strong>{{ e.action }}</strong>{% if e.detail %}<small>{{ e.detail|truncatechars:140 }}</small>{% endif %}{% if e.site %}<small>{{ e.site.code }} · {{ e.site.name }}</small>{% endif %}</div>
+        <time datetime="{{ e.created_at|date:'c' }}">{{ e.created_at|date:'d M Y' }}<small>{{ e.created_at|date:'H:i' }}</small></time>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if page.paginator.num_pages > 1 %}
+    <nav class="acc-pager" aria-label="Pages">
+      {% if page.has_previous %}<a class="org-btn is-light is-sm" href="?kind={{ kind }}&page={{ page.previous_page_number }}">← Newer</a>{% else %}<span></span>{% endif %}
+      <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a class="org-btn is-light is-sm" href="?kind={{ kind }}&page={{ page.next_page_number }}">Older →</a>{% else %}<span></span>{% endif %}
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-history"/></svg><strong>No activity here yet</strong><span>Your sign-ins and the records you create or approve will appear here.</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

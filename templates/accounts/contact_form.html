@@ -1,0 +1,32 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'accounts/account.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'account_contacts' %}">← Emergency contacts</a></div><h1>{% if contact %}Edit {{ contact.name }}{% else %}Add emergency contact{% endif %}</h1><p>Only you can see and change your emergency contacts.</p></div>
+  </div>
+  <form method="post" class="doc-form acc-narrow" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.</span></div>{% endif %}
+    <section class="org-card">
+      <div class="org-grid">
+        {% for field in form %}
+        {% if field.name == 'is_primary' %}
+        <div class="org-field org-check is-wide"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>Primary contact</strong><small>Called first. Setting this replaces your current primary contact.</small></span></label></div>
+        {% else %}
+        <div class="org-field{% if field.name == 'address' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+          {{ field }}
+          {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+    <div class="org-actions">
+      <span>Saved to your account only.</span>
+      <div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'account_contacts' %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if contact %}Save changes{% else %}Add contact{% endif %}</button></div>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -146,7 +146,8 @@ class AuthenticationTests(TestCase):
         weak = self.client.post(url, {'old_password': 'Original-Password-816!', 'new_password1': '123', 'new_password2': '123'})
         self.assertEqual(weak.status_code, 200)
         response = self.client.post(url, {'old_password': 'Original-Password-816!', 'new_password1': 'Changed-Password-619!', 'new_password2': 'Changed-Password-619!'})
-        self.assertRedirects(response, reverse('password_change_done'))
+        self.assertRedirects(response, reverse('account_security'))
+        self.assertIsNotNone(self.user.profile.password_changed_at if hasattr(self.user, 'profile') else __import__('accounts.models', fromlist=['UserProfile']).UserProfile.objects.get(user=self.user).password_changed_at)
         self.assertEqual(self.client.get(reverse('profile')).status_code, 200)
         self.assertEqual(other.get(reverse('profile')).status_code, 302)
 
@@ -270,7 +271,8 @@ class RoleAccessTests(TestCase):
 
     def test_admin_pages_and_profile_render(self):
         self.client.force_login(self.admin)
-        for name in ['access_control', 'role_new', 'member_new', 'profile', 'password_change', 'password_change_done']:
+        self.assertRedirects(self.client.get(reverse('password_change_done')), reverse('account_security'))
+        for name in ['access_control', 'role_new', 'member_new', 'profile', 'profile_edit', 'account_security', 'account_activity', 'account_contacts', 'contact_new', 'password_change']:
             with self.subTest(name=name): self.assertEqual(self.client.get(reverse(name)).status_code, 200)
         group = Group.objects.get(name='Sales executive')
         self.assertEqual(self.client.get(reverse('role_edit', args=[group.pk])).status_code, 200)

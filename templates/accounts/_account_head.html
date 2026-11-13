@@ -1,0 +1,17 @@
+{% load static %}
+<section class="org-hero acc-hero">
+  <a class="acc-avatar-link" href="{% url 'profile_edit' %}#photo" aria-label="Change profile photo"><span class="acc-avatar">{% if user_photo_url %}<img src="{{ user_photo_url }}" alt="Profile photo of {{ user.get_full_name|default:user.username }}">{% else %}<span>{{ user.get_full_name|default:user.username|first|upper }}</span>{% endif %}</span><span class="acc-avatar-badge"><svg><use href="#ic-camera"/></svg></span></a>
+  <div class="org-hero-text">
+    <h1>{{ user.get_full_name|default:user.username }}</h1>
+    <p>{% if profile.designation %}{{ profile.designation }}{% if profile.department %} · {{ profile.department }}{% endif %} · {% endif %}{{ user.email|default:'No email set' }}</p>
+    <div class="org-chips">
+      {% if user.is_superuser %}<span class="org-chip is-gold">Super administrator</span>{% endif %}
+      {% for role in user.groups.all|slice:':3' %}<span class="org-chip is-brand">{{ role.name }}</span>{% endfor %}
+      <span class="org-chip is-ok">● Active</span>
+    </div>
+  </div>
+  <div class="org-hero-side">
+    {% if show_edit %}<a class="org-btn is-primary" href="{% url 'profile_edit' %}"><svg><use href="#ic-key"/></svg>Edit profile</a>{% endif %}
+    <small>Member since {{ user.date_joined|date:'d M Y' }}{% if user.last_login %}<br>Last sign-in {{ user.last_login|date:'d M Y, H:i' }}{% endif %}</small>
+  </div>
+</section>

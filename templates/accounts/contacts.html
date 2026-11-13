@@ -1,0 +1,33 @@
+{% extends 'erp/base.html' %}{% load static %}
+{% block extra_head %}<link href="{% static 'erp/organization.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'accounts/account.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page">
+  {% include 'accounts/_account_tabs.html' %}
+  <section class="org-card">
+    <header class="acc-card-head">
+      <div><h2>Emergency contacts</h2><p>People to call if something happens to you at a plant or depot. {{ contacts|length }} of {{ max_contacts }} used.</p></div>
+      {% if contacts|length < max_contacts %}<a class="org-btn is-primary" href="{% url 'contact_new' %}"><svg><use href="#ic-plus"/></svg>Add contact</a>{% endif %}
+    </header>
+    {% if contacts %}
+    <ul class="acc-contacts">
+      {% for c in contacts %}
+      <li>
+        <span class="acc-initial is-lg">{{ c.name|first|upper }}</span>
+        <div class="acc-contact-main">
+          <strong>{{ c.name }}{% if c.is_primary %} <span class="doc-badge is-ok">Primary</span>{% endif %}</strong>
+          <small>{{ c.get_relationship_display }}{% if c.address %} · {{ c.address }}{% endif %}</small>
+          <div class="acc-phones"><a href="tel:{{ c.phone }}"><svg><use href="#ic-phone"/></svg>{{ c.phone }}</a>{% if c.alt_phone %}<a href="tel:{{ c.alt_phone }}"><svg><use href="#ic-phone"/></svg>{{ c.alt_phone }}</a>{% endif %}</div>
+        </div>
+        <div class="doc-actions">
+          <a class="org-btn is-light is-sm" href="{% url 'contact_edit' c.pk %}">Edit</a>
+          <form method="post" action="{% url 'contact_delete' c.pk %}" data-confirm="Remove {{ c.name }} from your emergency contacts?">{% csrf_token %}<button class="org-btn is-danger is-sm" type="submit">Delete</button></form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-crm"/></svg><strong>No emergency contacts yet</strong><span>Add at least one person the plant team can reach in an emergency.</span><a class="org-btn is-primary" href="{% url 'contact_new' %}"><svg><use href="#ic-plus"/></svg>Add first contact</a></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

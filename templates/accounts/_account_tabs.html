@@ -1,0 +1,6 @@
+<nav class="org-tabs acc-tabs" aria-label="My account sections">
+  <a href="{% url 'profile' %}" class="org-tab{% if active_tab == 'overview' %} is-active{% endif %}"{% if active_tab == 'overview' %} aria-current="page"{% endif %}><svg><use href="#ic-user"/></svg>Overview</a>
+  <a href="{% url 'account_security' %}" class="org-tab{% if active_tab == 'security' %} is-active{% endif %}"{% if active_tab == 'security' %} aria-current="page"{% endif %}><svg><use href="#ic-shield"/></svg>Security<span class="org-tab-count">{{ session_count }}</span></a>
+  <a href="{% url 'account_contacts' %}" class="org-tab{% if active_tab == 'contacts' %} is-active{% endif %}"{% if active_tab == 'contacts' %} aria-current="page"{% endif %}><svg><use href="#ic-crm"/></svg>Emergency contacts<span class="org-tab-count">{{ contact_count }}</span></a>
+  <a href="{% url 'account_activity' %}" class="org-tab{% if active_tab == 'activity' %} is-active{% endif %}"{% if active_tab == 'activity' %} aria-current="page"{% endif %}><svg><use href="#ic-history"/></svg>Activity</a>
+</nav>

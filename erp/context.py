@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.4.1'
+ASSET_VERSION = '0.4.5'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -60,7 +60,7 @@ NAV_GROUPS = [
         _item('access_control', 'Users & roles', 'shield', superuser=True,
               match=('member_new', 'member_edit', 'role_new', 'role_edit')),
         _item('organization', 'Organisation setup', 'settings', 'view_organization', match=('organization_edit', 'organization_documents', 'organization_document', 'organization_document_new', 'organization_document_edit')),
-        _item('profile', 'My account', 'user', match=('password_change', 'password_change_done')),
+        _item('profile', 'My account', 'user', match=('password_change', 'password_change_done', 'profile_edit', 'account_security', 'account_activity', 'account_contacts', 'contact_new', 'contact_edit')),
     ]),
 ]
 
@@ -95,10 +95,20 @@ def branding():
     return {'org': org, 'org_logo_url': url('logo'), 'org_icon_url': url('icon')}
 
 
+def user_photo_url(user):
+    from accounts.models import UserProfile
+    if not user.is_authenticated:
+        return None
+    row = UserProfile.objects.filter(user=user).values('photo_type', 'updated_at').first()
+    if not row or not row['photo_type']:
+        return None
+    return f"{reverse('profile_photo', args=[user.pk])}?v={int(row['updated_at'].timestamp())}"
+
+
 def navigation(request):
     user = request.user
     # Bump ASSET_VERSION whenever CSS/JS changes so browsers fetch fresh files.
-    context = {'local_server': settings.DEBUG, 'app_version': 'v0.2', 'asset_version': ASSET_VERSION, **branding()}
+    context = {'local_server': settings.DEBUG, 'app_version': 'v0.2', 'asset_version': ASSET_VERSION, **branding(), 'user_photo_url': user_photo_url(user)}
     if not user.is_authenticated:
         return context
     active = _active_route(request)

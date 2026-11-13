@@ -228,8 +228,8 @@ class AccountSessionTests(TestCase):
     def test_profile_shows_activity_and_other_sessions(self):
         other = Client(); self.sign_in(other); self.sign_in(self.client)
         response = self.client.get(reverse('profile'))
-        self.assertContains(response, 'Recent sign-in activity')
-        self.assertEqual(response.context['other_sessions'], 1)
+        self.assertContains(response, 'Recent activity')
+        self.assertEqual(response.context['session_count'], 2)
 
     def test_sign_out_other_devices_keeps_current_session(self):
         other = Client(); self.sign_in(other); self.sign_in(self.client)

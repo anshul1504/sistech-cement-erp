@@ -142,54 +142,9 @@ class ResetConfirmView(auth.PasswordResetConfirmView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        from .models import UserProfile
+        profile = UserProfile.for_user(form.user)
+        profile.password_changed_at = timezone.now()
+        profile.save(update_fields=['password_changed_at', 'updated_at'])
         AuditEvent.objects.create(actor=form.user, action='Password reset completed', reference=f'user:{form.user.pk}')
         return response
-
-class ChangePasswordView(auth.PasswordChangeView):
-    template_name = 'registration/password_change_form.html'
-    form_class = ChangePasswordForm
-    success_url = reverse_lazy('password_change_done')
-
-    def get_form_kwargs(self):
-        return {**super().get_form_kwargs(), 'request': self.request}
-
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        AuditEvent.objects.create(actor=self.request.user, action='Password changed', reference=f'user:{self.request.user.pk}')
-        return response
-
-SECURITY_ACTIONS = ['Account signed in', 'Account signed out', 'Password changed', 'Password reset completed',
-                    'Sign-in code sent', 'OTP delivery failed', 'Other sessions signed out']
-
-
-@login_required
-def profile(request):
-    activity = AuditEvent.objects.filter(actor=request.user, action__in=SECURITY_ACTIONS).order_by('-created_at')[:8]
-    return render(request, 'accounts/profile.html', {
-        'title': 'My account', 'roles': request.user.groups.order_by('name'),
-        'assigned_sites': request.user.siteaccess_set.select_related('site'),
-        'activity': activity, 'other_sessions': len(other_sessions(request))})
-
-
-def other_sessions(request):
-    """Unexpired sessions of the current user, excluding this browser's session."""
-    from django.contrib.sessions.models import Session
-    mine = []
-    for session in Session.objects.filter(expire_date__gt=timezone.now()).exclude(session_key=request.session.session_key):
-        try:
-            if session.get_decoded().get('_auth_user_id') == str(request.user.pk):
-                mine.append(session)
-        except Exception:
-            continue
-    return mine
-
-
-@login_required
-@require_POST
-def sign_out_other_sessions(request):
-    sessions = other_sessions(request)
-    for session in sessions:
-        session.delete()
-    AuditEvent.objects.create(actor=request.user, action='Other sessions signed out', reference=f'user:{request.user.pk}', detail=f'{len(sessions)} session(s) ended')
-    messages.success(request, f'Signed out of {len(sessions)} other session(s). This device stays signed in.' if sessions else 'No other active sessions were found.')
-    return redirect('profile')

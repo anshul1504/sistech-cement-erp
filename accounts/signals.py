@@ -28,7 +28,13 @@ def describe_client(request):
 
 @receiver(user_logged_in)
 def record_login(sender, request, user, **kwargs):
-    AuditEvent.objects.create(actor=user, action='Account signed in', reference=f'user:{user.pk}', detail=describe_client(request))
+    detail = describe_client(request)
+    AuditEvent.objects.create(actor=user, action='Account signed in', reference=f'user:{user.pk}', detail=detail)
+    if request is not None and hasattr(request, 'session'):
+        # Lets "My account → Security" list each signed-in device and sign it out individually.
+        from django.utils import timezone
+        request.session['client'] = detail
+        request.session['signed_in_at'] = timezone.now().isoformat()
 
 
 @receiver(user_logged_out)
