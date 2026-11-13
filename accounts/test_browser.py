@@ -13,7 +13,7 @@ from django.core.management import call_command
 from django.test import override_settings
 
 @skipUnless(os.environ.get('RUN_BROWSER_TESTS') == '1' and importlib.util.find_spec('playwright'), 'Opt-in Playwright visual QA')
-@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_OTP_SKIP_FOR_USERNAME=False, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class BrowserFlowTests(StaticLiveServerTestCase):
     def test_industrial_theme_and_two_step_login(self):
         from playwright.sync_api import sync_playwright, expect

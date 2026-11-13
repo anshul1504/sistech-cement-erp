@@ -128,3 +128,7 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline-color: #315
   .auth-story { padding-top: 22px; padding-bottom: 25px; }
   .story-content { padding-top: 20px; }
 }
+/* Developer credit */
+footer .dev-credit { display: inline-block; margin-left: 6px; color: #5c6d85; text-decoration: none; }
+footer .dev-credit strong { color: #073777; font-weight: 600; }
+footer .dev-credit:hover strong { text-decoration: underline; text-underline-offset: 3px; }

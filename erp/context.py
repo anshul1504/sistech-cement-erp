@@ -1,3 +1,6 @@
+from django.conf import settings
+
+
 def navigation(request):
     items = [
         ('dashboard', 'Overview', '◫', None),
@@ -18,4 +21,4 @@ def navigation(request):
         visible.append(('profile', 'My account', '◎'))
         if user.is_superuser:
             visible.append(('access_control', 'Access control', '⊞'))
-    return {'navigation': visible}
+    return {'navigation': visible, 'local_server': settings.DEBUG}

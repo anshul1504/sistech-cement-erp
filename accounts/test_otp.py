@@ -12,7 +12,7 @@ from .models import EmailOTPChallenge, AuthRateLimit
 from erp.models import AuditEvent
 
 
-@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_OTP_SKIP_FOR_USERNAME=False, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class EmailOTPTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -171,3 +171,73 @@ class EmailOTPTests(TestCase):
         self.start()
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(EmailOTPChallenge.objects.count(), 1)
+
+
+@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_OTP_SKIP_FOR_USERNAME=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class UsernameOrEmailSignInTests(TestCase):
+    """Username + password signs in directly; email + password requires the email code."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('plant-user', email='plant.user@example.com', password='Original-Password-816!')
+
+    def test_username_signs_in_directly_without_otp(self):
+        response = self.client.post(reverse('login'), {'username': 'plant-user', 'password': 'Original-Password-816!'})
+        self.assertRedirects(response, reverse('dashboard'), fetch_redirect_response=False)
+        self.assertEqual(self.client.session['_auth_user_id'], str(self.user.pk))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(self.client.get(reverse('profile')).status_code, 200)
+
+    def test_email_requires_otp(self):
+        response = self.client.post(reverse('login'), {'username': 'Plant.User@example.com', 'password': 'Original-Password-816!'})
+        self.assertRedirects(response, reverse('otp_verify'))
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_username_wrong_password_rejected(self):
+        response = self.client.post(reverse('login'), {'username': 'plant-user', 'password': 'wrong'})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_disabling_skip_requires_otp_for_username(self):
+        with self.settings(EMAIL_OTP_SKIP_FOR_USERNAME=False):
+            response = self.client.post(reverse('login'), {'username': 'plant-user', 'password': 'Original-Password-816!'})
+            self.assertRedirects(response, reverse('otp_verify'))
+
+    def test_username_session_revoked_when_skip_disabled(self):
+        self.client.post(reverse('login'), {'username': 'plant-user', 'password': 'Original-Password-816!'})
+        with self.settings(EMAIL_OTP_SKIP_FOR_USERNAME=False):
+            self.assertEqual(self.client.get(reverse('profile')).status_code, 302)
+            self.assertNotIn('_auth_user_id', self.client.session)
+
+
+@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_OTP_SKIP_FOR_USERNAME=True)
+class AccountSessionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('session-user', email='session.user@example.com', password='Original-Password-816!')
+
+    def sign_in(self, client):
+        client.post(reverse('login'), {'username': 'session-user', 'password': 'Original-Password-816!'}, HTTP_USER_AGENT='Mozilla/5.0 (Windows NT 10.0) Chrome/120.0')
+
+    def test_sign_in_records_method_ip_and_browser(self):
+        self.sign_in(self.client)
+        event = AuditEvent.objects.filter(actor=self.user, action='Account signed in').latest('created_at')
+        self.assertIn('Username + password', event.detail)
+        self.assertIn('Chrome on Windows', event.detail)
+
+    def test_profile_shows_activity_and_other_sessions(self):
+        other = Client(); self.sign_in(other); self.sign_in(self.client)
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'Recent sign-in activity')
+        self.assertEqual(response.context['other_sessions'], 1)
+
+    def test_sign_out_other_devices_keeps_current_session(self):
+        other = Client(); self.sign_in(other); self.sign_in(self.client)
+        self.client.post(reverse('sign_out_other_sessions'))
+        self.assertEqual(self.client.get(reverse('profile')).status_code, 200)
+        self.assertEqual(other.get(reverse('profile')).status_code, 302)
+        self.assertTrue(AuditEvent.objects.filter(actor=self.user, action='Other sessions signed out').exists())
+
+    def test_sign_out_other_devices_requires_post(self):
+        self.sign_in(self.client)
+        self.assertEqual(self.client.get(reverse('sign_out_other_sessions')).status_code, 405)

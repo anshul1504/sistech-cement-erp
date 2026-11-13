@@ -18,6 +18,11 @@ from .forms import SignInForm, RecoveryForm, NewPasswordForm, ChangePasswordForm
 from .security import clear_identity_limit, allow_attempt
 from .otp import pending_challenge, issue_challenge, verify_challenge, masked_email
 
+def otp_required_for(identifier):
+    """Email sign-ins always need the email code; username sign-ins skip it when configured."""
+    return '@' in (identifier or '') or not settings.EMAIL_OTP_SKIP_FOR_USERNAME
+
+
 class SignInView(auth.LoginView):
     template_name = 'registration/login.html'
     authentication_form = SignInForm
@@ -29,7 +34,7 @@ class SignInView(auth.LoginView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
-        if settings.EMAIL_OTP_ENABLED:
+        if settings.EMAIL_OTP_ENABLED and otp_required_for(form.cleaned_data['username']):
             user = form.get_user()
             existing = pending_challenge(self.request)
             if existing and existing.user_id == user.pk and existing.delivered and existing.expires_at > timezone.now():
@@ -47,6 +52,9 @@ class SignInView(auth.LoginView):
             self.request.session.set_expiry(15 * 60)
             return redirect('otp_verify')
         response = super().form_valid(form)
+        if settings.EMAIL_OTP_ENABLED:
+            # Username sign-in without OTP (allowed by EMAIL_OTP_SKIP_FOR_USERNAME).
+            self.request.session['password_login_user'] = str(form.get_user().pk)
         self.request.session.set_expiry(8 * 60 * 60 if form.cleaned_data.get('remember_me') else 0)
         clear_identity_limit(form.cleaned_data['username'])
         return response
@@ -150,6 +158,38 @@ class ChangePasswordView(auth.PasswordChangeView):
         AuditEvent.objects.create(actor=self.request.user, action='Password changed', reference=f'user:{self.request.user.pk}')
         return response
 
+SECURITY_ACTIONS = ['Account signed in', 'Account signed out', 'Password changed', 'Password reset completed',
+                    'Sign-in code sent', 'OTP delivery failed', 'Other sessions signed out']
+
+
 @login_required
 def profile(request):
-    return render(request, 'accounts/profile.html', {'title': 'My account', 'roles': request.user.groups.order_by('name'), 'assigned_sites': request.user.siteaccess_set.select_related('site')})
+    activity = AuditEvent.objects.filter(actor=request.user, action__in=SECURITY_ACTIONS).order_by('-created_at')[:8]
+    return render(request, 'accounts/profile.html', {
+        'title': 'My account', 'roles': request.user.groups.order_by('name'),
+        'assigned_sites': request.user.siteaccess_set.select_related('site'),
+        'activity': activity, 'other_sessions': len(other_sessions(request))})
+
+
+def other_sessions(request):
+    """Unexpired sessions of the current user, excluding this browser's session."""
+    from django.contrib.sessions.models import Session
+    mine = []
+    for session in Session.objects.filter(expire_date__gt=timezone.now()).exclude(session_key=request.session.session_key):
+        try:
+            if session.get_decoded().get('_auth_user_id') == str(request.user.pk):
+                mine.append(session)
+        except Exception:
+            continue
+    return mine
+
+
+@login_required
+@require_POST
+def sign_out_other_sessions(request):
+    sessions = other_sessions(request)
+    for session in sessions:
+        session.delete()
+    AuditEvent.objects.create(actor=request.user, action='Other sessions signed out', reference=f'user:{request.user.pk}', detail=f'{len(sessions)} session(s) ended')
+    messages.success(request, f'Signed out of {len(sessions)} other session(s). This device stays signed in.' if sessions else 'No other active sessions were found.')
+    return redirect('profile')

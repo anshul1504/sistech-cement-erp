@@ -2,19 +2,18 @@
 {% block title %}Sign in{% endblock %}
 {% block auth_content %}
 <div class="auth-symbol"><svg><use href="#i-lock"/></svg></div>
-<div class="auth-eyebrow">YOUR WORKSPACE AWAITS</div>
+<div class="auth-eyebrow">SISTECH ERP</div>
 <h2>Welcome back.</h2>
-<p class="auth-description">Sign in to stay connected with your team<br>and keep your operations moving.</p>
-{% if form.errors %}<div class="auth-alert" role="alert">{% if form.non_field_errors %}{{ form.non_field_errors }}{% else %}Please check the highlighted fields below.{% endif %}</div>{% endif %}
+<p class="auth-description">Sign in with your Sistech Cement &amp; TMT account to continue.</p>
+{% if form.errors %}<div class="auth-alert" role="alert"><svg><use href="#i-alert"/></svg><div>{% if form.non_field_errors %}{{ form.non_field_errors }}{% else %}Please check the highlighted fields below.{% endif %}</div></div>{% endif %}
 <form method="post" class="auth-form">
   {% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
   <div class="auth-field"><label for="id_username">Email address or username</label><div class="input-wrap {% if form.username.errors %}has-error{% endif %}">{{ form.username }}</div><div class="field-errors">{{ form.username.errors }}</div></div>
   <div class="auth-field"><div class="auth-label-row"><label for="id_password">Password</label><a href="{% url 'password_reset' %}">Forgot password?</a></div><div class="input-wrap {% if form.password.errors %}has-error{% endif %}">{{ form.password }}<button class="password-toggle" type="button" data-password-target="id_password" aria-label="Show password" aria-pressed="false"><svg><use href="#i-eye"/></svg></button></div><div class="field-errors">{{ form.password.errors }}</div></div>
   <div class="caps-warning" hidden>Caps Lock is on.</div>
   <div class="auth-options">{{ form.remember_me }}<label for="id_remember_me">Keep me signed in for 8 hours</label></div>
-  <button type="submit" class="auth-submit">Sign in to workspace <svg><use href="#i-arrow"/></svg></button>
+  <button type="submit" class="auth-submit">Sign in to Sistech ERP <svg><use href="#i-arrow"/></svg></button>
 </form>
-<div class="auth-divider">YOUR TEAM. YOUR WORKSPACE.</div>
-<p class="auth-help">New to Sistech?<br><a href="{% url 'access_help' %}">Contact your administrator for access ↗</a></p>
-<div class="auth-small-note"><svg><use href="#i-shield"/></svg><span>Access is managed by your company administrator.</span></div>
+<div class="auth-divider">SISTECH STAFF ONLY</div>
+<p class="auth-help">New at Sistech? <a href="{% url 'access_help' %}">Ask the ERP administrator for an account</a></p>
 {% endblock %}

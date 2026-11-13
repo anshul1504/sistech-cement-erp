@@ -17,6 +17,7 @@ urlpatterns = [
     path('password/change/', av.ChangePasswordView.as_view(), name='password_change'),
     path('password/changed/', auth.PasswordChangeDoneView.as_view(template_name='registration/password_change_done.html'), name='password_change_done'),
     path('profile/', av.profile, name='profile'),
+    path('profile/sign-out-others/', av.sign_out_other_sessions, name='sign_out_other_sessions'),
     path('access/', v.access_control, name='access_control'),
     path('access/roles/new/', v.role_edit, name='role_new'),
     path('access/roles/<int:pk>/', v.role_edit, name='role_edit'),

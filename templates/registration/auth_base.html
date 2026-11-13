@@ -1,7 +1,54 @@
 {% load static %}<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>{% block title %}Your workspace{% endblock %} · Sistech Cement ERP</title><link rel="preload" href="{% static 'fonts/Poppins-Regular.ttf' %}" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}"><link rel="stylesheet" href="{% static 'erp/fonts.css' %}"><link rel="stylesheet" href="{% static 'accounts/auth.css' %}"><link rel="stylesheet" href="{% static 'erp/industrial.css' %}"><link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}"><link rel="stylesheet" href="{% static 'erp/brand.css' %}"></head>
-<body class="auth-page"><a class="skip-link" href="#auth-main">Skip to form</a>
-<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 8 3v6c0 5-8 10-8 10S4 16 4 11V5l8-3Z"/><path d="m8 11 3 3 5-5"/></symbol></svg>
-<div class="auth-shell"><aside class="auth-story"><a href="{% url 'login' %}" class="auth-brand" aria-label="Sistech Cement ERP home"><img class="company-logo" src="{% static 'brand/sistech-logo.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd. - Solid foundation, strong future"></a><div class="story-content"><div class="story-kicker"><span></span> THE FOUNDATION OF YOUR OPERATIONS</div><h1>Built for your plant. <br>Connected to <br><span>your people.</span></h1><p>From the first order to the final dispatch.<br>One workspace to keep your business moving.</p><div class="story-chips"><span><svg><use href="#i-check"/></svg> Connected teams</span><span><svg><use href="#i-check"/></svg> Controlled access</span></div>
-<div class="plant-scene" aria-hidden="true"><div class="scene-grid"></div><div class="scene-caption"><span class="scene-dot"></span> SISTECH / OPERATIONS NETWORK</div><svg viewBox="0 0 500 230" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="silo" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#555a60"/><stop offset=".5" stop-color="#92969a"/><stop offset="1" stop-color="#41464d"/></linearGradient><linearGradient id="roof" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#facb3c"/><stop offset="1" stop-color="#cf9b12"/></linearGradient></defs><path d="m20 185 230-60 230 60-230 60Z" fill="#30343a"/><path d="m39 174 213-54 197 54" stroke="#b5bac0" stroke-opacity=".3"/><path d="M83 165V85l44-13 43 13v80l-43 14Z" fill="url(#silo)"/><ellipse cx="126.5" cy="85" rx="43.5" ry="15" fill="url(#roof)"/><path d="M177 147V55l44-13 43 13v92l-43 14Z" fill="url(#silo)"/><ellipse cx="220.5" cy="55" rx="43.5" ry="15" fill="url(#roof)"/><path d="M271 166V77l44-13 43 13v89l-43 14Z" fill="url(#silo)"/><ellipse cx="314.5" cy="77" rx="43.5" ry="15" fill="url(#roof)"/><path d="m90 177 7 15m64-15-7 15m30-33 7 15m64-15-7 15m30 4 7 15m64-15-7 15" stroke="#b8bdc0" stroke-width="3"/><path d="m126 68 95-30 94 23M126 68v-9l95-30 94 23v9" stroke="#e5c669" stroke-opacity=".65"/><path d="M214 39V18h14v21M307 59V38h14v21M119 65V43h14v22" stroke="#c4c6c3" stroke-width="2"/><path d="m356 142 54-14 45 24-54 15Z" fill="#d4b453"/><path d="m356 142 45 25v28l-45-25Z" fill="#6e7379"/><path d="m401 167 54-15v27l-54 16Z" fill="#4b5159"/><path d="m365 158 26 14v11l-26-14Z" fill="#25282e"/><path d="m409 173 9-3v9l-9 3m16-14 9-3v9l-9 3" fill="#f6c343"/><path d="m50 205 115-30m174 23 109-29" stroke="#cbb45b" stroke-opacity=".4" stroke-dasharray="5 5"/></svg><div class="scene-note"><svg><use href="#i-shield"/></svg><span>Your plant. Your permissions.<small>Access that follows your responsibility.</small></span><span class="scene-check">✓</span></div></div></div><div class="story-footer"><span>SOLID FOUNDATION, STRONG FUTURE.</span><span>01 — WORKSPACE</span></div></aside>
-<div class="auth-right"><header class="auth-top"><span>MANUFACTURING WORKSPACE</span><a href="{% url 'access_help' %}">Need access? <svg><use href="#i-arrow"/></svg></a></header><main id="auth-main" class="auth-main" tabindex="-1"><div class="auth-card">{% for message in messages %}<div class="auth-alert {% if message.tags == 'success' %}otp-success{% endif %}" role="status">{{ message }}</div>{% endfor %}{% block auth_content %}{% endblock %}</div></main><footer class="auth-footer"><span>© {% now 'Y' %} Sistech Cement ERP</span><span><svg><use href="#i-lock"/></svg> Authorized personnel only</span></footer></div></div><script src="{% static 'accounts/auth.js' %}" defer></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#082859">
+<meta name="robots" content="noindex, nofollow">
+<meta name="format-detection" content="telephone=no">
+<title>{% block title %}Sign in{% endblock %} · Sistech Cement ERP</title>
+<link rel="preload" href="{% static 'fonts/Poppins-Regular.ttf' %}" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="{% static 'fonts/Poppins-SemiBold.ttf' %}" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="{% static 'erp/fonts.css' %}">
+<link rel="stylesheet" href="{% static 'accounts/auth.css' %}">
+<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">
+</head>
+<body class="auth-page">
+<a class="skip-link" href="#auth-main">Skip to form</a>
+<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m5-5-5 5 5 5"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.7 8.5 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 8 3v6c0 5-8 10-8 10S4 16 4 11V5l8-3Z"/><path d="m8 11 3 3 5-5"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5m0 3.2v.3"/></symbol><symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.8m0 2.8v.2"/></symbol></svg>
+
+<div class="auth-shell">
+  <aside class="auth-story" aria-label="About Sistech Cement ERP">
+    <a href="{% url 'login' %}" class="auth-brand" aria-label="Sistech Cement ERP home"><img src="{% static 'brand/sistech-logo.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd." width="960" height="450"></a>
+    <div class="story-content">
+      <div class="story-kicker"><span></span>Sistech Cement &amp; TMT Pvt. Ltd.</div>
+      <h1>Cement and TMT operations, <span>in one Sistech ERP.</span></h1>
+      <p>Sales and purchase orders, production, quality release and stock for every Sistech plant and depot, managed in one internal system.</p>
+      <ul class="story-chips">
+        <li><svg><use href="#i-check"/></svg>Cement</li>
+        <li><svg><use href="#i-check"/></svg>TMT bars</li>
+        <li><svg><use href="#i-check"/></svg>Plants &amp; depots</li>
+      </ul>
+    </div>
+    <div class="story-footer"><span>Solid foundation, strong future.</span><span>Sistech internal ERP</span></div>
+  </aside>
+
+  <div class="auth-right">
+    <header class="auth-top">
+      <a href="{% url 'login' %}" class="auth-top-brand" aria-label="Sistech Cement ERP home"><img src="{% static 'brand/sistech-logo-compact.svg' %}" alt="Sistech Cement &amp; TMT Pvt. Ltd." width="960" height="330"></a>
+      <span class="auth-top-label">Sistech ERP · Staff sign-in</span>
+      <a class="auth-top-help" href="{% url 'access_help' %}"><svg><use href="#i-help"/></svg><span>Need access?</span></a>
+    </header>
+    <main id="auth-main" class="auth-main" tabindex="-1">
+      <div class="auth-card">
+        {% for message in messages %}<div class="auth-alert{% if message.tags == 'success' %} is-success{% endif %}" role="status"><svg><use href="#{% if message.tags == 'success' %}i-check{% else %}i-alert{% endif %}"/></svg><div>{{ message }}</div></div>{% endfor %}
+        {% block auth_content %}{% endblock %}
+      </div>
+    </main>
+    <footer class="auth-footer"><span>© {% now 'Y' %} Sistech Cement &amp; TMT Pvt. Ltd.</span><a class="dev-credit" href="https://thewebfix.in" target="_blank" rel="noopener">Design &amp; developed by <strong>The Webfix</strong></a><span><svg><use href="#i-lock"/></svg>For Sistech staff only</span></footer>
+  </div>
+</div>
+<script src="{% static 'accounts/auth.js' %}" defer></script>
+</body>
+</html>

@@ -4,9 +4,9 @@
 <a class="auth-back" href="{% url 'login' %}">← Use a different account</a>
 <div class="auth-symbol"><svg><use href="#i-mail"/></svg></div>
 <div class="auth-eyebrow">STEP 02 / EMAIL VERIFICATION</div>
-<h2>One code.<br>Your workspace.</h2>
+<h2>Verify it’s you.</h2>
 <p class="auth-description">Enter the 6-digit code sent to <strong>{{ email_hint }}</strong>. The code is valid for 5 minutes.</p>
-{% if expired %}<div class="auth-alert" role="alert">This code has expired. Request a new code below.</div>{% endif %}
+{% if expired %}<div class="auth-alert" role="alert"><svg><use href="#i-alert"/></svg><div>This code has expired. Request a new code below.</div></div>{% endif %}
 <form method="post" class="auth-form">{% csrf_token %}{{ form.non_field_errors }}{% include 'registration/fields.html' %}<button class="auth-submit" type="submit">Verify & sign in <svg><use href="#i-arrow"/></svg></button></form>
 <form method="post" action="{% url 'otp_resend' %}" class="otp-resend-form">{% csrf_token %}<span>Didn’t receive your code?</span><button type="submit" data-resend-seconds="{{ resend_wait }}" {% if resend_wait %}disabled{% endif %}>Resend code{% if resend_wait %} ({{ resend_wait }}s){% endif %}</button></form>
 <div class="auth-small-note"><svg><use href="#i-shield"/></svg><span>Never share your code. Sistech will never ask for it.</span></div>

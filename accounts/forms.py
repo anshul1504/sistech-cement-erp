@@ -16,7 +16,7 @@ def style_fields(form):
 
 
 class SignInForm(AuthenticationForm):
-    username = forms.CharField(label='Email address or username', max_length=254, widget=forms.TextInput(attrs={'autocomplete': 'username', 'placeholder': 'you@company.com', 'autofocus': True}))
+    username = forms.CharField(label='Email address or username', max_length=254, widget=forms.TextInput(attrs={'autocomplete': 'username', 'placeholder': 'Your email or username', 'autofocus': True}))
     remember_me = forms.BooleanField(required=False, label='Keep me signed in for 8 hours')
     error_messages = {'invalid_login': 'We couldn’t sign you in. Check your details and try again.', 'inactive': 'We couldn’t sign you in. Contact your administrator for help.'}
 
@@ -41,7 +41,7 @@ class RecoveryForm(PasswordResetForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         style_fields(self)
-        self.fields['email'].widget.attrs.update(placeholder='you@company.com', autocomplete='email')
+        self.fields['email'].widget.attrs.update(placeholder='Your registered email', autocomplete='email')
 
     def get_users(self, email):
         users = list(super().get_users(email))

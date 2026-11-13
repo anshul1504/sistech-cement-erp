@@ -9,7 +9,10 @@ class RequireVerifiedEmailSessionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if (settings.EMAIL_OTP_ENABLED and request.user.is_authenticated
+        username_session = (settings.EMAIL_OTP_SKIP_FOR_USERNAME
+                            and request.user.is_authenticated
+                            and request.session.get('password_login_user') == str(request.user.pk))
+        if (settings.EMAIL_OTP_ENABLED and request.user.is_authenticated and not username_session
                 and (request.session.get('email_otp_verified_user') != str(request.user.pk)
                      or request.session.get('email_otp_verified_email') != request.user.email.strip().casefold())):
             logout(request)
