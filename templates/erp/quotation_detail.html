@@ -1,0 +1,43 @@
+{% extends 'erp/base.html' %}{% load erp_format static %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  <div class="inv-noprint">
+    <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'quotations' %}">← Quotations</a></div></div>
+    <ul class="ord-checks"><li class="is-{% if q.status == 'approval' or expired %}warn{% elif q.status == 'rejected' or q.status == 'revised' %}danger{% else %}info{% endif %}"><strong>{{ q.get_status_display }}</strong>{% if expired %} — validity ended {{ q.valid_until|date:'d M Y' }}; prepare a revision{% endif %}{% if q.approval_note %} · {{ q.approval_note }}{% endif %}{% if q.outcome_note %} · {{ q.outcome_note }}{% endif %}{% if q.order %} · <a href="{% url 'order_detail' q.order.pk %}">{{ q.order.number }}</a>{% endif %}{% if q.previous %} · replaces <a href="{% url 'quotation_detail' q.previous.pk %}">rev {{ q.previous.revision }}</a>{% endif %}{% if q.next_revision %} · replaced by <a href="{% url 'quotation_detail' q.next_revision.pk %}">rev {{ q.next_revision.revision }}</a>{% endif %}</li></ul>
+    <div class="doc-head-actions pr-actions">
+      {% if can.edit %}<a class="org-btn is-light" href="{% url 'quotation_edit' q.pk %}">Edit</a>{% endif %}
+      {% if can.submit %}<form method="post" action="{% url 'quotation_action' q.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary" type="submit">Submit</button></form>{% endif %}
+      {% if can.send %}<form method="post" action="{% url 'quotation_action' q.pk 'sent' %}">{% csrf_token %}<button class="org-btn is-primary" type="submit">Mark as sent</button></form>{% endif %}
+      {% if whatsapp %}<a class="org-btn is-light" href="{{ whatsapp }}" target="_blank" rel="noopener">Share on WhatsApp</a>{% endif %}
+      <button class="org-btn is-light" type="button" onclick="window.print()">Print / PDF</button>
+      {% if can.revise %}<form method="post" action="{% url 'quotation_action' q.pk 'revise' %}">{% csrf_token %}<button class="org-btn is-light" type="submit">New revision</button></form>{% endif %}
+      {% if can.convert %}<form method="post" action="{% url 'quotation_action' q.pk 'convert' %}">{% csrf_token %}<button class="org-btn is-primary" type="submit">Create sales order</button></form>{% endif %}
+    </div>
+    {% if can.approve %}<section class="org-card" style="margin-bottom:16px"><header><h2>Discount approval</h2><p>{% for r in t.rows %}{% if r.line.below_list %}{{ r.line.product.name }}: ₹{{ r.line.rate|indian:2 }} vs list ₹{{ r.line.list_rate|indian:2 }} ({{ r.line.discount_pct }}% below). {% endif %}{% endfor %}</p></header>
+      <form method="post" action="{% url 'quotation_action' q.pk 'approve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="qa-n">Note (required to send back)</label><input class="form-control" id="qa-n" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'quotation_action' q.pk 'sendback' %}">Send back</button><button class="org-btn is-primary" type="submit">Approve prices</button></div></form></section>{% endif %}
+    {% if can.outcome %}<section class="org-card" style="margin-bottom:16px"><header><h2>Customer's answer</h2></header>
+      <form method="post" action="{% url 'quotation_action' q.pk 'accepted' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="qo-n">Note</label><input class="form-control" id="qo-n" name="note" maxlength="200" placeholder="e.g. PO by phone / lost to competitor on price"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'quotation_action' q.pk 'rejected' %}">Declined</button><button class="org-btn is-primary" type="submit">Accepted</button></div></form></section>{% endif %}
+  </div>
+  <article class="inv-sheet">
+    <header class="inv-top">
+      <div class="inv-brand">{% if org_logo_url %}<img src="{{ org_logo_url }}" alt="">{% endif %}<div><h2>{{ company.legal_name }}</h2><p>{{ company.full_address }}</p>{% if q.site.gstin or company.gstin %}<p><b>GSTIN</b> {{ q.site.gstin|default:company.gstin }}</p>{% endif %}<p>{% if company.phone %}{{ company.phone }}{% endif %}{% if company.email %} · {{ company.email }}{% endif %}</p></div></div>
+      <div class="inv-title"><span>Rev {{ q.revision }}</span><h1>Quotation</h1>
+        <dl><div><dt>Number</dt><dd>{{ q.number }}</dd></div><div><dt>Date</dt><dd>{{ q.date|date:'d-m-Y' }}</dd></div><div><dt>Valid till</dt><dd>{{ q.valid_until|date:'d-m-Y' }}</dd></div><div><dt>Supply from</dt><dd>{{ q.site.code }}</dd></div></dl></div>
+    </header>
+    <section class="inv-parties">
+      <div><h3>To</h3><strong>{{ q.customer_name }}</strong>{% if q.partner %}<p>{{ q.partner.full_address|default:'' }}</p><p><b>GSTIN</b> {{ q.partner.gstin|default:'Unregistered' }}</p>{% elif q.lead %}<p>{{ q.lead.contact_name }} · {{ q.lead.mobile }}</p><p>{{ q.lead.district }}</p>{% endif %}</div>
+      <div><h3>Terms</h3><p><b>Place of supply</b> {{ q.get_place_of_supply_display }} ({{ q.place_of_supply }})</p><p><b>Freight</b> {{ q.get_freight_terms_display }}</p>{% if q.delivery_terms %}<p><b>Delivery</b> {{ q.delivery_terms }}</p>{% endif %}{% if q.payment_terms %}<p><b>Payment</b> {{ q.payment_terms }}</p>{% endif %}</div>
+    </section>
+    <table class="inv-lines"><thead><tr><th>Item</th><th>HSN</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Taxable</th><th class="num">GST</th><th class="num">Amount</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.line.product.name }}{% if r.line.below_list %}<span class="inv-noprint"> <small class="led-late">({{ r.line.discount_pct }}% below list)</small></span>{% endif %}</td><td>{{ r.line.hsn }}</td><td class="num">{{ r.line.quantity|qty }} {{ r.line.product.unit }}</td><td class="num">₹{{ r.line.rate|indian:2 }}</td><td class="num">₹{{ r.taxable|indian:2 }}</td><td class="num">{{ r.line.gst_rate|qty }}%</td><td class="num">₹{{ r.total|indian:2 }}</td></tr>{% endfor %}</tbody></table>
+    <section class="inv-bottom"><div class="inv-words"><p><b>Amount in words</b><br>{{ words }}</p>{% if q.notes %}<p>{{ q.notes }}</p>{% endif %}<p>Prices are for the quantities above, valid till {{ q.valid_until|date:'d-m-Y' }}. Material as per applicable IS standard; test certificate on request.</p></div>
+      <dl class="inv-totals"><div><dt>Taxable</dt><dd>₹{{ t.taxable|indian:2 }}</dd></div>{% if t.interstate %}<div><dt>IGST</dt><dd>₹{{ t.igst|indian:2 }}</dd></div>{% else %}<div><dt>CGST</dt><dd>₹{{ t.cgst|indian:2 }}</dd></div><div><dt>SGST</dt><dd>₹{{ t.sgst|indian:2 }}</dd></div>{% endif %}<div><dt>Round off</dt><dd>₹{{ t.round_off|indian:2 }}</dd></div><div class="is-grand"><dt>Total</dt><dd>₹{{ t.grand_total|indian }}</dd></div></dl></section>
+    <footer class="inv-foot"><div class="inv-sign" style="text-align:left"><span></span><p>Prepared by {{ q.created_by|who }}</p></div><div class="inv-sign"><span></span><p>For {{ company.legal_name }}</p></div></footer>
+    <p class="inv-credit">{{ company.tagline }} · Sistech ERP · Design &amp; developed by The Webfix</p>
+  </article>
+  <section class="org-card ord-items inv-noprint" style="margin-top:16px"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}</section>
+</div>
+{% endblock %}

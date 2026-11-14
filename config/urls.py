@@ -286,3 +286,11 @@ urlpatterns += [
     path('star-programmes/<int:pk>/<str:action>/', rcv.program_action, name='recognition_action'),
     path('star-programmes/usage/', rcv.usage, name='influencer_usage'),
 ]
+from erp import quote_views as qtv
+urlpatterns += [
+    path('quotations/', qtv.quotations, name='quotations'),
+    path('quotations/new/', qtv.quotation_form, name='quotation_new'),
+    path('quotations/<int:pk>/', qtv.quotation_detail, name='quotation_detail'),
+    path('quotations/<int:pk>/edit/', qtv.quotation_form, name='quotation_edit'),
+    path('quotations/<int:pk>/do/<str:action>/', qtv.quotation_action, name='quotation_action'),
+]

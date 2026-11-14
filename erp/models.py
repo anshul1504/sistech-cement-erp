@@ -67,7 +67,7 @@ class Site(models.Model):
 
     @property
     def full_address(self):
-        parts = [self.address.strip(), self.city, self.district, f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
+        parts = [self.address.strip(), self.city, self.district if (self.district or '').strip().lower() != (self.city or '').strip().lower() else '', f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
         return ', '.join(p for p in parts if p)
 
 class SiteAccess(models.Model):
@@ -185,7 +185,7 @@ class Partner(models.Model):
 
     @property
     def full_address(self):
-        parts = [self.address.strip(), self.city, self.district, f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
+        parts = [self.address.strip(), self.city, self.district if (self.district or '').strip().lower() != (self.city or '').strip().lower() else '', f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
         return ', '.join(p for p in parts if p)
 
     @property
@@ -544,7 +544,7 @@ class Organization(models.Model):
 
     @property
     def full_address(self):
-        parts = [self.address.strip(), self.city, self.district,
+        parts = [self.address.strip(), self.city, self.district if (self.district or '').strip().lower() != (self.city or '').strip().lower() else '',
                  f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
         return ', '.join(p for p in parts if p)
 
@@ -751,7 +751,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -2655,3 +2655,71 @@ class RecognitionAward(models.Model):
     @property
     def participant(self):
         return self.partner or self.influencer
+
+
+# ---------- Quotations (Step 8c, FR-SLS-002) ----------
+
+QUOTE_STATUSES = [('draft', 'Draft'), ('approval', 'Discount approval pending'), ('ready', 'Ready to send'), ('sent', 'Sent'),
+                  ('accepted', 'Accepted'), ('rejected', 'Declined'), ('expired', 'Expired'), ('converted', 'Converted to order'), ('revised', 'Revised')]
+
+
+class Quotation(models.Model):
+    """Price offer to a customer or CRM prospect. Below-list discounts need approval by a different user before sending;
+    any change after sending is a new revision. An accepted quotation becomes a draft sales order."""
+    number = models.CharField(max_length=20, editable=False)
+    revision = models.PositiveSmallIntegerField(default=1, editable=False)
+    previous = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='next_revision', editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='quotations', verbose_name='Supplying plant / depot')
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='quotations', verbose_name='Customer')
+    lead = models.ForeignKey('CRMLead', null=True, blank=True, on_delete=models.PROTECT, related_name='quotations', verbose_name='Prospect (CRM lead)')
+    date = models.DateField(default=timezone.localdate)
+    valid_until = models.DateField()
+    place_of_supply = models.CharField(max_length=2, choices=INDIAN_STATES)
+    freight_terms = models.CharField(max_length=16, choices=FREIGHT_TERMS, default='for_destination')
+    delivery_terms = models.CharField(max_length=150, blank=True)
+    payment_terms = models.CharField(max_length=150, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=10, choices=QUOTE_STATUSES, default='draft')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approval_note = models.CharField(max_length=200, blank=True)
+    outcome_note = models.CharField(max_length=200, blank=True)
+    order = models.OneToOneField(Order, null=True, blank=True, on_delete=models.PROTECT, related_name='quotation', editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['number', 'revision'], name='unique_quotation_revision')]
+        permissions = [('approve_quotation', 'Approve below-list quotation prices')]
+
+    def __str__(self): return f'{self.number} rev {self.revision}'
+
+    @property
+    def customer_name(self):
+        return self.partner.name if self.partner_id else (self.lead.business_name if self.lead_id else '')
+
+    @property
+    def interstate(self):
+        return bool(self.site.state and self.place_of_supply and self.site.state != self.place_of_supply)
+
+    @property
+    def badge(self):
+        return {'draft': 'draft', 'approval': 'submitted', 'ready': 'approved', 'sent': 'approved', 'accepted': 'completed', 'converted': 'completed'}.get(self.status, 'cancelled')
+
+
+class QuotationLine(models.Model):
+    quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name='lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    list_rate = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    rate = models.DecimalField('Offered rate', max_digits=14, decimal_places=2, validators=MONEY)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    hsn = models.CharField(max_length=10, blank=True)
+
+    @property
+    def below_list(self):
+        return self.list_rate is not None and self.rate < self.list_rate
+
+    @property
+    def discount_pct(self):
+        return ((self.list_rate - self.rate) / self.list_rate * 100).quantize(Decimal('0.1')) if self.list_rate else None

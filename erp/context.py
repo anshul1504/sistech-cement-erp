@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.15.2'
+ASSET_VERSION = '0.15.3'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -27,7 +27,7 @@ NAV_GROUPS = [
     ('Sales', [
         _item('sales', 'Sales orders', 'sales', 'view_sales_order'),
         _item('prices', 'Price list', 'receipt', 'view_pricerule', match=('prices_new', 'prices_edit', 'price_revise')),
-        _soon('Quotations', 'quote'),
+        _item('quotations', 'Quotations', 'quote', 'view_quotation', match=('quotation_new', 'quotation_detail', 'quotation_edit')),
         _item('crm_leads', 'Dealer CRM', 'crm', 'view_crmlead', match=('crm_lead_new', 'crm_lead_edit', 'crm_lead_detail', 'crm_applications', 'crm_application_detail', 'crm_application_edit', 'crm_performance', 'crm_policy', 'crm_review_detail', 'crm_performance_detail')),
         _item('influencers', 'Masons & contractors', 'hardhat', 'view_influencer',
               match=('influencer_districts', 'influencer_dealers', 'influencers_new', 'influencer_import', 'influencer_detail', 'influencers_edit')),
@@ -157,6 +157,8 @@ def navigation(request):
     quick_create = []
     if user.has_perm('erp.add_crmlead'):
         quick_create.append(('CRM lead', reverse('crm_lead_new'), 'crm'))
+    if user.has_perm('erp.add_quotation'):
+        quick_create.append(('Quotation', reverse('quotation_new'), 'quote'))
     if order_permission(user, 'Sale', 'create'):
         quick_create.append(('New sales order', reverse('order_new', args=['Sale']), 'sales'))
     if user.has_perm('erp.add_purchaserequest'):

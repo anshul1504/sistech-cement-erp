@@ -96,7 +96,9 @@ ledger-credit or bank payouts with maker-checker, dealer scheme statement.
 
 ✅ Star Dealer / Star Engineer / Star Mason & Contractor: verified influencer usage, annual ranking district → state → national with compliance, independent publishing and reward fulfilment.
 
-Next: quotations, complaints/returns with CAPA, territory hierarchy. Territory hierarchy, unified project pipeline and dealer portal remain pending.
+✅ Step 8c quotations: price-list rates, discount approval, print/WhatsApp, revisions, conversion to sales order.
+
+Next: complaints/returns with CAPA (8d), then dashboards (Step 9). Territory hierarchy, unified project pipeline and dealer portal remain pending.
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.

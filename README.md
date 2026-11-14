@@ -219,6 +219,14 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Programme year** per audience with national, state and district awards: winners per area, minimum volume and reward (defaults from sistech.co.in — domestic couple trip, international couple trip, Grand Champion Award). Dealers are measured in net MT invoiced (returns deducted); influencers in verified bags. Dealers with an invoice overdue beyond the programme's limit are not eligible.
 - **Ranking** goes national → state → district; each participant gets only the highest award reached. A different user publishes the winners; rewards are then marked as given with details. A live leaderboard shows the top 25 during the year.
 
+## Quotations (Step 8c)
+
+- **Sales → Quotations**: price offer to a customer or a CRM prospect from a supplying plant, with place of supply, freight, delivery and payment terms, validity and GST (CGST + SGST or IGST). Leaving the rate empty quotes the price-list rate.
+- An offered rate **below the price list** needs approval by a different user (price exception) before the quotation can be sent; at list price it is ready straight away.
+- **Print / PDF** on the company letterhead and **Share on WhatsApp** (summary with items, total and validity to the customer's number).
+- A sent quotation is never edited — **New revision** copies it as rev 2, 3… and marks the old one revised. Accepting an expired quotation is refused.
+- An accepted quotation for a registered customer becomes a **draft sales order** in one click (prospects must finish dealer onboarding first); the order still goes through credit and approval.
+
 ## Implemented workflows
 
 - Responsive internal web ERP with local Poppins/Bootstrap, Sistech blue/yellow branding and The Webfix credit.
