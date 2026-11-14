@@ -1,0 +1,32 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'order_detail' order.pk %}">← {{ order.number }}</a></div><h1>Post tax invoice</h1>
+      <p>{{ order.partner.name }} · {{ order.site.code }}. Once posted the invoice cannot be edited — corrections are made with a credit note.</p></div>
+  </div>
+  {% if blockers %}<ul class="ord-checks">{% for b in blockers %}<li class="is-danger">{{ b }}</li>{% endfor %}</ul>{% endif %}
+  <div class="mst-form-grid">
+    <section class="org-card">
+      <header><h2>Invoice preview</h2><p>{% if tax.interstate %}Inter-state supply · IGST{% else %}Intra-state supply · CGST + SGST{% endif %} · place of supply {{ order.supply_state_name|default:'not set' }}</p></header>
+      <div class="ord-totals is-static" style="max-width:none">
+        <div><span>Taxable value</span><strong>₹{{ tax.taxable|indian:2 }}</strong></div>
+        {% if tax.interstate %}<div><span>IGST</span><strong>₹{{ tax.igst|indian:2 }}</strong></div>{% else %}<div><span>CGST</span><strong>₹{{ tax.cgst|indian:2 }}</strong></div><div><span>SGST</span><strong>₹{{ tax.sgst|indian:2 }}</strong></div>{% endif %}
+        <div><span>Round off</span><strong>₹{{ tax.round_off|indian:2 }}</strong></div>
+        <div class="is-grand"><span>Invoice value</span><strong>₹{{ tax.grand_total|indian }}</strong></div>
+      </div>
+      <p class="acc-note">{{ tax.rows|length }} line{{ tax.rows|length|pluralize }} · buyer {% if order.partner.gstin %}GSTIN {{ order.partner.gstin }} (B2B){% else %}unregistered (B2C){% endif %} · due in {{ order.partner.payment_terms_days }} day{{ order.partner.payment_terms_days|pluralize }}</p>
+    </section>
+    <section class="org-card">
+      <header><h2>Transport</h2><p>Printed on the invoice. Fill what you have now.</p></header>
+      <form method="post" novalidate>{% csrf_token %}
+        {% if form.non_field_errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>{% for e in form.non_field_errors %}{{ e }} {% endfor %}</span></div>{% endif %}
+        <div class="org-grid">{% for field in form %}{% include 'erp/_field.html' %}{% endfor %}</div>
+        {% if tax.grand_total > 50000 %}<p class="acc-note">Value is above ₹50,000 — an e-way bill is normally required before the truck leaves.</p>{% endif %}
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit" {% if blockers %}disabled{% endif %} data-confirm="Post tax invoice for ₹{{ tax.grand_total|indian }}? It cannot be edited afterwards.">Post invoice</button></div>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

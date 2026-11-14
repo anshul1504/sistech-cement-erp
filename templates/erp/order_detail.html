@@ -28,7 +28,7 @@
       {% if order.status == 'Draft' and can_submit %}<form method="post" action="{% url 'order_action' order.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary">Submit for approval</button></form>{% endif %}
       {% if order.status == 'Submitted' and can_approve %}<form method="post" action="{% url 'order_action' order.pk 'approve' %}">{% csrf_token %}<button class="org-btn is-primary">Approve</button></form>{% endif %}
       {% if order.status == 'Approved' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'post' %}" data-confirm="Post this order and {% if order.kind == 'Sale' %}dispatch{% else %}receive{% endif %} stock? Posted orders cannot be edited.">{% csrf_token %}<button class="org-btn is-primary">{% if order.kind == 'Sale' %}Dispatch &amp; post stock{% else %}Receive &amp; post stock{% endif %}</button></form>{% endif %}
-      {% block invoice_button %}{% endblock %}
+      {% if order.kind == 'Sale' and order.status == 'Completed' %}{% if invoice %}<a class="org-btn is-primary" href="{% url 'invoice_detail' invoice.pk %}">Invoice {{ invoice.number }}</a>{% elif perms.erp.post_invoice %}<a class="org-btn is-primary" href="{% url 'invoice_new' order.pk %}">Post tax invoice</a>{% endif %}{% endif %}
       {% if order.status in 'Draft Submitted Approved' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" data-confirm="Cancel {{ order.number }}?">{% csrf_token %}<button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}
     </div>
   </section>

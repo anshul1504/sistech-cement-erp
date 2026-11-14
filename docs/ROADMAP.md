@@ -17,6 +17,7 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 | Basic transactions | Sales/purchase order draft → submit → approve → post; credit-limit block; stock ledger with source document and non-negative stock; production → quality hold → release |
 | Masons & contractors (Step 1d) | Influencer master with district/dealer views, coverage gaps, activities and referral leads, CSV import/export |
 | Price list & numbering (Step 2a) | Versioned price rules with slabs and scopes, number series per site and FY, GST snapshot and CGST/SGST/IGST on orders |
+| GST tax invoice (Step 2b) | Invoice from dispatched order, frozen snapshot, FY series ≤16 chars, A4 print/PDF, register with GSTR-1 style export |
 | Web shell | Responsive app shell, toasts, Indian number formats, My account, Administration, System settings |
 
 ## Build sequence
@@ -34,7 +35,7 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 2. ✅ Price lists: product × plant × district × buyer type × dealer, quantity slab, effective dates; price snapshot on orders.
 3. Sales order upgrade: bill-to/ship-to, freight terms, partial supply, full status set (Approved → Allocated → Part dispatched → Dispatched → Invoiced → Closed), revisions after approval.
 4. Validations (VAL-001/002/003/004): dealer active + KYC, credit **and overdue**, price validity, stock (ATP with reservations).
-5. Dispatch advice → **GST tax invoice**: CGST+SGST vs IGST from place of supply, HSN, invoice series per GSTIN, PDF print with company/bank/terms, immutable after posting.
+5. ✅ Dispatch advice → **GST tax invoice**: CGST+SGST vs IGST from place of supply, HSN, invoice series per GSTIN, PDF print with company/bank/terms, immutable after posting.
 6. Credit / debit notes and sales returns linked to the original invoice.
 7. Dealer ledger and receipts (allocation to invoices), so credit exposure uses real outstanding.
 

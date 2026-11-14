@@ -150,8 +150,10 @@ def order_detail(request, pk):
     flow = ['Draft', 'Submitted', 'Approved', 'Completed']
     at = flow.index(order.status) if order.status in flow else -1
     steps = [(name, 'cancelled' if order.status == 'Cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i, name in enumerate(flow)]
+    invoice = getattr(order, 'invoice', None) if order.kind == 'Sale' else None
     if order.kind == 'Sale':
-        steps[-1] = ('Dispatched', steps[-1][1])
+        steps[-1] = ('Dispatched', 'done' if invoice else steps[-1][1])
+        steps.append(('Invoiced', 'cancelled' if order.status == 'Cancelled' else 'current' if invoice else 'todo'))
     history = AuditEvent.objects.filter(reference=order.number).select_related('actor').order_by('-created_at')[:8]
     return render(request, 'erp/order_detail.html', {'title': order.number, 'order': order, 'lines': lines, 'tax': tax, 'words': in_words(tax['grand_total']),
-                                                     'checks': checks, 'history': history, 'steps': steps, **actions})
+                                                     'checks': checks, 'history': history, 'steps': steps, 'invoice': invoice, **actions})

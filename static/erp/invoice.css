@@ -1,0 +1,88 @@
+/* Printable GST tax invoice (A4). On screen it sits on a paper card; when printed only the sheet remains. */
+.inv-tool-title { color: #082859; font-size: 16px; }
+.inv-page .ord-buttons .form-select { width: auto; height: 40px; }
+.inv-sheet { max-width: 960px; margin: 0 auto; padding: 28px 32px; border: 1px solid var(--o-line); border-radius: 14px; background: #fff; color: #111827; font-size: 12.5px; line-height: 1.45; box-shadow: 0 18px 40px -30px rgba(8, 40, 89, .5); }
+.inv-sheet h1, .inv-sheet h2, .inv-sheet h3 { margin: 0; color: #082859; }
+.inv-sheet p { margin: 0 0 4px; }
+.inv-sheet b { font-weight: 600; color: #374151; }
+.inv-top { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; padding-bottom: 14px; border-bottom: 3px solid #082859; }
+.inv-brand { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+.inv-brand img { width: 120px; max-height: 64px; object-fit: contain; flex: none; }
+.inv-brand h2 { font-size: 17px; margin-bottom: 4px; }
+.inv-brand > div { min-width: 0; overflow-wrap: anywhere; }
+.inv-title { text-align: right; }
+.inv-title span { display: inline-block; padding: 2px 10px; border: 1px solid #f0b323; border-radius: 99px; color: #8a5a00; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.inv-title h1 { margin: 6px 0 8px; font-size: 24px; letter-spacing: .02em; text-transform: uppercase; }
+.inv-title dl { display: grid; gap: 2px; margin: 0; }
+.inv-title dl > div { display: flex; justify-content: space-between; gap: 10px; }
+.inv-title dt { color: #6b7280; font-weight: 500; }
+.inv-title dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.inv-parties { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 14px 0; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+.inv-parties > div { min-width: 0; padding: 10px 12px; overflow-wrap: anywhere; }
+.inv-parties > div + div { border-left: 1px solid #d1d5db; }
+.inv-parties h3 { margin-bottom: 4px; color: #6b7280; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.inv-parties strong { display: block; font-size: 13.5px; }
+.inv-lines, .inv-hsn { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.inv-lines th, .inv-hsn th { padding: 6px 8px; background: #082859; color: #fff; font-size: 11px; font-weight: 600; text-align: left; }
+.inv-lines td, .inv-hsn td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.inv-lines .num, .inv-hsn .num { text-align: right; white-space: nowrap; }
+.inv-hsn { margin-top: 8px; font-size: 11.5px; }
+.inv-hsn th { background: #eef3fb; color: #082859; }
+.inv-bottom { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; margin-top: 14px; }
+.inv-words { min-width: 0; }
+.inv-words p { margin-bottom: 8px; }
+.inv-totals { margin: 0; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; align-self: start; }
+.inv-totals > div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.inv-totals dt { color: #4b5563; font-weight: 500; }
+.inv-totals dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.inv-totals .is-grand { margin-top: 6px; padding-top: 8px; border-top: 2px solid #082859; font-size: 15px; }
+.inv-totals .is-grand dd { color: #082859; }
+.inv-foot { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; margin-top: 18px; padding-top: 12px; border-top: 1px solid #d1d5db; }
+.inv-foot > div { min-width: 0; overflow-wrap: anywhere; }
+.inv-terms { color: #4b5563; font-size: 11.5px; }
+.inv-sign { text-align: right; }
+.inv-sign span { display: block; height: 56px; }
+.unit-inline { display: none; }
+.inv-credit { margin: 14px 0 0 !important; color: #9ca3af; font-size: 10px; text-align: center; }
+
+@media (max-width: 991.98px) {
+  .inv-sheet { padding: 18px; }
+  .inv-top, .inv-bottom, .inv-foot { grid-template-columns: minmax(0, 1fr); }
+  .inv-title { text-align: left; }
+  .inv-parties { grid-template-columns: minmax(0, 1fr); }
+  .inv-parties > div + div { border-left: 0; border-top: 1px solid #d1d5db; }
+  .inv-sign { text-align: left; }
+}
+@media (max-width: 767.98px) {
+  .inv-sheet { padding: 14px; font-size: 12px; }
+  .inv-lines thead { display: none; }
+  .inv-lines, .inv-lines tbody, .inv-lines tr, .inv-lines td { display: block; width: 100%; }
+  .inv-lines tr { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+  .inv-lines td { padding: 2px 0; border: 0; text-align: left !important; }
+  .inv-lines td:first-child { display: none; }
+  .inv-lines td:nth-child(2) { font-weight: 600; font-size: 13px; }
+  .inv-lines td[data-label] { display: flex; justify-content: space-between; gap: 12px; }
+  .inv-lines td[data-label]::before { content: attr(data-label); color: #6b7280; font-weight: 500; }
+  .inv-lines td[data-label="Unit"] { display: none; }
+  .unit-inline { display: inline; }
+  .inv-page .ord-buttons .form-select { width: 100%; }
+  .inv-brand { flex-direction: column; }
+}
+@media print {
+  @page { size: A4; margin: 10mm; }
+  body, .app-body { background: #fff !important; }
+  .inv-noprint, .toasts { display: none !important; }
+  .org-page, .app-body .app-content { padding: 0 !important; max-width: none !important; }
+  .inv-lines td[data-label]::before { content: none; }
+  .inv-lines td[data-label="Qty"] .unit-inline { display: none; }
+  .inv-sheet { max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; font-size: 11px; }
+  .inv-top, .inv-bottom, .inv-foot { grid-template-columns: minmax(0, 1fr) 240px; }
+  .inv-parties { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .inv-lines thead { display: table-header-group; }
+  .inv-lines, .inv-lines tbody { display: table; width: 100%; }
+  .inv-lines tbody { display: table-row-group; }
+  .inv-lines tr { display: table-row; }
+  .inv-lines td { display: table-cell; }
+  .inv-lines th, .inv-hsn th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .inv-lines tr { break-inside: avoid; }
+}

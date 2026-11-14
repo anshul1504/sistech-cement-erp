@@ -47,7 +47,7 @@ NAV_GROUPS = [
         _soon('Dispatch & trips', 'truck'),
     ]),
     ('Finance', [
-        _soon('Invoices & GST', 'receipt'),
+        _item('invoices', 'Tax invoices', 'receipt', 'view_invoice', match=('invoice_detail', 'invoice_new')),
         _soon('Accounts & ledgers', 'book'),
     ]),
     ('Masters', [

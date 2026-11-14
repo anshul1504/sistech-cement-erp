@@ -94,3 +94,9 @@ urlpatterns += [
     path('prices/<int:pk>/revise/', prv.price_revise, name='price_revise'),
     path('prices/<int:pk>/end/', prv.price_end, name='price_end'),
 ]
+from erp import invoice_views as inv
+urlpatterns += [
+    path('invoices/', inv.invoices, name='invoices'),
+    path('invoices/<int:pk>/', inv.invoice_detail, name='invoice_detail'),
+    path('invoices/new/<int:pk>/', inv.invoice_new, name='invoice_new'),
+]

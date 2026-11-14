@@ -693,3 +693,76 @@ class PriceRule(models.Model):
     def is_current(self, on=None):
         on = on or timezone.localdate()
         return self.active and self.valid_from <= on and (self.valid_to is None or self.valid_to >= on)
+
+
+# ---------- GST tax invoice (Step 2b) ----------
+
+class Invoice(models.Model):
+    """Posted GST tax invoice. Everything printed is a snapshot; nothing changes after posting (corrections go through credit notes)."""
+    number = models.CharField(max_length=16, unique=True, editable=False)
+    date = models.DateField(default=timezone.localdate)
+    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name='invoice')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='invoices')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='invoices')
+    # Seller snapshot
+    seller_name = models.CharField(max_length=150)
+    seller_gstin = models.CharField(max_length=15)
+    seller_state = models.CharField(max_length=2, choices=INDIAN_STATES)
+    seller_address = models.TextField()
+    # Buyer snapshot
+    buyer_name = models.CharField(max_length=150)
+    buyer_gstin = models.CharField(max_length=15, blank=True)
+    buyer_state = models.CharField(max_length=2, choices=INDIAN_STATES, blank=True)
+    buyer_address = models.TextField(blank=True)
+    ship_to = models.TextField(blank=True)
+    place_of_supply = models.CharField(max_length=2, choices=INDIAN_STATES)
+    interstate = models.BooleanField()
+    reverse_charge = models.BooleanField(default=False)
+    # Transport
+    vehicle_number = models.CharField('Vehicle no.', max_length=15, blank=True)
+    transporter = models.CharField('Transporter', max_length=120, blank=True)
+    lr_number = models.CharField('LR / GR no.', max_length=30, blank=True)
+    eway_bill = models.CharField('E-way bill no.', max_length=12, blank=True)
+    # Totals
+    taxable = models.DecimalField(max_digits=16, decimal_places=2)
+    cgst = models.DecimalField(max_digits=16, decimal_places=2)
+    sgst = models.DecimalField(max_digits=16, decimal_places=2)
+    igst = models.DecimalField(max_digits=16, decimal_places=2)
+    round_off = models.DecimalField(max_digits=6, decimal_places=2)
+    grand_total = models.DecimalField(max_digits=16, decimal_places=2)
+    due_date = models.DateField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-id']
+        permissions = [('post_invoice', 'Post tax invoices'), ('export_invoice', 'Export invoice register')]
+
+    def __str__(self): return self.number
+
+    @property
+    def tax(self):
+        return self.cgst + self.sgst + self.igst
+
+    @property
+    def is_b2b(self):
+        return bool(self.buyer_gstin)
+
+
+class InvoiceLine(models.Model):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    description = models.CharField(max_length=150)
+    hsn = models.CharField(max_length=10, blank=True)
+    unit = models.CharField(max_length=12)
+    quantity = models.DecimalField(max_digits=14, decimal_places=3)
+    rate = models.DecimalField(max_digits=14, decimal_places=2)
+    taxable = models.DecimalField(max_digits=16, decimal_places=2)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    cgst = models.DecimalField(max_digits=16, decimal_places=2)
+    sgst = models.DecimalField(max_digits=16, decimal_places=2)
+    igst = models.DecimalField(max_digits=16, decimal_places=2)
+    total = models.DecimalField(max_digits=16, decimal_places=2)
+
+    class Meta:
+        ordering = ['id']

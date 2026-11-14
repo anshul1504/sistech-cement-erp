@@ -69,3 +69,11 @@ def bags_mt(value):
         return qty(Decimal(str(value or 0)) * Decimal('0.05'))
     except (InvalidOperation, ValueError):
         return ''
+
+
+@register.filter
+def get_item(mapping, key):
+    try:
+        return mapping.get(key, '')
+    except AttributeError:
+        return ''

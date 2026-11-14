@@ -96,6 +96,10 @@ Changes are audited. Plant-level addresses, GST registrations and factory licenc
 - **Number series** per document type, plant and financial year (Organisation's FY start month): `SOPLT-/26-27/00001` for orders; tax-invoice series fit GST's 16-character limit and restart each FY. Allocation is row-locked.
 - **Orders** now record place of supply, ship-to, freight terms and customer reference. Leaving the rate empty uses the list price; each line snapshots list price, price rule, GST rate and HSN. CGST + SGST or IGST follows plant state vs place of supply (supplier state vs plant state on purchases); totals round to the rupee with amount in words. Drafts can be edited. The detail page shows GST breakup, workflow steps and pre-approval checks: below-list-price lines, credit limit including GST, stock free after reservations, and B2C (no GSTIN) buyers. Credit exposure now includes GST.
 
+## GST tax invoice (Step 2b)
+
+A dispatched sales order gets **one tax invoice** (Finance → Tax invoices, or the order page). Posting checks the plant/company GSTIN, plant state and place of supply, numbers the invoice from the plant's FY series (≤ 16 characters), and **freezes** seller, buyer, ship-to, place of supply, every line (HSN, unit, rate, GST split) and totals — later master changes never alter it. Transport details (vehicle no. validated, transporter, LR, 12-digit e-way bill) print on it; a warning appears above ₹50,000 without an e-way bill. Due date = invoice date + the partner's payment terms. The invoice page is an **A4 print / save-as-PDF** layout (Original / Duplicate / Triplicate copy label, logo, GSTINs, HSN summary, amount and GST in words, bank details, terms, signatory). The register filters B2B/B2C, plant, dates and overdue, shows taxable/GST/value totals, lists orders ready to invoice and exports **one row per invoice × GST rate** for GSTR-1 (`export_invoice` permission, audited). Posted invoices cannot be edited; corrections come with credit notes (Step 2c). E-invoice IRN and e-way bill generation through a GSP are Step 11.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
