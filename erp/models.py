@@ -325,8 +325,13 @@ class OrderLine(models.Model):
         return max(self.quantity - self.dispatched_quantity(include_open=True), Decimal('0'))
 
     def received_quantity(self):
-        """Purchase lines: quantity taken in. Until GRN (Step 4b) a completed order counts as fully received."""
-        return self.quantity if self.order.status == 'Completed' else Decimal('0')
+        """Purchase lines: accepted + quality-hold quantity on posted GRNs. Orders completed by the old one-step receipt count as fully received."""
+        from django.db.models import Sum
+        agg = self.grn_lines.filter(grn__status='posted').aggregate(a=Sum('accepted'), h=Sum('hold'))
+        got = (agg['a'] or Decimal('0')) + (agg['h'] or Decimal('0'))
+        if not got and self.order.status == 'Completed' and not self.grn_lines.exists():
+            return self.quantity
+        return got
 
     @property
     def to_receive(self):
@@ -1099,7 +1104,8 @@ class DispatchLine(models.Model):
 
 class Weighment(models.Model):
     """Immutable weighbridge reading. A reweigh adds a new row and links the old one; nothing is ever edited."""
-    dispatch = models.ForeignKey(Dispatch, on_delete=models.PROTECT, related_name='weighments')
+    dispatch = models.ForeignKey(Dispatch, null=True, blank=True, on_delete=models.PROTECT, related_name='weighments')
+    grn = models.ForeignKey('GoodsReceipt', null=True, blank=True, on_delete=models.PROTECT, related_name='weighments')
     kind = models.CharField(max_length=5, choices=[('tare', 'Tare (empty)'), ('gross', 'Gross (loaded)')])
     weight_kg = models.PositiveIntegerField()
     source = models.CharField(max_length=6, default='manual', choices=[('scale', 'Scale interface'), ('manual', 'Manual entry')])
@@ -1111,7 +1117,9 @@ class Weighment(models.Model):
 
     class Meta:
         ordering = ['captured_at']
-        constraints = [models.CheckConstraint(condition=models.Q(weight_kg__gt=0), name='weighment_positive')]
+        constraints = [models.CheckConstraint(condition=models.Q(weight_kg__gt=0), name='weighment_positive'),
+                       models.CheckConstraint(condition=models.Q(dispatch__isnull=False, grn__isnull=True) | models.Q(dispatch__isnull=True, grn__isnull=False),
+                                              name='weighment_one_document')]
 
 
 # ---------- Freight (Step 3b, FR-LOG-013/014) ----------
@@ -1336,3 +1344,100 @@ class SupplierQuoteLine(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['quote', 'rfq_line'], name='one_rate_per_rfq_line')]
+
+
+# ---------- Inbound gate, weighment and goods receipt (Step 4b, FR-PUR-004…007) ----------
+
+GRN_STATUSES = [('gate_in', 'Inside — waiting weighment'), ('weighed', 'Gross weighed — unloading'), ('unloaded', 'Tare weighed — ready for GRN'),
+                ('posted', 'GRN posted'), ('cancelled', 'Cancelled')]
+
+
+class GoodsReceipt(models.Model):
+    """One supplier truck against one purchase order: gate-in → gross → unload → tare → GRN (accepted / rejected / damaged / quality hold)."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='receipts_in')
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name='grns', limit_choices_to={'kind': 'Purchase'})
+    supplier = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='grns')
+    status = models.CharField(max_length=10, choices=GRN_STATUSES, default='gate_in')
+    vehicle_number = models.CharField('Vehicle no.', max_length=15)
+    driver_name = models.CharField(max_length=80, blank=True)
+    driver_mobile = models.CharField(max_length=10, blank=True)
+    transporter_name = models.CharField('Transporter', max_length=100, blank=True)
+    challan_number = models.CharField("Supplier's invoice / challan no.", max_length=40)
+    challan_date = models.DateField(null=True, blank=True)
+    eway_bill = models.CharField('E-way bill no.', max_length=12, blank=True)
+    photo = models.BinaryField(null=True, blank=True, editable=False)
+    photo_type = models.CharField(max_length=40, blank=True, editable=False)
+    gate_in_at = models.DateTimeField(default=timezone.now)
+    gate_in_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    variance_reason = models.CharField('Reason for shortage / excess', max_length=200, blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True)
+    posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    notes = models.CharField(max_length=200, blank=True)
+    cancel_reason = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ['-gate_in_at']
+        verbose_name = 'goods receipt'
+        permissions = [('post_goodsreceipt', 'Post goods receipt (store)'), ('release_goodsreceipt', 'Release or reject quality-hold material')]
+        constraints = [models.UniqueConstraint(fields=['supplier', 'challan_number'], condition=~models.Q(status='cancelled'), name='unique_supplier_challan')]
+
+    def __str__(self): return self.number
+
+    def reading(self, kind):
+        return self.weighments.filter(kind=kind, superseded_by__isnull=True).first()
+
+    @property
+    def gross(self): return self.reading('gross')
+
+    @property
+    def tare(self): return self.reading('tare')
+
+    @property
+    def net_kg(self):
+        g, t = self.gross, self.tare
+        return (g.weight_kg - t.weight_kg) if g and t else None
+
+    @property
+    def badge(self):
+        return {'posted': 'completed', 'cancelled': 'cancelled', 'unloaded': 'approved'}.get(self.status, 'submitted')
+
+    @property
+    def open_hold(self):
+        return sum((l.hold for l in self.lines.all() if not l.qc_at), Decimal('0'))
+
+
+class GRNLine(models.Model):
+    grn = models.ForeignKey(GoodsReceipt, on_delete=models.CASCADE, related_name='lines')
+    po_line = models.ForeignKey(OrderLine, on_delete=models.PROTECT, related_name='grn_lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    challan_qty = models.DecimalField("Supplier's qty", max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    received = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    accepted = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    rejected = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    damaged = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    hold = models.DecimalField('Quality hold', max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    reject_reason = models.CharField(max_length=150, blank=True)
+    # Quality release of the held quantity
+    qc_accepted = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    qc_rejected = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    qc_note = models.CharField(max_length=200, blank=True)
+    qc_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    qc_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(received=models.F('accepted') + models.F('rejected') + models.F('damaged') + models.F('hold')),
+                                              name='grn_line_balances')]
+
+    @property
+    def short(self):
+        return max(self.challan_qty - self.received, Decimal('0'))
+
+    @property
+    def excess(self):
+        return max(self.received - self.challan_qty, Decimal('0'))
+
+    @property
+    def usable(self):
+        """Quantity Sistech keeps (and pays for): accepted now + accepted after quality release."""
+        return self.accepted + self.qc_accepted

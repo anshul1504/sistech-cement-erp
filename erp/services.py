@@ -59,24 +59,30 @@ def transition_order(user, pk, action):
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')
         if order.kind == 'Sale' and order.site.uses_weighbridge:
             raise ValidationError(f'{order.site.code} dispatches through gate & weighbridge — plan a truck instead.')
+        if order.kind == 'Purchase':
+            raise ValidationError('Purchases are received truck by truck through Goods receipt (gate-in → GRN).')
         if not order.site.active or not order.partner.active: raise ValidationError('Site and partner must be active.')
         for line in order.lines.select_related('product').order_by('product_id', 'pk'):
             if not line.product.active: raise ValidationError('An order product is inactive.')
             move_stock(user, order.site, line.product, line.quantity if order.kind == 'Purchase' else -line.quantity, f'order:{order.pk}:line:{line.pk}', 'Receipt' if order.kind == 'Purchase' else 'Dispatch')
         order.status = 'Completed'
     elif action == 'cancel':
+        if order.status in ('Part dispatched', 'Part received'): raise ValidationError('Part of this order has already moved — short-close it instead.')
         if order.status not in ['Draft', 'Submitted', 'Approved']: raise ValidationError('Completed or cancelled orders cannot be cancelled.')
         if order.dispatches.exclude(status='cancelled').exists(): raise ValidationError('A truck is planned or on its way — cancel the dispatch first.')
+        if order.kind == 'Purchase' and order.grns.exclude(status='cancelled').exists(): raise ValidationError('Material has been received on this order — short-close it instead.')
         order.status = 'Cancelled'
     elif action == 'close':
         # Short-close: the customer does not want the rest. Nothing open may remain on the gate.
-        if order.status != 'Part dispatched': raise ValidationError('Only part-dispatched orders can be short-closed.')
+        if order.status not in ('Part dispatched', 'Part received'): raise ValidationError('Only part-dispatched or part-received orders can be short-closed.')
+        if order.kind == 'Purchase' and order.grns.filter(status__in=['gate_in', 'weighed', 'unloaded']).exists():
+            raise ValidationError('A supplier truck is still inside for this order — post or cancel its receipt first.')
         if order.dispatches.filter(status__in=['planned', 'gate_in', 'tared', 'loading', 'loaded', 'weighed']).exists():
             raise ValidationError('Finish or cancel the trucks still inside the plant first.')
         order.status = 'Completed'
     else: raise ValidationError('Unknown action.')
     order.save(update_fields=['status', 'approved_by'])
-    if order.kind == 'Purchase' and action in ('approve', 'cancel', 'post'):
+    if order.kind == 'Purchase' and action in ('approve', 'cancel', 'close'):
         from .procurement import refresh_requests
         refresh_requests(order)
         if action == 'cancel' and order.quote_id and order.quote.rfq.status == 'awarded':

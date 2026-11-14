@@ -47,11 +47,11 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 2. ✅ Gate-in with token, tare, loading (bags/MT, bay, seal), gross, net = gross − tare with tolerance; **immutable readings + reweigh**.
 3. ✅ Gate pass / weighment slip printing; stock posts at one configured event only.
 4. ✅ Trips, POD, freight rate cards and freight bill check.
-5. Inbound flow for purchases: gate → weighment → unload → GRN — built with Step 4 (GRN).
+5. ✅ Inbound flow for purchases: gate → weighment → unload → GRN — built with Step 4 (GRN).
 
 ### Step 4 — Procure-to-pay (SRS Phase 1–3, §4.2, §5.4)
 1. ✅ Purchase requests (manual + reorder level), RFQ and comparison, PO approval by value.
-2. GRN with accepted / rejected / short / quality-hold quantities; incoming inspection.
+2. ✅ GRN with accepted / rejected / short / quality-hold quantities; incoming inspection.
 3. Supplier invoice with PO–GRN–invoice three-way match and duplicate check; supplier returns / debit notes.
 
 ### Step 5 — Inventory depth (§5.5)

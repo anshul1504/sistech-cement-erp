@@ -152,3 +152,12 @@ urlpatterns += [
     path('purchase/rfq/<int:pk>/award/', pcv.rfq_award, name='rfq_award'),
     path('purchase/rfq/<int:pk>/cancel/', pcv.rfq_cancel, name='rfq_cancel'),
 ]
+from erp import inbound_views as ibv
+urlpatterns += [
+    path('purchase/receipts/', ibv.inbound, name='inbound'),
+    path('purchase/receipts/gate-in/<int:order_pk>/', ibv.grn_new, name='grn_new'),
+    path('purchase/receipts/<int:pk>/', ibv.grn_detail, name='grn_detail'),
+    path('purchase/receipts/<int:pk>/print/', ibv.grn_print, name='grn_print'),
+    path('purchase/receipts/<int:pk>/photo/', ibv.grn_photo, name='grn_photo'),
+    path('purchase/receipts/<int:pk>/do/<str:action>/', ibv.grn_action, name='grn_action'),
+]

@@ -74,11 +74,21 @@ class WorkflowTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, 'Approved')
 
+    def receive(self, order):
+        from . import inbound
+        line = order.lines.get()
+        g = inbound.gate_in(self.maker, order, {'vehicle_number': 'MP04AB1234', 'challan_number': f'CH-{order.pk}'}, {line: line.quantity})
+        gl = g.lines.get()
+        inbound.post(self.checker, g.pk, {gl: {'received': line.quantity, 'accepted': line.quantity, 'rejected': 0, 'damaged': 0, 'hold': 0, 'reason': ''}})
+
     def test_purchase_receipt_increases_stock(self):
         order = self.make_order(kind='Purchase')
         self.approve(order)
-        transition_order(self.checker, order.pk, 'post')
+        with self.assertRaisesMessage(ValidationError, 'Goods receipt'):
+            transition_order(self.checker, order.pk, 'post')
+        self.receive(order)
         self.assertEqual(StockBalance.objects.get(product=self.product, site=self.site).quantity, 10)
+        self.assertEqual(Order.objects.get(pk=order.pk).status, 'Completed')
 
     def test_credit_limit_includes_approved_orders(self):
         self.dealer.credit_limit = 1500
@@ -91,7 +101,7 @@ class WorkflowTests(TestCase):
     def test_completed_order_cannot_cancel(self):
         order = self.make_order(kind='Purchase')
         self.approve(order)
-        transition_order(self.checker, order.pk, 'post')
+        self.receive(order)
         with self.assertRaises(ValidationError): transition_order(self.maker, order.pk, 'cancel')
 
     def test_duplicate_source_rolls_back_balance(self):

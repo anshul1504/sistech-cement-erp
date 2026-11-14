@@ -132,6 +132,14 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 - **Award** raises a draft PO linked line by line to the request, with supplier freight added into the rate (part of the value of supply under GST), payment terms, over-receipt tolerance and delivery terms. **Direct PO** (single source / rate contract / breakdown) is allowed from an approved request with a mandatory reason shown to the approver.
 - **PO controls**: quantities can never exceed what the request approved (drafts count too); zero rates are refused; the approver must differ from the creator; POs above the **PO approval limit** (Organisation setup → Purchase controls, default ₹5,00,000 incl. GST) need the *High-value PO approval* permission (new *Purchase head* role). Roles: *Purchase officer*, *Purchase head*, *Store requester*.
 
+## Inbound gate, weighment & GRN (Step 4b)
+
+- **Goods receipt** (Procurement → Goods receipt): board of trucks inside, material on quality hold, approved POs expected from suppliers and posted receipts.
+- **Gate-in** against an approved PO: vehicle, driver, transporter, supplier invoice/challan number and date, e-way bill, optional photo of truck or challan (PDF/PNG/JPEG/WebP ≤ 5 MB), and the challan quantity per item. A challan number is accepted once per supplier; a vehicle cannot be inside twice.
+- **Weighbridge** (plants with *Gate & weighbridge* on): gross when the loaded truck arrives, tare after unloading. Readings are immutable; manual entry and every reweigh need a reason and keep the original. Locations without a weighbridge count at unloading.
+- **GRN**: per item received = accepted + rejected + damaged + quality hold; short / excess against the challan is worked out. Received MT/KG must match the weighbridge net within the plant tolerance (a single weight item is pre-filled from net). Accepted + hold cannot exceed PO quantity + its over-receipt tolerance — the excess is rejected. Rejected/damaged need a reason; a challan variance beyond tolerance needs a reason. Only accepted quantity enters stock (once, unique source per line). The PO moves to *Part received* / *Completed*; part-received POs can be short-closed but not cancelled. The printable **GRN** values accepted quantity at the PO rate.
+- **Quality hold** (FR-PUR-007): held quantity stays out of stock until a quality user — not the GRN poster — accepts and/or rejects it with the lab result. The one-step "receive & post" for purchases is retired; all purchases go through GRN. Roles: *Gate security* (gate-in), *Weighbridge operator*, *Warehouse operator* (post GRN), *Quality manager* (release).
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
@@ -155,7 +163,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Legal entities, GST registrations, financial periods, territory/dealer isolation and MFA remain. |
 | CRM and dealer network | Dealer/supplier master with GST, credit terms and KYC documents. Leads, KYC approval workflow, territory hierarchy, visits and project pipeline remain. |
 | Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, stock reservations/ATP and order revisions remain. |
-| Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate/weighment/GRN with quality hold (4b) and supplier-invoice three-way match / debit notes (4c) in progress. Budget check remains. |
+| Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier-invoice three-way match and debit notes (4c) in progress. Budget check remains. |
 | Inventory | Quantity ledger and opening stock. Lots, reservations, locations, transfers, returns, valuation and reversals remain. |
 | Production and quality | Output tracking and quality release only. BOM versions, material consumption, test specifications, COA, energy and actual costing remain. |
 | Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |

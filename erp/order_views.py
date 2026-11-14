@@ -129,7 +129,8 @@ def order_detail(request, pk):
     _check(request.user, order.kind, 'view')
     lines = list(order.lines.select_related('product', 'price_rule'))
     for l in lines:
-        l.sent = l.dispatched_quantity() if order.status in ('Part dispatched', 'Completed') else None
+        l.sent = l.dispatched_quantity() if order.kind == 'Sale' and order.status in ('Part dispatched', 'Completed') else None
+        l.got = l.received_quantity() if order.kind == 'Purchase' and order.status in ('Part received', 'Completed') else None
     tax = summarise(lines, order.is_interstate)
     actions = {f'can_{a}': order_permission(request.user, order.kind, a) for a in ['create', 'submit', 'approve', 'post', 'cancel']}
     checks = []
@@ -167,7 +168,7 @@ def order_detail(request, pk):
             limit = approval_limit()
             if tax['grand_total'] > limit:
                 checks.append(('info', f'Above the ₹{inr(limit, 0)} approval limit — needs a senior purchase approver.'))
-    flow = ['Draft', 'Submitted', 'Approved', 'Completed']
+    flow = ['Draft', 'Submitted', 'Approved', 'Part received', 'Completed'] if order.kind == 'Purchase' else ['Draft', 'Submitted', 'Approved', 'Completed']
     at = flow.index(order.status) if order.status in flow else -1
     steps = [(name, 'cancelled' if order.status == 'Cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i, name in enumerate(flow)]
     invoices = list(order.invoices.all()) if order.kind == 'Sale' else []
@@ -180,5 +181,6 @@ def order_detail(request, pk):
         steps.append(('Invoiced', 'cancelled' if order.status == 'Cancelled' else 'current' if invoices and order.status == 'Completed' else 'todo'))
     history = AuditEvent.objects.filter(reference=order.number).select_related('actor').order_by('-created_at')[:8]
     return render(request, 'erp/order_detail.html', {'title': order.number, 'order': order, 'lines': lines, 'tax': tax, 'words': in_words(tax['grand_total']),
-                                                     'checks': checks, 'history': history, 'requests': requests, 'steps': steps, 'invoice': invoice, 'invoices': invoices,
+                                                     'checks': checks, 'history': history, 'requests': requests,
+                                                     'grns': order.grns.prefetch_related('lines__product') if order.kind == 'Purchase' else [], 'steps': steps, 'invoice': invoice, 'invoices': invoices,
                                                      'dispatches': order.dispatches.select_related('vehicle', 'invoice').prefetch_related('lines__order_line__product') if order.kind == 'Sale' else [], **actions})

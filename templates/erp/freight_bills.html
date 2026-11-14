@@ -17,7 +17,7 @@
     {% if bills %}<ul class="mst-list prc-list">{% for b in bills %}
       <li class="{% if b.status == 'rejected' %}is-inactive{% endif %}">
         <a class="mst-main" href="{% url 'freight_bill_detail' b.pk %}"><span class="mst-icon is-transporter"><svg><use href="#ic-receipt"/></svg></span><span><strong>{{ b.transporter.name }}</strong><small>Bill {{ b.bill_number }} · {{ b.bill_date|date:'d M Y' }}</small></span></a>
-        <div class="mst-cell"><small>Claimed</small>₹{{ b.claimed|add:b.extras|indian }}</div>
+        <div class="mst-cell"><small>Claimed</small>₹{{ b.claimed|plus:b.extras|indian }}</div>
         <div class="mst-cell"><span class="prc-rate">₹{{ b.payable|indian }}</span></div>
         <div class="mst-cell">{% if b.status == 'approved' %}<span class="doc-badge is-ok">Approved</span>{% elif b.status == 'rejected' %}<span class="doc-badge is-danger">Rejected</span>{% else %}<span class="doc-badge is-warning">Waiting</span>{% endif %}</div>
         <div class="mst-cell"><small>Variance</small>{% if b.variance > 0 %}<span class="mst-missing">+₹{{ b.variance|indian }}</span>{% else %}—{% endif %}</div>

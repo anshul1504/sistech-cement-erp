@@ -12,7 +12,7 @@
           <div class="ord-cell" data-label="Stock"><strong class="led-late">{{ r.stock|qty }}</strong> <small class="ord-hint">{{ r.product.unit }}</small></div>
           <div class="ord-cell" data-label="Reorder level">{{ r.level|qty }}</div>
           <div class="ord-cell" data-label="On order / requested">{{ r.po|qty }} / {{ r.pr|qty }}</div>
-          <div class="ord-cell" data-label="Request quantity">{% if can_add %}<div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ r.key }}" value="{{ r.suggest|qty }}"><span data-unit>{{ r.product.unit }}</span></div>{% else %}{{ r.suggest|qty }}{% endif %}</div>
+          <div class="ord-cell" data-label="Request quantity">{% if can_add %}<div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ r.key }}" value="{{ r.suggest|floatformat:'-3' }}"><span data-unit>{{ r.product.unit }}</span></div>{% else %}{{ r.suggest|qty }}{% endif %}</div>
         </div>{% endfor %}</div>
       {% else %}<div class="doc-empty"><svg><use href="#ic-boxes"/></svg><strong>Nothing below reorder level</strong><span>Every item with a reorder level has enough stock or is already on order.</span></div>{% endif %}
     </section>

@@ -1,0 +1,28 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'order_detail' order.pk %}">← {{ order.number }}</a></div><h1>Gate-in supplier truck</h1><p>{{ order.partner.name }} → {{ order.site.code }}. Record the truck and what the supplier's challan says. {% if order.site.uses_weighbridge %}Next the truck goes to the weighbridge loaded (gross).{% else %}This location has no weighbridge — count and post the GRN after unloading.{% endif %}</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" enctype="multipart/form-data" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Truck &amp; documents</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="g-v">Vehicle no. <span class="required">*</span></label><input class="form-control" id="g-v" name="vehicle_number" maxlength="15" value="{{ post.vehicle_number }}" placeholder="MP 04 GA 1234" style="text-transform:uppercase"></div>
+      <div class="org-field"><label class="form-label" for="g-dn">Driver name</label><input class="form-control" id="g-dn" name="driver_name" maxlength="80" value="{{ post.driver_name }}"></div>
+      <div class="org-field"><label class="form-label" for="g-dm">Driver mobile</label><input class="form-control" id="g-dm" name="driver_mobile" maxlength="14" inputmode="numeric" value="{{ post.driver_mobile }}"></div>
+      <div class="org-field"><label class="form-label" for="g-t">Transporter</label><input class="form-control" id="g-t" name="transporter_name" maxlength="100" value="{{ post.transporter_name }}"></div>
+      <div class="org-field"><label class="form-label" for="g-c">Supplier invoice / challan no. <span class="required">*</span></label><input class="form-control" id="g-c" name="challan_number" maxlength="40" value="{{ post.challan_number }}"></div>
+      <div class="org-field"><label class="form-label" for="g-cd">Challan date</label><input class="form-control" id="g-cd" type="date" name="challan_date" max="{{ today }}" value="{{ post.challan_date }}"></div>
+      <div class="org-field"><label class="form-label" for="g-e">E-way bill no.</label><input class="form-control" id="g-e" name="eway_bill" maxlength="14" inputmode="numeric" value="{{ post.eway_bill }}"></div>
+      <div class="org-field"><label class="form-label" for="g-p">Photo of truck / challan</label><input class="form-control" id="g-p" type="file" name="photo" accept="image/png,image/jpeg,image/webp,application/pdf" capture="environment"><div class="form-text">PDF, PNG, JPEG or WebP, up to 5 MB.</div></div>
+      <div class="org-field is-wide"><label class="form-label" for="g-n">Notes</label><input class="form-control" id="g-n" name="notes" maxlength="200" value="{{ post.notes }}"></div>
+    </div></section>
+    <section class="org-card"><header><h2>As per supplier's challan</h2><p>Leave empty for items not on this truck.</p></header><div class="ord-lines">{% for l in lines %}
+      <div class="ord-line dp-line">
+        <div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>Ordered {{ l.quantity|qty }} · to receive {{ l.to_receive|qty }} {{ l.product.unit }} · ₹{{ l.rate|indian:2 }}</small></div>
+        <div class="ord-cell" data-label="Challan quantity"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{{ l.qty_in }}"><span data-unit>{{ l.product.unit }}</span></div></div>
+        <div class="ord-cell"></div><div class="ord-cell"></div>
+      </div>{% empty %}<p class="acc-muted">Nothing left to receive on this order.</p>{% endfor %}</div></section>
+    <div class="org-actions"><span>The vehicle is logged inside the plant with time and your name.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'order_detail' order.pk %}">Cancel</a><button class="org-btn is-primary" type="submit"{% if not lines %} disabled{% endif %}>Gate-in</button></div></div>
+  </form>
+</div>
+{% endblock %}

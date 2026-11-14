@@ -1,0 +1,34 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PROCUREMENT</div><h1>Goods receipt</h1><p>Supplier trucks against approved purchase orders: gate-in, gross weight, unloading, tare, then the GRN. Only accepted quantity enters stock; material on quality hold waits for the lab.</p></div></div>
+  {% include 'erp/_proc_tabs.html' with tab='grn' %}
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi{% if inside %} is-warn{% endif %}"><span>Trucks inside</span><strong>{{ inside|length }}</strong><small>Weigh, unload, post GRN</small></div>
+    <div role="listitem" class="inf-kpi{% if held %} is-danger{% endif %}"><span>Quality hold</span><strong>{{ held|length }}</strong><small>Waiting lab release</small></div>
+    <div role="listitem" class="inf-kpi"><span>Expected deliveries</span><strong>{{ pos|length }}</strong><small>Open purchase orders</small></div>
+    <div role="listitem" class="inf-kpi is-ok"><span>GRNs today</span><strong>{{ today_count }}</strong><small>Posted</small></div>
+  </div>
+  {% if inside %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Inside the plant</h2></header>
+    <ul class="mst-order-list">{% for g in inside %}<li><a href="{% url 'grn_detail' g.pk %}"><strong>{{ g.vehicle_number }} · {{ g.number }}</strong><small>{{ g.supplier.name }} · {{ g.order.number }} · in {{ g.gate_in_at|timesince }}</small></a><span class="org-chip ord-status is-{{ g.badge }}">{{ g.get_status_display }}</span><a class="org-btn is-light is-sm" href="{% url 'grn_detail' g.pk %}">Open</a></li>{% endfor %}</ul></section>{% endif %}
+  {% if held %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Quality hold</h2><span class="acc-muted">Not in stock until released</span></header>
+    <ul class="mst-order-list">{% for l in held %}<li><a href="{% url 'grn_detail' l.grn_id %}"><strong>{{ l.product.name }} · {{ l.hold|qty }} {{ l.product.unit }}</strong><small>{{ l.grn.number }} · {{ l.grn.supplier.name }} · since {{ l.grn.posted_at|date:'d M' }}</small></a><span class="doc-badge is-warning">On hold</span><span></span></li>{% endfor %}</ul></section>{% endif %}
+  <section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Expected from suppliers</h2><span class="acc-muted">Approved POs with quantity still to receive</span></header>
+    {% if pos %}<ul class="mst-order-list">{% for o in pos %}<li><a href="{% url 'order_detail' o.pk %}"><strong>{{ o.partner.name }} · {{ o.number }}</strong><small>{{ o.site.code }} · {% for l, q in o.pending %}{{ l.product.name }} {{ q|qty }} {{ l.product.unit }}{% if not forloop.last %}, {% endif %}{% endfor %} · due <span class="{% if o.late %}led-late{% endif %}">{{ o.due_date|date:'d M' }}</span></small></a><span></span>{% if can_gate %}<a class="org-btn is-primary is-sm" href="{% url 'grn_new' o.pk %}">Gate-in</a>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="acc-muted">No approved purchase orders waiting for delivery.</p>{% endif %}</section>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Receipts</h2><p>Posted and cancelled</p></div><form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="GRN, vehicle, challan or supplier" aria-label="Search"></form></header>
+    {% if recent %}<ul class="mst-list prc-list pr-list">{% for g in recent %}
+      <li class="{% if g.status == 'cancelled' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'grn_detail' g.pk %}"><span class="mst-icon is-supplier"><svg><use href="#ic-boxes"/></svg></span><span><strong>{{ g.number }}</strong><small>{{ g.supplier.name }} · {{ g.vehicle_number }}</small></span></a>
+        <div class="mst-cell"><small>Order</small>{{ g.order.number }}</div>
+        <div class="mst-cell"><small>Challan</small>{{ g.challan_number }}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ g.badge }}">● {% if g.status == 'posted' %}Posted{% else %}{{ g.get_status_display }}{% endif %}</span></div>
+        <div class="mst-cell"><small>Date</small>{{ g.posted_at|default:g.gate_in_at|date:'d M Y' }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'grn_detail' g.pk %}">Open</a>
+      </li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-boxes"/></svg><strong>No receipts yet</strong><span>Gate-in a supplier truck from an approved purchase order.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

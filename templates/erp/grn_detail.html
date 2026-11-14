@@ -1,0 +1,122 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'inbound' %}">← Goods receipt</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-supplier"><svg><use href="#ic-boxes"/></svg></span>
+    <div class="org-hero-text"><h1>{{ g.number }}</h1><p>{{ g.supplier.name }} · <a href="{% url 'order_detail' g.order.pk %}">{{ g.order.number }}</a> · {{ g.site.code }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ g.badge }}">● {{ g.get_status_display }}</span><span class="org-chip is-mono">{{ g.vehicle_number }}</span><span class="org-chip">Challan {{ g.challan_number }}</span></div></div>
+    <div class="org-hero-side"><small>Net weight</small><span class="mst-total">{% if g.net_kg %}{{ g.net_kg|indian }} kg{% else %}—{% endif %}</span><small>{% if g.site.uses_weighbridge %}Scale {{ g.site.scale_id|default:'not set' }}{% else %}No weighbridge at {{ g.site.code }}{% endif %}</small></div>
+  </section>
+  {% if g.cancel_reason %}<ul class="ord-checks"><li class="is-danger">Cancelled: {{ g.cancel_reason }}</li></ul>{% endif %}
+  {% if g.variance_reason %}<ul class="ord-checks"><li class="is-warn">Variance against challan: {{ g.variance_reason }}</li></ul>{% endif %}
+  {% if g.status == 'posted' %}<div class="doc-head-actions pr-actions"><a class="org-btn is-light" href="{% url 'grn_print' g.pk %}" target="_blank">Print GRN</a></div>{% endif %}
+  <div class="acc-grid">
+    {% if weigh_next %}<section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>{% if weigh_next == 'gross' %}Gross weight (loaded truck){% else %}Tare weight (after unloading){% endif %}</h2><span class="acc-muted">Scale {{ g.site.scale_id|default:'not set' }}</span></header>
+      {% if can.weigh %}<form method="post" action="{% url 'grn_action' g.pk weigh_next %}" class="lg-weigh">{% csrf_token %}
+        <div class="org-grid">
+          <div class="org-field"><label class="form-label" for="w-kg">Reading (kg) <span class="required">*</span></label><input class="form-control lg-big" id="w-kg" type="number" name="weight_kg" min="1" max="80000" step="1" inputmode="numeric" required{% if weigh_next == 'tare' %} placeholder="less than {{ g.gross.weight_kg }}"{% endif %}></div>
+          <div class="org-field"><label class="form-label" for="w-src">Source</label><select class="form-select" id="w-src" name="source"><option value="manual">Manual entry</option><option value="scale">Scale interface</option></select></div>
+          <div class="org-field is-wide"><label class="form-label" for="w-r">Reason (required for manual entry)</label><input class="form-control" id="w-r" name="reason" maxlength="150" placeholder="e.g. Scale interface not connected yet"></div>
+        </div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Record {{ weigh_next }}</button></div></form>
+      {% if weigh_next == 'tare' %}<p class="acc-note">Unload the material first. Store checks quantity and quality while unloading.</p>{% endif %}
+      {% else %}<p class="acc-muted">Waiting for the weighbridge operator.</p>{% endif %}
+    </section>{% endif %}
+
+    {% if g.status == 'unloaded' %}<section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Post GRN</h2><span class="acc-muted">Received = accepted + rejected + damaged + hold</span></header>
+      {% if can.post %}<form method="post" action="{% url 'grn_action' g.pk 'post' %}" class="doc-form" novalidate data-grn>{% csrf_token %}
+        <div class="ord-lines">
+          <div class="ord-line grn-line ord-line-head" aria-hidden="true"><span>Item</span><span>Received</span><span>Accepted</span><span>Rejected</span><span>Damaged</span><span>Quality hold</span><span>Reason</span></div>
+          {% for l in lines %}
+          <div class="ord-line grn-line" data-grn-line>
+            <div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>Challan {{ l.challan_qty|qty }} {{ l.product.unit }} · can take up to {{ l.room|qty }} · PO ₹{{ l.po_line.rate|indian:2 }}</small></div>
+            <div class="ord-cell" data-label="Received"><input class="form-control" type="number" step="any" min="0" name="received_{{ l.pk }}" value="{{ l.f.received|default:l.suggest|floatformat:'-3' }}" data-k="received"></div>
+            <div class="ord-cell" data-label="Accepted"><input class="form-control" type="number" step="any" min="0" name="accepted_{{ l.pk }}" value="{{ l.f.accepted|default:l.suggest|floatformat:'-3' }}" data-k="accepted"></div>
+            <div class="ord-cell" data-label="Rejected"><input class="form-control" type="number" step="any" min="0" name="rejected_{{ l.pk }}" value="{{ l.f.rejected|default:'0' }}" data-k="rejected"></div>
+            <div class="ord-cell" data-label="Damaged"><input class="form-control" type="number" step="any" min="0" name="damaged_{{ l.pk }}" value="{{ l.f.damaged|default:'0' }}" data-k="damaged"></div>
+            <div class="ord-cell" data-label="Quality hold"><input class="form-control" type="number" step="any" min="0" name="hold_{{ l.pk }}" value="{{ l.f.hold|default:'0' }}" data-k="hold"></div>
+            <div class="ord-cell grn-reason" data-label="Reject / damage reason"><input class="form-control" name="reason_{{ l.pk }}" maxlength="150" value="{{ l.f.reason }}" placeholder="e.g. Moisture above 12%"><small class="ord-hint" data-check></small></div>
+          </div>{% endfor %}</div>
+        <div class="org-field"><label class="form-label" for="g-vr">Reason for shortage / excess against challan (if any)</label><input class="form-control" id="g-vr" name="variance_reason" maxlength="200" value="{{ variance_reason }}"></div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Post GRN</button></div>
+      </form>
+      {% if g.net_kg %}<p class="acc-note">Net {{ g.net_kg|indian }} kg. Received MT / KG items must match within ±{{ g.site.weight_tolerance_pct|qty }}%.</p>{% endif %}
+      {% else %}<p class="acc-muted">Waiting for the store to post the GRN.</p>{% endif %}
+    </section>{% endif %}
+
+    {% if g.status == 'posted' %}<section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Received</h2><span class="acc-muted">Posted {{ g.posted_at|date:'d M Y, H:i' }} by {{ g.posted_by.get_full_name|default:g.posted_by.username }}</span></header>
+      <div class="ord-table grn-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Item</span><span>Challan</span><span>Received</span><span>Short / excess</span><span>Accepted</span><span>Rejected + damaged</span><span>Hold</span></div>
+        {% for l in lines %}<div class="ord-tr" role="row">
+          <span class="ord-name"><strong>{{ l.product.name }}</strong><small>{{ l.product.unit }}{% if l.reject_reason %} · {{ l.reject_reason }}{% endif %}</small></span>
+          <span data-label="Challan">{{ l.challan_qty|qty }}</span>
+          <span data-label="Received">{{ l.received|qty }}</span>
+          <span data-label="Short / excess">{% if l.short %}<span class="led-late">−{{ l.short|qty }}</span>{% elif l.excess %}+{{ l.excess|qty }}{% else %}—{% endif %}</span>
+          <span data-label="Accepted"><strong>{{ l.accepted|qty }}</strong>{% if l.qc_accepted %}<small>+{{ l.qc_accepted|qty }} after QC</small>{% endif %}</span>
+          <span data-label="Rejected + damaged">{{ l.rejected|plus:l.damaged|qty }}{% if l.qc_rejected %}<small>+{{ l.qc_rejected|qty }} after QC</small>{% endif %}</span>
+          <span data-label="Hold">{% if l.hold %}{% if l.qc_at %}Decided{% else %}<span class="doc-badge is-warning">{{ l.hold|qty }}</span>{% endif %}{% else %}—{% endif %}</span>
+        </div>{% endfor %}
+      </div>
+    </section>
+    {% for l in lines %}{% if l.hold and not l.qc_at %}<section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Quality release · {{ l.product.name }}</h2><span class="acc-muted">{{ l.hold|qty }} {{ l.product.unit }} on hold</span></header>
+      {% if can.release %}<form method="post" action="{% url 'grn_action' g.pk 'release' %}">{% csrf_token %}<input type="hidden" name="line" value="{{ l.pk }}">
+        <div class="org-grid">
+          <div class="org-field"><label class="form-label" for="qa-{{ l.pk }}">Accept into stock</label><input class="form-control" id="qa-{{ l.pk }}" type="number" step="any" min="0" name="accept" value="{{ l.hold|floatformat:'-3' }}"></div>
+          <div class="org-field"><label class="form-label" for="qr-{{ l.pk }}">Reject (return to supplier)</label><input class="form-control" id="qr-{{ l.pk }}" type="number" step="any" min="0" name="reject" value="0"></div>
+          <div class="org-field is-wide"><label class="form-label" for="qn-{{ l.pk }}">Test result / lab report <span class="required">*</span></label><input class="form-control" id="qn-{{ l.pk }}" name="note" maxlength="200" required placeholder="e.g. Lab report LR-118: GCV 5720, moisture 11.2%"></div>
+        </div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Record decision</button></div></form>
+      {% else %}<p class="acc-muted">A quality user other than {{ g.posted_by.get_full_name|default:g.posted_by.username }} must release this hold.</p>{% endif %}
+    </section>{% elif l.qc_at %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>QC · {{ l.product.name }}</h2></header><p class="acc-note">Accepted {{ l.qc_accepted|qty }}, rejected {{ l.qc_rejected|qty }} by {{ l.qc_by.get_full_name|default:l.qc_by.username }} on {{ l.qc_at|date:'d M Y' }} — {{ l.qc_note }}</p></section>{% endif %}{% endfor %}
+    {% endif %}
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Gate</h2>{% if g.photo_type %}<a href="{% url 'grn_photo' g.pk %}" target="_blank">View photo</a>{% endif %}</header>
+      <dl>
+        <div><dt>Vehicle</dt><dd class="is-mono">{{ g.vehicle_number }}</dd></div>
+        <div><dt>Driver</dt><dd>{{ g.driver_name|default:'—' }}{% if g.driver_mobile %} · {{ g.driver_mobile }}{% endif %}</dd></div>
+        <div><dt>Transporter</dt><dd>{{ g.transporter_name|default:'—' }}</dd></div>
+        <div><dt>Challan</dt><dd>{{ g.challan_number }}{% if g.challan_date %} · {{ g.challan_date|date:'d M Y' }}{% endif %}</dd></div>
+        <div><dt>E-way bill</dt><dd>{{ g.eway_bill|default:'—' }}</dd></div>
+        <div><dt>Gate-in</dt><dd>{{ g.gate_in_at|date:'d M Y, H:i' }} · {{ g.gate_in_by.get_full_name|default:g.gate_in_by.username }}</dd></div>
+      </dl>
+      {% if g.notes %}<p class="acc-note">{{ g.notes }}</p>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Weighbridge</h2></header>
+      {% if weighments %}<ul class="mst-order-list">{% for w in weighments %}<li class="{% if w.superseded_by_id %}lg-old{% endif %}"><span><strong>{{ w.get_kind_display }} · {{ w.weight_kg|indian }} kg</strong><small>{{ w.captured_at|date:'d M, H:i' }} · {{ w.captured_by.get_full_name|default:w.captured_by.username }} · {{ w.get_source_display }}{% if w.reason %} · {{ w.reason }}{% endif %}</small></span>{% if w.superseded_by_id %}<span class="doc-badge">Replaced</span>{% else %}<span class="doc-badge is-ok">Current</span>{% endif %}<span></span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">{% if g.site.uses_weighbridge %}No readings yet.{% else %}Not used at this location.{% endif %}</p>{% endif %}
+      {% if can.weigh and g.status in 'weighed unloaded' %}<details class="inf-log" style="margin-top:12px"><summary><svg><use href="#ic-scale"/></svg>Reweigh (keeps the original)</summary>
+        <form method="post" class="inf-log-form" action="{% url 'grn_action' g.pk 'gross' %}">{% csrf_token %}
+          <div class="org-field"><label class="form-label" for="rw-k">Reading</label><select class="form-select" id="rw-k" onchange="this.form.action=this.value"><option value="{% url 'grn_action' g.pk 'gross' %}">Gross</option>{% if g.status == 'unloaded' %}<option value="{% url 'grn_action' g.pk 'tare' %}">Tare</option>{% endif %}</select></div>
+          <div class="org-field"><label class="form-label" for="rw-w">Weight (kg)</label><input class="form-control" id="rw-w" type="number" name="weight_kg" min="1" step="1" required></div>
+          <div class="org-field"><label class="form-label" for="rw-r">Reason <span class="required">*</span></label><input class="form-control" id="rw-r" name="reason" maxlength="150" required></div>
+          <div class="inf-log-actions"><button class="org-btn is-primary is-sm" type="submit">Record reweigh</button></div></form></details>{% endif %}
+    </section>
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}
+      {% if can.cancel and g.status in 'gate_in weighed unloaded' %}<details class="pr-cancel"><summary>Cancel this receipt (truck sent back)</summary><form method="post" action="{% url 'grn_action' g.pk 'cancel' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="g-cn">Reason</label><input class="form-control" id="g-cn" name="reason" maxlength="150" required></div><button class="org-btn is-light is-danger is-sm" type="submit">Cancel receipt</button></form></details>{% endif %}
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  // Live check: accepted + rejected + damaged + hold must equal received.
+  document.querySelectorAll('[data-grn-line]').forEach(row => {
+    const v = k => parseFloat(row.querySelector(`[data-k="${k}"]`).value) || 0;
+    const out = row.querySelector('[data-check]');
+    const check = () => {
+      const diff = v('received') - (v('accepted') + v('rejected') + v('damaged') + v('hold'));
+      out.textContent = Math.abs(diff) < 0.0005 ? '' : (diff > 0 ? `${diff.toFixed(3).replace(/\.?0+$/, '')} not yet split` : `${(-diff).toFixed(3).replace(/\.?0+$/, '')} more than received`);
+      out.classList.toggle('is-warn', !!out.textContent);
+    };
+    row.addEventListener('input', check); check();
+  });
+})();
+</script>
+{% endblock %}

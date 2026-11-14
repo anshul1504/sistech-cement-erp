@@ -7,7 +7,7 @@
     <span class="mst-icon is-xl is-transporter"><svg><use href="#ic-receipt"/></svg></span>
     <div class="org-hero-text"><h1>{{ bill.transporter.name }}</h1><p>Bill {{ bill.bill_number }} · {{ bill.bill_date|date:'d M Y' }} · entered by {{ bill.created_by.get_full_name|default:bill.created_by.username }}</p>
       <div class="org-chips">{% if bill.status == 'approved' %}<span class="org-chip ord-status is-completed">● Approved by {{ bill.checked_by.get_full_name|default:bill.checked_by.username }}</span>{% elif bill.status == 'rejected' %}<span class="org-chip ord-status is-cancelled">● Rejected</span>{% else %}<span class="org-chip ord-status is-submitted">● Waiting for check</span>{% endif %}</div></div>
-    <div class="org-hero-side"><small>Payable</small><span class="mst-total">₹{{ bill.payable|indian:2 }}</span><small>Claimed ₹{{ bill.claimed|add:bill.extras|indian:2 }}</small></div>
+    <div class="org-hero-side"><small>Payable</small><span class="mst-total">₹{{ bill.payable|indian:2 }}</span><small>Claimed ₹{{ bill.claimed|plus:bill.extras|indian:2 }}</small></div>
   </section>
   {% if bill.variance > 0 %}<ul class="ord-checks"><li class="is-warn">Claimed ₹{{ bill.variance|indian:2 }} more than contract (freight + extras). Only contracted freight and allowed extras are payable.</li></ul>{% endif %}
   {% if bill.check_note %}<ul class="ord-checks"><li class="is-info">Checker's note: {{ bill.check_note }}</li></ul>{% endif %}
@@ -27,7 +27,7 @@
         </div>{% empty %}<p class="acc-muted" style="padding:12px 0">Trips were released when the bill was rejected.</p>{% endfor %}
       </div>
       <div class="ord-summary"><span></span><div class="ord-totals is-static">
-        <div><span>Contract</span><strong>₹{{ bill.contracted|indian:2 }}</strong></div><div><span>Claimed + extras</span><strong>₹{{ bill.claimed|add:bill.extras|indian:2 }}</strong></div>
+        <div><span>Contract</span><strong>₹{{ bill.contracted|indian:2 }}</strong></div><div><span>Claimed + extras</span><strong>₹{{ bill.claimed|plus:bill.extras|indian:2 }}</strong></div>
         <div><span>Shortage recovery</span><strong>−₹{{ bill.deductions|indian:2 }}</strong></div><div><span>Advance paid</span><strong>−₹{{ bill.advance|indian:2 }}</strong></div>
         <div class="is-grand"><span>Payable</span><strong>₹{{ bill.payable|indian:2 }}</strong></div></div></div>
     </section>

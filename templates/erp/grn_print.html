@@ -1,0 +1,25 @@
+{% extends 'erp/base.html' %}{% load erp_format static %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  <div class="ord-workflow inv-noprint"><div><a href="{% url 'grn_detail' g.pk %}">← {{ g.number }}</a></div><div class="ord-buttons"><button class="org-btn is-primary" type="button" onclick="window.print()">Print</button></div></div>
+  <article class="inv-sheet lg-slip">
+    <header class="inv-top">
+      <div class="inv-brand">{% if org_logo_url %}<img src="{{ org_logo_url }}" alt="">{% endif %}<div><h2>{{ company.legal_name }}</h2><p>{{ g.site.name }} · {{ g.site.full_address }}</p>{% if g.site.gstin %}<p><b>GSTIN</b> {{ g.site.gstin }}</p>{% endif %}</div></div>
+      <div class="inv-title"><span>Store copy</span><h1>Goods receipt note</h1>
+        <dl><div><dt>GRN</dt><dd>{{ g.number }}</dd></div><div><dt>Date</dt><dd>{{ g.posted_at|date:'d-m-Y' }}</dd></div><div><dt>PO</dt><dd>{{ g.order.number }}</dd></div><div><dt>Challan</dt><dd>{{ g.challan_number }}</dd></div><div><dt>Printed</dt><dd>{{ now|date:'d-m-Y H:i' }}</dd></div></dl></div>
+    </header>
+    <section class="inv-parties">
+      <div><h3>Supplier</h3><strong>{{ g.supplier.name }}</strong><p>{{ g.supplier.full_address|default:'—' }}</p><p><b>GSTIN</b> {{ g.supplier.gstin|default:'Unregistered' }}</p></div>
+      <div><h3>Vehicle</h3><strong class="is-mono">{{ g.vehicle_number }}</strong><p>{{ g.driver_name|default:'—' }}{% if g.driver_mobile %} · {{ g.driver_mobile }}{% endif %}</p><p><b>E-way bill</b> {{ g.eway_bill|default:'—' }}</p></div>
+      <div><h3>Weighbridge</h3>{% if g.net_kg %}<strong>{{ g.net_kg|indian }} kg net</strong><p>Gross {{ g.gross.weight_kg|indian }} · tare {{ g.tare.weight_kg|indian }} kg</p>{% else %}<p>Counted at unloading</p>{% endif %}</div>
+    </section>
+    <table class="inv-lines"><thead><tr><th>Item</th><th class="num">Challan</th><th class="num">Received</th><th class="num">Accepted</th><th class="num">Rejected</th><th class="num">Damaged</th><th class="num">Hold</th><th class="num">Value @ PO rate</th></tr></thead>
+      <tbody>{% for l in lines %}<tr><td>{{ l.product.name }} <small>({{ l.product.unit }})</small>{% if l.reject_reason %}<br><small>{{ l.reject_reason }}</small>{% endif %}{% if l.qc_at %}<br><small>QC: +{{ l.qc_accepted|qty }} accepted, {{ l.qc_rejected|qty }} rejected</small>{% endif %}</td><td class="num">{{ l.challan_qty|qty }}</td><td class="num">{{ l.received|qty }}</td><td class="num">{{ l.accepted|qty }}</td><td class="num">{{ l.rejected|qty }}</td><td class="num">{{ l.damaged|qty }}</td><td class="num">{{ l.hold|qty }}</td><td class="num">₹{{ l.value|indian:2 }}</td></tr>{% endfor %}</tbody></table>
+    <section class="inv-bottom"><div class="inv-words">{% if g.variance_reason %}<p><b>Variance</b><br>{{ g.variance_reason }}</p>{% endif %}<p>Rejected and damaged material is returned to the supplier against a debit note. Payment is only for accepted quantity.</p></div>
+      <dl class="inv-totals"><div><dt>Gate-in</dt><dd>{{ g.gate_in_at|date:'d-m-Y H:i' }}</dd></div><div><dt>Posted by</dt><dd>{{ g.posted_by.get_full_name|default:g.posted_by.username }}</dd></div></dl></section>
+    <footer class="inv-foot"><div class="inv-sign" style="text-align:left"><span></span><p>Store-in-charge</p></div><div class="inv-sign"><span></span><p>Quality / lab</p></div></footer>
+    <p class="inv-credit">Sistech ERP · Design &amp; developed by The Webfix</p>
+  </article>
+</div>
+{% endblock %}

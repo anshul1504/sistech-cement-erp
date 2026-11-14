@@ -39,7 +39,7 @@
 /* Detail */
 .ord-status.is-draft { background: #f1f2f6; color: #3d4a5c; }
 .ord-status.is-submitted { background: #fffaeb; color: #b54708; }
-.ord-status.is-approved { background: #eef3fb; color: #073777; }
+.ord-status.is-approved, .ord-status.is-part, .ord-status.is-part-received, .ord-status.is-part-dispatched { background: #eef3fb; color: #073777; }
 .ord-status.is-completed { background: #ecfdf3; color: #067647; }
 .ord-status.is-cancelled { background: #fef3f2; color: #b42318; }
 .ord-checks { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
@@ -244,3 +244,11 @@ a.ord-tr:hover { background: #fafbfd; }
   .pr-actions > *, .pr-actions form .org-btn { width: 100%; justify-content: center; }
   .pr-actions form { width: 100%; }
 }
+
+/* Goods receipt (Step 4b) */
+.grn-line { grid-template-columns: minmax(0, 2.2fr) repeat(5, minmax(0, .8fr)) minmax(0, 1.5fr); }
+.grn-table .ord-tr { grid-template-columns: minmax(0, 2fr) repeat(6, minmax(0, 1fr)); }
+.grn-table .ord-th > span { white-space: normal; }
+@media (max-width: 1199.98px) { .grn-line { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grn-line .ord-product, .grn-line .grn-reason { grid-column: 1 / -1; } .grn-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) { .grn-line { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grn-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ord-product > small { display: block; color: var(--o-ink-3); font-size: 12px; }

@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.9.2'
+ASSET_VERSION = '0.9.3'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -37,6 +37,7 @@ NAV_GROUPS = [
         _item('purchase_requests', 'Purchase requests', 'clipboard', 'view_purchaserequest', match=('pr_new', 'pr_detail', 'pr_edit', 'pr_direct', 'reorder')),
         _item('rfqs', 'RFQs & quotes', 'quote', 'view_rfq', match=('rfq_new', 'rfq_detail', 'quote_form')),
         _item('purchases', 'Purchase orders', 'purchase', 'view_purchase_order'),
+        _item('inbound', 'Goods receipt (GRN)', 'boxes', 'view_goodsreceipt', match=('grn_new', 'grn_detail', 'grn_print')),
     ]),
     ('Plant operations', [
         _item('production', 'Production', 'factory', 'view_production', match=('production_new', 'production_action')),

@@ -18,3 +18,11 @@ class FormatTests(SimpleTestCase):
         self.assertEqual(cell(datetime.date(2026, 11, 13)), '13 Nov 2026')
         self.assertEqual(cell(None), '—')
         self.assertEqual(cell('Approved'), 'Approved')
+
+
+class PlusFilterTests(SimpleTestCase):
+    def test_plus_keeps_paise(self):
+        from decimal import Decimal
+        from .templatetags.erp_format import plus
+        self.assertEqual(plus(Decimal('1234.50'), Decimal('0.75')), Decimal('1235.25'))
+        self.assertEqual(plus(Decimal('0.9'), Decimal('0')), Decimal('0.9'))  # |add would give 0

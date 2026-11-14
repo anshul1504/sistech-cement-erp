@@ -77,3 +77,12 @@ def get_item(mapping, key):
         return mapping.get(key, '')
     except AttributeError:
         return ''
+
+
+@register.filter
+def plus(value, arg):
+    """Exact decimal addition (Django's |add truncates decimals to whole numbers)."""
+    try:
+        return Decimal(str(value or 0)) + Decimal(str(arg or 0))
+    except (InvalidOperation, ValueError):
+        return value
