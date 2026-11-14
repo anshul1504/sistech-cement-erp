@@ -26,3 +26,37 @@ def indian(value, decimals=0):
         if head: groups.insert(0, head)
         whole = ','.join(groups + [tail])
     return sign + whole + ('.' + fraction if fraction else '')
+
+
+@register.filter
+def qty(value):
+    """Quantity without trailing zeros, Indian grouping: 2400.000 → 2,400 ; 12.500 → 12.5."""
+    if value in (None, ''):
+        return ''
+    try:
+        number = Decimal(str(value)).normalize()
+    except (InvalidOperation, ValueError):
+        return value
+    places = max(-number.as_tuple().exponent, 0)
+    return indian(number, min(places, 3))
+
+
+@register.filter
+def cell(value):
+    """Uniform table-cell formatting: dates, numbers and money (tagged as ('₹', amount))."""
+    import datetime
+    from django.utils import timezone
+    from django.utils.formats import date_format
+    if value is None or value == '':
+        return '—'
+    if isinstance(value, tuple) and len(value) == 2 and value[0] == '₹':
+        return '₹' + indian(value[1], 2)
+    if isinstance(value, datetime.datetime):
+        return date_format(timezone.localtime(value) if timezone.is_aware(value) else value, 'd M Y, H:i')
+    if isinstance(value, datetime.date):
+        return date_format(value, 'd M Y')
+    if isinstance(value, bool):
+        return 'Yes' if value else 'No'
+    if isinstance(value, (Decimal, int, float)):
+        return qty(value)
+    return value

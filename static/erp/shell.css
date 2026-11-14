@@ -324,3 +324,28 @@ a.sb-link:hover { background: var(--sb-hover); color: #fff; }
   .app-sidebar, .app-header, .app-footer, .sb-backdrop, .palette { display: none !important; }
   .app-main { margin: 0 !important; padding-top: 0 !important; }
 }
+
+/* ---------- Shared list tables: rows become cards on phones ---------- */
+.list-table td { font-variant-numeric: tabular-nums; }
+.list-table-wrap { max-width: 100%; overflow-x: auto; }
+.app-body .panel { min-width: 0; max-width: 100%; }
+@media (max-width: 1199.98px) {
+  .list-table-wrap { overflow: visible; }
+  .list-table thead { display: none; }
+  .list-table, .list-table tbody, .list-table tr, .list-table td { display: block; width: 100%; }
+  .list-table tr { padding: 12px 4px; border-bottom: 1px solid var(--line); }
+  .list-table td { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; padding: 4px 0 !important; border: 0 !important; text-align: left; overflow-wrap: anywhere; }
+  .list-table td::before { content: attr(data-label); color: var(--ink-3); font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .list-table td.list-open, .list-table td.empty-state { display: block; }
+  .list-table td.list-open::before, .list-table td.empty-state::before { content: none; }
+  .list-table td.list-open:empty { display: none; }
+  .list-table td.list-open a { display: inline-block; margin-top: 6px; }
+}
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .list-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
+  .list-table tr:has(td.empty-state) { grid-column: 1 / -1; }
+}
+@media (max-width: 767.98px) {
+  .filter-bar { flex-wrap: wrap; }
+  .filter-bar .form-control { flex: 1 1 100%; }
+}

@@ -19,8 +19,9 @@ def sites(user):
     qs = Site.objects.filter(active=True)
     return qs if user.is_superuser else qs.filter(siteaccess__user=user)
 
-def table(request, title, subtitle, headers, rows, create=None, filters=False):
-    return render(request, 'erp/list.html', {'title': title, 'subtitle': subtitle, 'headers': headers, 'page': Paginator(rows, 15).get_page(request.GET.get('page')), 'create': create, 'filters': filters})
+def table(request, title, subtitle, headers, rows, create=None, filters=False, create_label='+ New record'):
+    return render(request, 'erp/list.html', {'title': title, 'subtitle': subtitle, 'headers': headers, 'page': Paginator(rows, 15).get_page(request.GET.get('page')),
+                                             'create': create, 'filters': filters, 'create_label': create_label})
 
 @login_required
 def dashboard(request):
@@ -41,8 +42,9 @@ def orders(request, kind):
     qs = scope(Order.objects.filter(kind=kind).select_related('partner', 'site').prefetch_related('lines'), request.user)
     if request.GET.get('q'): qs = qs.filter(Q(number__icontains=request.GET['q']) | Q(partner__name__icontains=request.GET['q']))
     if request.GET.get('status'): qs = qs.filter(status=request.GET['status'])
-    rows = [{'cells': [o.number, o.partner.name, o.site.code, o.due_date, f'INR {o.total:,.2f}', o.status], 'url': f'/orders/{o.pk}/'} for o in qs]
-    return table(request, 'Sales orders' if kind == 'Sale' else 'Purchase orders', 'Track documents from draft through approval and stock posting. Values exclude tax and freight.', ['Document', 'Partner', 'Site', 'Due date', 'Net value', 'Status'], rows, f'/orders/new/{kind}/' if order_permission(request.user, kind, 'create') else None, True)
+    rows = [{'cells': [o.number, o.partner.name, o.site.code, o.due_date, ('₹', o.total), o.status], 'url': f'/orders/{o.pk}/'} for o in qs]
+    return table(request, 'Sales orders' if kind == 'Sale' else 'Purchase orders', 'Track documents from draft through approval and stock posting. Values exclude tax and freight.', ['Document', 'Partner', 'Site', 'Due date', 'Net value', 'Status'], rows, f'/orders/new/{kind}/' if order_permission(request.user, kind, 'create') else None, True,
+                 '+ New sales order' if kind == 'Sale' else '+ New purchase order')
 
 @login_required
 def order_new(request, kind):
@@ -91,7 +93,7 @@ def inventory(request):
     qs = scope(StockBalance.objects.select_related('site', 'product'), request.user).order_by('site__code', 'product__code')
     if request.GET.get('q'): qs = qs.filter(Q(product__name__icontains=request.GET['q']) | Q(site__name__icontains=request.GET['q']))
     rows = [{'cells': [o.product.code, o.product.name, o.site.name, o.quantity, o.product.unit, 'Low stock' if o.quantity <= o.product.reorder_level else 'Available']} for o in qs]
-    return table(request, 'Inventory', 'Posted available quantities by site and product. Quality-held production is excluded.', ['SKU', 'Product', 'Location', 'On hand', 'UOM', 'Status'], rows, '/inventory/opening/' if request.user.has_perm('erp.post_opening') else None, True)
+    return table(request, 'Inventory', 'Posted available quantities by site and product. Quality-held production is excluded.', ['SKU', 'Product', 'Location', 'On hand', 'UOM', 'Status'], rows, '/inventory/opening/' if request.user.has_perm('erp.post_opening') else None, True, '+ Opening stock')
 
 @login_required
 def opening(request):
@@ -144,7 +146,7 @@ def production_action(request, pk, action):
 def quality(request):
     permitted(request.user, 'view_qualitytest')
     qs = scope(QualityTest.objects.select_related('production', 'site', 'created_by'), request.user)
-    return table(request, 'Quality lab', 'Recorded test evidence controls production release. Failed batches remain on hold.', ['Batch', 'Test', 'Result', 'Disposition', 'Lab user', 'Recorded'], [{'cells': [o.production.batch, o.test_name, o.result, o.disposition, o.created_by.username, o.created_at]} for o in qs], '/quality/new/' if request.user.has_perm('erp.add_qualitytest') else None)
+    return table(request, 'Quality lab', 'Recorded test evidence controls production release. Failed batches remain on hold.', ['Batch', 'Test', 'Result', 'Disposition', 'Lab user', 'Recorded'], [{'cells': [o.production.batch, o.test_name, o.result, o.disposition, o.created_by.username, o.created_at]} for o in qs], '/quality/new/' if request.user.has_perm('erp.add_qualitytest') else None, False, '+ Record test')
 
 @login_required
 def quality_new(request):
@@ -189,7 +191,7 @@ def reports(request):
             writer.writerow([safe(v) for v in [localtime(m.created_at).isoformat(), m.site.code, m.product.code, m.product.name, m.quantity, m.product.unit, m.kind, m.source]])
         AuditEvent.objects.create(actor=request.user, action='Stock ledger exported', reference='CSV', detail='All permitted sites')
         return response
-    return table(request, 'Stock movement report', 'Source-linked posted movements. Export contains only your permitted sites.', ['Document', 'Site', 'Product', 'Quantity', 'UOM', 'Type', 'Source'], [{'cells': [m.number, m.site.code, m.product.name, m.quantity, m.product.unit, m.kind, m.source]} for m in movements], '/reports/?export=csv' if request.user.has_perm('erp.export_stockmovement') else None)
+    return table(request, 'Stock movement report', 'Source-linked posted movements. Export contains only your permitted sites.', ['Document', 'Site', 'Product', 'Quantity', 'UOM', 'Type', 'Source'], [{'cells': [m.number, m.site.code, m.product.name, m.quantity, m.product.unit, m.kind, m.source]} for m in movements], '/reports/?export=csv' if request.user.has_perm('erp.export_stockmovement') else None, False, '↓ Export CSV')
 
 
 @login_required
