@@ -332,3 +332,44 @@ a.ord-tr:hover { background: #fafbfd; }
 .fa-table .ord-tr > span:last-child { text-align: left; }
 @media (max-width: 1199.98px) { .hsn-table .ord-tr, .fa-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fa-table .ord-tr .ord-name, .hsn-table .ord-tr .ord-name { grid-column: 1 / -1; } .fa-table .ord-tr > span { text-align: left; } }
 @media (max-width: 767.98px) { .br-row { grid-template-columns: minmax(0, 1fr) !important; } .br-match { flex-wrap: wrap; } }
+
+/* Finance navigation and filters adapt to the available content width. */
+.acc-page { container: finance / inline-size; }
+.acc-page > .org-head { align-items: center; gap: 16px 24px; }
+.acc-page > .org-head p { max-width: 64ch; }
+.acc-navigation { margin-bottom: 20px; border: 1px solid var(--o-line); border-radius: 14px; background: #fff; }
+.acc-navigation > summary { display: none; }
+.acc-navigation .acc-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; max-width: none; margin: 0; padding: 6px; gap: 4px; overflow: visible; border: 0; background: transparent; }
+.acc-tabs .org-tab { display: flex; align-items: center; justify-content: center; min-height: 42px; padding: 10px 12px; white-space: normal; text-align: center; line-height: 1.35; }
+.acc-tabs .org-tab:focus-visible, .acc-navigation > summary:focus-visible { outline: 3px solid #d6a500; outline-offset: 2px; }
+.acc-page .doc-list-head { display: flex; align-items: center; }
+.acc-page .doc-list-head .acc-filter { flex-basis: 100%; }
+.acc-page .acc-filter { min-width: 0; }
+.acc-page .acc-journal-filter { display: grid; grid-template-columns: minmax(200px, 1.6fr) repeat(4, minmax(130px, 1fr)) auto; align-items: end; gap: 12px; width: auto; margin: 0 0 20px; padding: 16px; border: 1px solid var(--o-line); border-radius: 12px; background: #f8fafc; }
+.acc-filter-field { display: grid; gap: 6px; min-width: 0; }
+.acc-filter-field label { color: #4a5668; font-size: 12px; font-weight: 600; }
+.acc-page .acc-filter-field .form-control, .acc-page .acc-filter-field .form-select { display: block; width: 100%; min-width: 0; max-width: none; height: 42px; }
+.acc-page .acc-journal-filter > .org-btn { width: auto; height: 42px; white-space: nowrap; }
+.acc-page .doc-empty { padding: 32px 20px 40px; }
+.acc-page .doc-empty > span { max-width: 56ch; }
+@container finance (max-width: 900px) {
+  .acc-navigation .acc-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container finance (max-width: 1100px) {
+  .acc-page .acc-journal-filter { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container finance (max-width: 620px) {
+  .acc-page .acc-journal-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 16px; padding: 12px; }
+  .acc-journal-filter .acc-filter-search, .acc-page .acc-journal-filter > .org-btn { grid-column: 1 / -1; }
+}
+@media (max-width: 767.98px) {
+  .acc-navigation > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; padding: 12px 16px; cursor: pointer; list-style: none; }
+  .acc-navigation > summary::-webkit-details-marker { display: none; }
+  .acc-navigation > summary > span { font-size: 11px; font-weight: 500; color: #6b778a; }
+  .acc-navigation > summary strong { grid-column: 1; font-size: 14px; color: #082859; }
+  .acc-navigation > summary svg { grid-column: 2; grid-row: 1 / 3; align-self: center; width: 18px; height: 18px; transition: transform .15s; }
+  .acc-navigation[open] > summary svg { transform: rotate(180deg); }
+  .acc-navigation .acc-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--o-line); border-radius: 0 0 14px 14px; }
+  .acc-tabs .org-tab { min-height: 44px; font-size: 12px; }
+  .acc-page .acc-filter-field input, .acc-page .acc-filter-field select { font-size: 16px; }
+}

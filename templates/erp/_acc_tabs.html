@@ -1,13 +1,16 @@
-<nav class="org-tabs mst-cat-tabs" aria-label="Accounts">
-  {% if perms.erp.view_journalentry %}<a class="org-tab{% if tab == 'journals' %} is-active{% endif %}" href="{% url 'journals' %}">Journals</a>{% endif %}
-  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'tb' %} is-active{% endif %}" href="{% url 'trial_balance' %}">Trial balance</a>
-  <a class="org-tab{% if tab == 'pl' %} is-active{% endif %}" href="{% url 'profit_loss' %}">Profit &amp; loss</a>
-  <a class="org-tab{% if tab == 'bs' %} is-active{% endif %}" href="{% url 'balance_sheet' %}">Balance sheet</a>
-  <a class="org-tab{% if tab == 'cf' %} is-active{% endif %}" href="{% url 'cash_flow' %}">Cash flow</a>{% endif %}
-  {% if perms.erp.view_account %}<a class="org-tab{% if tab == 'chart' %} is-active{% endif %}" href="{% url 'chart' %}">Chart of accounts</a>{% endif %}
-  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'periods' %} is-active{% endif %}" href="{% url 'periods' %}">Periods &amp; close</a>{% endif %}
-  {% if perms.erp.view_supplierpayment %}<a class="org-tab{% if tab == 'payments' %} is-active{% endif %}" href="{% url 'payments' %}">Payments</a>{% endif %}
-  {% if perms.erp.view_bankstatementline %}<a class="org-tab{% if tab == 'bank' %} is-active{% endif %}" href="{% url 'bank_rec' %}">Bank reconciliation</a>{% endif %}
-  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'gst' %} is-active{% endif %}" href="{% url 'gst_summary' %}">GST summary</a>{% endif %}
-  {% if perms.erp.view_fixedasset %}<a class="org-tab{% if tab == 'assets' %} is-active{% endif %}" href="{% url 'fixed_assets' %}">Fixed assets</a>{% endif %}
+<details class="acc-navigation" data-section-navigation open>
+  <summary><span>Finance navigation</span><strong data-current-section>Choose a page</strong><svg aria-hidden="true"><use href="#ic-chevron"/></svg></summary>
+<nav class="org-tabs mst-cat-tabs acc-tabs" aria-label="Accounts">
+  {% if perms.erp.view_journalentry %}<a class="org-tab{% if tab == 'journals' %} is-active{% endif %}"{% if tab == 'journals' %} aria-current="page"{% endif %} href="{% url 'journals' %}">Journals</a>{% endif %}
+  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'tb' %} is-active{% endif %}"{% if tab == 'tb' %} aria-current="page"{% endif %} href="{% url 'trial_balance' %}">Trial balance</a>
+  <a class="org-tab{% if tab == 'pl' %} is-active{% endif %}"{% if tab == 'pl' %} aria-current="page"{% endif %} href="{% url 'profit_loss' %}">Profit &amp; loss</a>
+  <a class="org-tab{% if tab == 'bs' %} is-active{% endif %}"{% if tab == 'bs' %} aria-current="page"{% endif %} href="{% url 'balance_sheet' %}">Balance sheet</a>
+  <a class="org-tab{% if tab == 'cf' %} is-active{% endif %}"{% if tab == 'cf' %} aria-current="page"{% endif %} href="{% url 'cash_flow' %}">Cash flow</a>{% endif %}
+  {% if perms.erp.view_account %}<a class="org-tab{% if tab == 'chart' %} is-active{% endif %}"{% if tab == 'chart' %} aria-current="page"{% endif %} href="{% url 'chart' %}">Chart of accounts</a>{% endif %}
+  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'periods' %} is-active{% endif %}"{% if tab == 'periods' %} aria-current="page"{% endif %} href="{% url 'periods' %}">Periods &amp; close</a>{% endif %}
+  {% if perms.erp.view_supplierpayment %}<a class="org-tab{% if tab == 'payments' %} is-active{% endif %}"{% if tab == 'payments' %} aria-current="page"{% endif %} href="{% url 'payments' %}">Payments</a>{% endif %}
+  {% if perms.erp.view_bankstatementline %}<a class="org-tab{% if tab == 'bank' %} is-active{% endif %}"{% if tab == 'bank' %} aria-current="page"{% endif %} href="{% url 'bank_rec' %}">Bank reconciliation</a>{% endif %}
+  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'gst' %} is-active{% endif %}"{% if tab == 'gst' %} aria-current="page"{% endif %} href="{% url 'gst_summary' %}">GST summary</a>{% endif %}
+  {% if perms.erp.view_fixedasset %}<a class="org-tab{% if tab == 'assets' %} is-active{% endif %}"{% if tab == 'assets' %} aria-current="page"{% endif %} href="{% url 'fixed_assets' %}">Fixed assets</a>{% endif %}
 </nav>
+</details>

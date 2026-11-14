@@ -2,17 +2,21 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
-  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Accounts &amp; ledgers</h1><p>Every invoice, receipt, credit note, GRN, supplier invoice, debit note, freight bill and stock movement posts a balanced voucher automatically. Corrections are reversing entries — nothing is edited.</p></div>
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Accounts &amp; ledgers</h1><p>Review Sistech’s accounting entries, track approvals and create journal vouchers.</p></div>
     {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'voucher_new' %}"><svg><use href="#ic-plus"/></svg>Journal voucher</a></div>{% endif %}</div>
   {% include 'erp/_acc_tabs.html' with tab='journals' %}
   {% if drafts %}<ul class="ord-checks"><li class="is-warn">{{ drafts }} journal voucher{{ drafts|pluralize }} waiting for approval. <a href="?status=draft&amp;from=2000-01-01">Show</a></li></ul>{% endif %}
   <section class="org-card doc-list-card">
     <header class="doc-list-head"><div><h2>Vouchers</h2><p>{{ page.paginator.count }} from {{ start|date:'d M Y' }} to {{ end|date:'d M Y' }}</p></div>
-      <form method="get" class="doc-filter acc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Number, narration or source" aria-label="Search">
-        <input class="form-control" type="date" name="from" value="{{ start|date:'Y-m-d' }}" aria-label="From"><input class="form-control" type="date" name="to" value="{{ end|date:'Y-m-d' }}" aria-label="To">
-        <select class="form-select" name="kind" aria-label="Kind"><option value="">All</option><option value="auto"{% if kind == 'auto' %} selected{% endif %}>System</option><option value="manual"{% if kind == 'manual' %} selected{% endif %}>Journal vouchers</option></select>
-        <select class="form-select" name="status" aria-label="Status"><option value="">Any status</option><option value="posted"{% if status == 'posted' %} selected{% endif %}>Posted</option><option value="draft"{% if status == 'draft' %} selected{% endif %}>Waiting approval</option><option value="rejected"{% if status == 'rejected' %} selected{% endif %}>Rejected</option></select>
-        <button class="org-btn is-light" type="submit">Show</button></form></header>
+      </header>
+      <form method="get" class="doc-filter acc-filter acc-journal-filter" aria-label="Filter vouchers">
+        <div class="acc-filter-field acc-filter-search"><label for="journal-search">Search vouchers</label><input class="form-control" id="journal-search" type="search" name="q" value="{{ q }}" placeholder="Number, narration or reference"></div>
+        <div class="acc-filter-field"><label for="journal-from">From date</label><input class="form-control" id="journal-from" type="date" name="from" value="{{ start|date:'Y-m-d' }}"></div>
+        <div class="acc-filter-field"><label for="journal-to">To date</label><input class="form-control" id="journal-to" type="date" name="to" value="{{ end|date:'Y-m-d' }}"></div>
+        <div class="acc-filter-field"><label for="journal-kind">Entry type</label><select class="form-select" id="journal-kind" name="kind"><option value="">All types</option><option value="auto"{% if kind == 'auto' %} selected{% endif %}>System postings</option><option value="manual"{% if kind == 'manual' %} selected{% endif %}>Journal vouchers</option></select></div>
+        <div class="acc-filter-field"><label for="journal-status">Status</label><select class="form-select" id="journal-status" name="status"><option value="">Any status</option><option value="posted"{% if status == 'posted' %} selected{% endif %}>Posted</option><option value="draft"{% if status == 'draft' %} selected{% endif %}>Waiting approval</option><option value="rejected"{% if status == 'rejected' %} selected{% endif %}>Rejected</option></select></div>
+        <button class="org-btn is-primary" type="submit">Apply filters</button>
+      </form>
     {% if page %}<ul class="mst-list prc-list pr-list sinv-list">{% for j in page %}
       <li class="{% if j.status == 'rejected' %}is-inactive{% endif %}"><a class="mst-main" href="{% url 'journal_detail' j.pk %}"><span class="mst-icon"><svg><use href="#ic-book"/></svg></span><span><strong>{{ j.number }}</strong><small>{{ j.narration|truncatechars:90 }}</small></span></a>
         <div class="mst-cell"><small>Amount</small>₹{{ j.total|indian:2 }}</div>
@@ -21,7 +25,7 @@
         <div class="mst-cell"><small>Plant</small>{{ j.site.code|default:'HO' }}</div>
         <a class="org-btn is-light is-sm mst-open" href="{% url 'journal_detail' j.pk %}">Open</a></li>{% endfor %}</ul>
       <div class="pagination-bar"><span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span><div>{% if page.has_previous %}<a href="?{{ request.GET.urlencode }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %} {% if page.has_next %}<a href="?{{ request.GET.urlencode }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}</div></div>
-    {% else %}<div class="doc-empty"><svg><use href="#ic-book"/></svg><strong>No vouchers in this range</strong><span>Postings appear as documents are created. Run "post_ledger" once to post older documents.</span></div>{% endif %}
+    {% else %}<div class="doc-empty"><svg><use href="#ic-book"/></svg><strong>No vouchers in this range</strong><span>Entries appear when transactions are posted. Try a wider date range or check the selected filters.</span></div>{% endif %}
   </section>
 </div>
 {% endblock %}

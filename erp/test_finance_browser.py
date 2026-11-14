@@ -37,6 +37,7 @@ class FinanceBrowserTests(StaticLiveServerTestCase):
         self.client.force_login(user)
         routes = {route: reverse(route) for route in ['journals', 'voucher_new', 'trial_balance', 'profit_loss', 'balance_sheet', 'chart', 'periods',
                                                       'payments', 'bank_rec', 'gst_summary', 'fixed_assets', 'cash_flow']}
+        routes['journals_empty'] = reverse('journals') + '?q=no-matching-test-voucher'
         routes.update(journal_detail=reverse('journal_detail', args=[entry.pk]), account_ledger=reverse('account_ledger', args=[bank.pk]),
                       payment_new=reverse('payment_new', args=[supplier.pk]), payment_detail=reverse('payment_detail', args=[pay.pk]))
         output = Path(settings.BASE_DIR) / 'test-results' / 'finance'
@@ -55,6 +56,15 @@ class FinanceBrowserTests(StaticLiveServerTestCase):
                         response = page.goto(self.live_server_url + path)
                         self.assertEqual(response.status, 200)
                         page.evaluate('document.fonts.ready')
+                        nav = page.locator('[data-section-navigation]')
+                        if nav.count():
+                            if width < 768:
+                                self.assertFalse(nav.evaluate('(el) => el.open'))
+                                nav.locator('summary').click()
+                            self.assertTrue(page.locator('.acc-tabs').evaluate('(el) => el.scrollWidth <= el.clientWidth'), 'Finance links are clipped')
+                            self.assertTrue(page.get_by_role('link', name='Fixed assets', exact=True).is_visible())
+                            if width < 768:
+                                nav.locator('summary').click()
                         self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'{name} overflows at {width}px')
                         page.screenshot(path=str(output / f'{name}-{size}.png'), full_page=True, animations='disabled')
             self.assertEqual(errors, [])

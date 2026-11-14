@@ -1,5 +1,16 @@
 (() => {
   const root = document.documentElement;
+  // Native details keeps every section link accessible on compact screens.
+  const compactSections = window.matchMedia('(max-width: 767.98px)');
+  document.querySelectorAll('[data-section-navigation]').forEach(menu => {
+    const current = menu.querySelector('[aria-current="page"]');
+    const label = menu.querySelector('[data-current-section]');
+    if (current && label) label.textContent = current.textContent.trim();
+    const resize = () => { menu.open = !compactSections.matches; };
+    resize();
+    compactSections.addEventListener('change', resize);
+  });
+
   const sidebar = document.getElementById('app-sidebar');
   const backdrop = document.querySelector('.sb-backdrop');
   const toggle = document.querySelector('[data-sidebar-toggle]');
