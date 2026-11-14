@@ -23,16 +23,63 @@ class SiteAccess(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=['user', 'site'], name='unique_site_access')]
 
+PRODUCT_CATEGORIES = [('Cement', 'Finished cement'), ('TMT', 'TMT bars'), ('Raw material', 'Raw material'),
+                      ('Packaging', 'Packaging'), ('Fuel', 'Fuel'), ('Spares', 'Spares')]
+CEMENT_GRADES = [('OPC 33', 'OPC 33'), ('OPC 43', 'OPC 43'), ('OPC 53', 'OPC 53'), ('PPC', 'PPC (fly ash)'), ('PSC', 'PSC (slag)'), ('PCC', 'Composite (PCC)')]
+TMT_GRADES = [('Fe 415', 'Fe 415'), ('Fe 415D', 'Fe 415D'), ('Fe 500', 'Fe 500'), ('Fe 500D', 'Fe 500D'),
+              ('Fe 550', 'Fe 550'), ('Fe 550D', 'Fe 550D'), ('Fe 600', 'Fe 600')]
+GRADE_STANDARDS = {'OPC 33': 'IS 269:2015', 'OPC 43': 'IS 269:2015', 'OPC 53': 'IS 269:2015', 'PPC': 'IS 1489 (Part 1):2015',
+                   'PSC': 'IS 455:2015', 'PCC': 'IS 16415:2015', **{g: 'IS 1786:2008' for g, _ in TMT_GRADES}}
+BAR_SIZES = [(d, f'{d} mm') for d in (8, 10, 12, 16, 20, 25, 28, 32)]
+GST_RATES = [(Decimal('0'), 'Nil (0%)'), (Decimal('5'), '5%'), (Decimal('12'), '12%'), (Decimal('18'), '18%'), (Decimal('28'), '28%'), (Decimal('40'), '40%')]
+DEFAULT_HSN = {'Cement': '2523', 'TMT': '7214'}
+
+
 class Product(models.Model):
-    code = models.CharField(max_length=30, unique=True)
+    code = models.CharField('SKU code', max_length=30, unique=True)
     name = models.CharField(max_length=120)
-    category = models.CharField(max_length=25, choices=[('Cement', 'Finished cement'), ('Raw material', 'Raw material'), ('Packaging', 'Packaging'), ('Fuel', 'Fuel'), ('Spares', 'Spares')])
-    unit = models.CharField(max_length=12, choices=[('MT', 'Metric tonnes'), ('BAG', 'Bags'), ('KG', 'Kilograms'), ('PCS', 'Pieces')])
-    bag_weight_kg = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True, validators=POSITIVE)
-    hsn = models.CharField(max_length=10, blank=True)
+    category = models.CharField(max_length=25, choices=PRODUCT_CATEGORIES)
+    unit = models.CharField('Base unit', max_length=12, choices=[('MT', 'Metric tonnes'), ('BAG', 'Bags'), ('KG', 'Kilograms'), ('PCS', 'Pieces')])
+    bag_weight_kg = models.DecimalField('Bag weight (kg)', max_digits=8, decimal_places=3, null=True, blank=True, validators=POSITIVE)
+    hsn = models.CharField('HSN code', max_length=10, blank=True)
     reorder_level = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
     active = models.BooleanField(default=True)
+    # Cement & TMT specification
+    brand = models.CharField(max_length=60, blank=True, help_text='Brand printed on bags or bundles, if any.')
+    grade = models.CharField(max_length=10, blank=True, choices=CEMENT_GRADES + TMT_GRADES)
+    standard = models.CharField('IS standard', max_length=40, blank=True, help_text='Filled from the grade when left empty.')
+    bar_diameter_mm = models.PositiveSmallIntegerField('Bar size', null=True, blank=True, choices=BAR_SIZES)
+    weight_per_metre_kg = models.DecimalField('Weight per metre (kg)', max_digits=7, decimal_places=3, null=True, blank=True, validators=POSITIVE,
+                                              help_text='Leave empty to use the theoretical weight d²/162.')
+    bar_length_m = models.DecimalField('Bar length (m)', max_digits=5, decimal_places=2, null=True, blank=True, validators=POSITIVE)
+    bars_per_bundle = models.PositiveSmallIntegerField('Bars per bundle', null=True, blank=True)
+    gst_rate = models.DecimalField('GST rate', max_digits=5, decimal_places=2, null=True, blank=True, choices=GST_RATES,
+                                   help_text='Confirm the current rate with your accountant.')
+    description = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
     def __str__(self): return f'{self.code} · {self.name} ({self.unit})'
+
+    @property
+    def is_finished(self):
+        return self.category in ('Cement', 'TMT')
+
+    @property
+    def spec_line(self):
+        """Short human description, e.g. 'OPC 53 · 50 kg bag' or 'Fe 500D · 12 mm · 0.889 kg/m'."""
+        parts = [self.grade] if self.grade else []
+        if self.category == 'TMT':
+            if self.bar_diameter_mm: parts.append(f'{self.bar_diameter_mm} mm')
+            if self.weight_per_metre_kg: parts.append(f'{self.weight_per_metre_kg.normalize():f} kg/m')
+        elif self.bag_weight_kg:
+            parts.append(f'{self.bag_weight_kg.normalize():f} kg bag')
+        return ' · '.join(parts)
+
+    @property
+    def bundle_weight_kg(self):
+        if self.weight_per_metre_kg and self.bar_length_m and self.bars_per_bundle:
+            return (self.weight_per_metre_kg * self.bar_length_m * self.bars_per_bundle).quantize(Decimal('0.01'))
+        return None
 
 class Partner(models.Model):
     code = models.CharField(max_length=25, unique=True)

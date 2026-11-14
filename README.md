@@ -63,6 +63,15 @@ Super administrators (and any role granted **Organisation setup → View/Edit** 
 
 Changes are audited. Plant-level addresses, GST registrations and factory licences belong to Plants & depots. Invoice printing that uses these details arrives with the Finance module.
 
+## Products & materials
+
+`/products/` lists cement, **TMT bars**, raw materials, packaging, fuel and spares with category tabs, search, stock and GST. Each product has a detail page (specification, stock & tax, usage, stock by location, recent movements), and can be added, edited, duplicated (e.g. another TMT size), deactivated (hidden from new orders and production) or, if never used, deleted by a super administrator.
+
+- **Cement:** grade (OPC 33/43/53, PPC, PSC, PCC), bag weight; IS standard and HSN 2523 filled automatically.
+- **TMT:** grade (Fe 415–Fe 600, incl. D grades), bar size 8–32 mm, weight per metre (theoretical d²/162 when empty), bar length, bars per bundle and bundle weight; IS 1786 and HSN 7214 filled automatically.
+- GST rate is stored per product (confirm rates with your accountant). Unit, bag weight and category lock once a product has transactions.
+- **Add standard catalogue** creates OPC 43/53, PPC and PSC 50 kg bags and TMT Fe 500D/550D in 8–32 mm, skipping SKU codes that already exist.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.

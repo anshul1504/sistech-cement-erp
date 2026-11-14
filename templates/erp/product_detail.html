@@ -1,0 +1,87 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'products' %}?category={{ product.category }}">← Products &amp; materials</a></div></div>
+
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-{{ product.category|slugify }}"><svg><use href="#ic-{{ icon }}"/></svg></span>
+    <div class="org-hero-text">
+      <h1>{{ product.name }}</h1>
+      <p>{{ product.code }}{% if product.spec_line %} · {{ product.spec_line }}{% endif %}{% if product.brand %} · {{ product.brand }}{% endif %}</p>
+      <div class="org-chips">
+        <span class="org-chip mst-cat is-{{ product.category|slugify }}">{{ product.get_category_display }}</span>
+        {% if product.standard %}<span class="org-chip">{{ product.standard }}</span>{% endif %}
+        {% if product.active %}<span class="org-chip is-ok">● Active</span>{% else %}<span class="org-chip">● Inactive</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side">
+      {% if can_change %}<a class="org-btn is-primary" href="{% url 'products_edit' product.pk %}"><svg><use href="#ic-key"/></svg>Edit product</a>{% endif %}
+      <small>Total stock<br><strong class="mst-total">{{ total|floatformat:'-3' }} {{ product.unit }}</strong></small>
+    </div>
+  </section>
+
+  {% if can_change or can_add %}
+  <section class="adm-actions mst-actions">
+    {% if can_add %}<a class="adm-action" href="{% url 'product_duplicate' product.pk %}"><svg><use href="#ic-copy"/></svg><span><strong>Duplicate</strong><small>Start a similar SKU (e.g. another size)</small></span></a>{% endif %}
+    {% if can_change %}<form method="post" action="{% url 'product_status' product.pk %}" data-confirm="{% if product.active %}Deactivate this product? It will no longer appear on new orders.{% else %}Activate this product again?{% endif %}">{% csrf_token %}<button class="adm-action {% if product.active %}is-danger{% else %}is-ok{% endif %}" type="submit"><svg><use href="#ic-power"/></svg><span><strong>{% if product.active %}Deactivate{% else %}Activate{% endif %}</strong><small>{% if product.active %}Hide from new orders, keep history{% else %}Use on new orders again{% endif %}</small></span></button></form>{% endif %}
+    {% if user.is_superuser %}<form method="post" action="{% url 'product_delete' product.pk %}" data-confirm="Delete {{ product.name }} permanently?">{% csrf_token %}<button class="adm-action is-danger" type="submit" {% if used %}disabled title="Has transactions — deactivate instead"{% endif %}><svg><use href="#ic-trash"/></svg><span><strong>Delete</strong><small>{% if used %}Not possible — has transactions{% else %}Never used, can be removed{% endif %}</small></span></button></form>{% endif %}
+  </section>
+  {% endif %}
+
+  <div class="acc-grid">
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Specification</h2>{% if can_change %}<a href="{% url 'products_edit' product.pk %}">Edit</a>{% endif %}</header>
+      <dl>
+        <div><dt>Category</dt><dd>{{ product.get_category_display }}</dd></div>
+        <div><dt>Grade</dt><dd>{{ product.grade|default:'—' }}</dd></div>
+        <div class="is-wide"><dt>IS standard</dt><dd>{{ product.standard|default:'—' }}</dd></div>
+        {% if product.category == 'TMT' %}
+        <div><dt>Bar size</dt><dd>{{ product.get_bar_diameter_mm_display|default:'—' }}</dd></div>
+        <div><dt>Weight / metre</dt><dd>{% if product.weight_per_metre_kg %}{{ product.weight_per_metre_kg|floatformat:'-3' }} kg{% else %}—{% endif %}</dd></div>
+        <div><dt>Bar length</dt><dd>{% if product.bar_length_m %}{{ product.bar_length_m|floatformat:'-2' }} m{% else %}—{% endif %}</dd></div>
+        <div><dt>Bars / bundle</dt><dd>{{ product.bars_per_bundle|default:'—' }}</dd></div>
+        <div class="is-wide"><dt>Bundle weight (theoretical)</dt><dd>{% if product.bundle_weight_kg %}{{ product.bundle_weight_kg }} kg{% else %}—{% endif %}</dd></div>
+        {% else %}
+        <div><dt>Bag weight</dt><dd>{% if product.bag_weight_kg %}{{ product.bag_weight_kg|floatformat:'-3' }} kg{% else %}—{% endif %}</dd></div>
+        <div><dt>Brand</dt><dd>{{ product.brand|default:'—' }}</dd></div>
+        {% endif %}
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Stock &amp; tax</h2></header>
+      <dl>
+        <div><dt>Base unit</dt><dd>{{ product.get_unit_display }}</dd></div>
+        <div><dt>Reorder level</dt><dd>{{ product.reorder_level|floatformat:'-3' }} {{ product.unit }}</dd></div>
+        <div><dt>HSN code</dt><dd>{{ product.hsn|default:'—' }}</dd></div>
+        <div><dt>GST rate</dt><dd>{% if product.gst_rate is not None %}{{ product.gst_rate|floatformat:'-2' }}%{% else %}<span class="mst-missing">Not set</span>{% endif %}</dd></div>
+      </dl>
+      {% if used %}<p class="acc-note">Unit, bag weight and category are locked because this product has transactions.</p>{% endif %}
+      {% if product.description %}<p class="acc-note">{{ product.description|linebreaksbr }}</p>{% endif %}
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Usage</h2></header>
+      <dl>
+        <div><dt>Order lines</dt><dd>{{ usage.orders }}</dd></div>
+        <div><dt>Production batches</dt><dd>{{ usage.production }}</dd></div>
+        <div><dt>Stock movements</dt><dd>{{ usage.movements }}</dd></div>
+        <div><dt>Locations stocked</dt><dd>{{ usage.stock_rows }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Stock by location</h2>{% if perms.erp.view_stockbalance %}<a href="{% url 'inventory' %}">Inventory</a>{% endif %}</header>
+      {% if balances %}
+      <ul class="mst-stock-list">{% for b in balances %}<li><span><strong>{{ b.site.name }}</strong><small>{{ b.site.code }} · {{ b.site.get_kind_display }}</small></span><span class="mst-qty{% if b.quantity <= product.reorder_level %} is-low{% endif %}">{{ b.quantity|floatformat:'-3' }} {{ product.unit }}{% if b.quantity <= product.reorder_level %}<em>Low</em>{% endif %}</span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No stock posted at your locations yet.</p>{% endif %}
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Recent movements</h2>{% if perms.erp.view_stockmovement %}<a href="{% url 'reports' %}">Stock report</a>{% endif %}</header>
+      <ul class="acc-timeline">{% for m in movements %}<li><strong>{{ m.get_kind_display }} · {{ m.quantity|floatformat:'-3' }} {{ product.unit }}</strong><small>{{ m.created_at|date:'d M Y' }} · {{ m.site.code }} · {{ m.source|truncatechars:30 }}</small></li>{% empty %}<li><small>No movements yet.</small></li>{% endfor %}</ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

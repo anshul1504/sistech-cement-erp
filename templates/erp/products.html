@@ -1,0 +1,53 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head">
+    <div><div class="eyebrow">MASTERS</div><h1>Products &amp; materials</h1><p>Cement grades, TMT bars, raw materials and stores used across orders, production and stock.</p></div>
+    {% if can_add %}<div class="doc-head-actions">
+      <form method="post" action="{% url 'products_catalogue' %}" data-confirm="Add the standard Sistech catalogue (OPC 43/53, PPC, PSC 50 kg bags and TMT Fe 500D/550D, 8–32 mm)? Existing SKU codes are skipped.">{% csrf_token %}<button class="org-btn is-light" type="submit"><svg><use href="#ic-boxes"/></svg>Add standard catalogue</button></form>
+      <a class="org-btn is-primary" href="{% url 'products_new' %}"><svg><use href="#ic-plus"/></svg>Add product</a>
+    </div>{% endif %}
+  </div>
+
+  <nav class="org-tabs mst-cat-tabs" aria-label="Categories">
+    {% for code, label, count in tabs %}<a class="org-tab{% if filters.category == code %} is-active{% endif %}" href="?category={{ code }}{% if filters.status != 'active' %}&status={{ filters.status }}{% endif %}">{{ label }}<span class="org-tab-count">{{ count }}</span></a>{% endfor %}
+  </nav>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>{% if filters.category %}{% for code, label, count in tabs %}{% if code == filters.category %}{{ label }}{% endif %}{% endfor %}{% else %}All products{% endif %}</h2><p>{{ page.paginator.count }} shown{% if low_stock %} · <a href="{% url 'inventory' %}">{{ low_stock }} stock position{{ low_stock|pluralize }} at or below reorder level</a>{% endif %}</p></div>
+      <form method="get" class="doc-filter">
+        {% if filters.category %}<input type="hidden" name="category" value="{{ filters.category }}">{% endif %}
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Search SKU, name, grade, HSN…" aria-label="Search products">
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()">
+          <option value="active"{% if filters.status == 'active' %} selected{% endif %}>Active</option>
+          <option value="inactive"{% if filters.status == 'inactive' %} selected{% endif %}>Inactive</option>
+          <option value="all"{% if filters.status == 'all' %} selected{% endif %}>All statuses</option>
+        </select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if page.object_list %}
+    <ul class="mst-list">
+      {% for p in page.object_list %}
+      <li class="{% if not p.active %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'product_detail' p.pk %}">
+          <span class="mst-icon is-{{ p.category|slugify }}"><svg><use href="#ic-{% if p.category == 'Cement' %}package{% elif p.category == 'TMT' %}factory{% elif p.category == 'Raw material' %}boxes{% elif p.category == 'Packaging' %}gift{% elif p.category == 'Fuel' %}flask{% else %}settings{% endif %}"/></svg></span>
+          <span><strong>{{ p.name }}</strong><small>{{ p.code }}{% if p.spec_line %} · {{ p.spec_line }}{% endif %}</small></span>
+        </a>
+        <div class="mst-cell"><span class="org-chip mst-cat is-{{ p.category|slugify }}">{{ p.get_category_display }}</span></div>
+        <div class="mst-cell mst-tax"><small>HSN · GST</small>{{ p.hsn|default:'—' }} · {% if p.gst_rate is not None %}{{ p.gst_rate|floatformat:'-2' }}%{% else %}<span class="mst-missing">not set</span>{% endif %}</div>
+        <div class="mst-cell mst-stock"><small>Stock</small>{% if p.stock is not None %}<strong>{{ p.stock|floatformat:'-3' }}</strong> {{ p.unit }}{% else %}<span class="acc-muted">—</span>{% endif %}</div>
+        <div class="mst-cell">{% if p.active %}<span class="doc-badge is-ok">Active</span>{% else %}<span class="doc-badge">Inactive</span>{% endif %}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'product_detail' p.pk %}">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if page.paginator.num_pages > 1 %}<nav class="acc-pager">{% if page.has_previous %}<a class="org-btn is-light is-sm" href="?category={{ filters.category }}&status={{ filters.status }}&q={{ filters.q }}&page={{ page.previous_page_number }}">← Previous</a>{% else %}<span></span>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="org-btn is-light is-sm" href="?category={{ filters.category }}&status={{ filters.status }}&q={{ filters.q }}&page={{ page.next_page_number }}">Next →</a>{% else %}<span></span>{% endif %}</nav>{% endif %}
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-package"/></svg><strong>No products here yet</strong><span>{% if can_add %}Add a product, or load the standard cement and TMT catalogue in one click.{% else %}Products added by your team will appear here.{% endif %}</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

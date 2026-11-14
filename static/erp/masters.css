@@ -1,0 +1,70 @@
+/* Masters (products, plants & depots, dealers & suppliers). Builds on organization.css, account.css, admin.css. */
+.mst-page .org-head .org-btn svg, .mst-page .doc-head-actions .org-btn svg { width: 16px; height: 16px; margin-right: 6px; }
+.mst-page .doc-head-actions form { margin: 0; }
+.mst-cat-tabs { max-width: 100%; }
+
+/* Category colours */
+.mst-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 12px; background: #eef3fb; color: #073777; }
+.mst-icon.is-xl { width: 72px; height: 72px; border-radius: 18px; }
+.mst-icon.is-xl svg { width: 32px; height: 32px; }
+.mst-icon.is-tmt, .mst-cat.is-tmt { background: #f1f2f6; color: #3d4a5c; }
+.mst-icon.is-raw-material, .mst-cat.is-raw-material { background: #fff4e5; color: #9a5b00; }
+.mst-icon.is-packaging, .mst-cat.is-packaging { background: #f4f0ff; color: #5b3cc4; }
+.mst-icon.is-fuel, .mst-cat.is-fuel { background: #fef3f2; color: #b42318; }
+.mst-icon.is-spares, .mst-cat.is-spares { background: #ecfdf3; color: #067647; }
+.mst-cat.is-cement { background: #eef3fb; color: #073777; }
+.mst-missing { color: #b54708; font-weight: 600; }
+
+/* List */
+.mst-list { list-style: none; margin: 4px -24px -22px; padding: 0; }
+.mst-list li { display: grid; grid-template-columns: minmax(240px, 2.4fr) 130px 120px 130px 80px auto; gap: 14px; align-items: center; padding: 12px 24px; border-top: 1px solid #edf1f7; }
+.mst-list li:hover { background: #fafbfd; }
+.mst-list li.is-inactive { opacity: .65; }
+.mst-main { display: flex; align-items: center; gap: 12px; min-width: 0; color: inherit; text-decoration: none; }
+.mst-main > span:last-child { min-width: 0; }
+.mst-main strong { display: block; color: var(--o-ink); font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst-main small { display: block; color: var(--o-ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst-main:hover strong { color: var(--o-brand); }
+.mst-cell { min-width: 0; font-size: 13px; color: var(--o-ink); }
+.mst-cell small { display: block; color: var(--o-ink-3); font-size: 11px; }
+.mst-stock strong { font-variant-numeric: tabular-nums; }
+
+/* Detail */
+.mst-hero { grid-template-columns: auto minmax(0, 1fr) auto; }
+.mst-total { display: block; margin-top: 2px; color: #082859; font-size: 20px; font-weight: 700; }
+.mst-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mst-stock-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mst-stock-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #f8fafc; }
+.mst-stock-list strong { display: block; font-size: 13.5px; }
+.mst-stock-list small { color: var(--o-ink-3); font-size: 12px; }
+.mst-qty { font-size: 15px; font-weight: 700; color: #082859; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mst-qty.is-low { color: #b54708; }
+.mst-qty em { margin-left: 8px; padding: 2px 8px; border-radius: 99px; background: #fffaeb; color: #b54708; font-size: 11px; font-style: normal; }
+
+/* Form */
+.mst-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.mst-form-grid > * { min-width: 0; }
+.mst-span { grid-column: 1 / -1; }
+.mst-lock { font-size: 11px; }
+.mst-calc { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: #eef3fb; color: #073777; font-size: 13px; font-weight: 500; }
+.org-field[hidden] { display: none !important; }
+
+@media (max-width: 1279.98px) {
+  .mst-list li { grid-template-columns: minmax(220px, 2fr) 120px 120px 80px auto; }
+  .mst-list .mst-tax { display: none; }
+}
+@media (max-width: 991.98px) {
+  .mst-list li { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .mst-list li > .mst-cell:nth-child(2), .mst-list .mst-open { display: none; }
+  .mst-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .mst-hero { grid-template-columns: auto minmax(0, 1fr); }
+  .mst-actions { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767.98px) {
+  .mst-list { margin-left: -16px; margin-right: -16px; }
+  .mst-list li { padding: 12px 16px; grid-template-columns: minmax(0, 1fr) auto; }
+  .mst-list li > .mst-cell:last-of-type { display: none; }
+  .mst-hero { grid-template-columns: minmax(0, 1fr); }
+  .mst-icon.is-xl { width: 56px; height: 56px; }
+}
+.mst-page input::placeholder { text-transform: none; }

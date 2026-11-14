@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.4.8'
+ASSET_VERSION = '0.5.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -48,7 +48,7 @@ NAV_GROUPS = [
         _soon('Accounts & ledgers', 'book'),
     ]),
     ('Masters', [
-        _item('products', 'Products & materials', 'package', 'view_product', match=('products_new', 'products_edit')),
+        _item('products', 'Products & materials', 'package', 'view_product', match=('products_new', 'products_edit', 'product_detail', 'product_duplicate')),
         _item('partners', 'Dealers & suppliers', 'handshake', 'view_partner', match=('partners_new', 'partners_edit')),
         _item('sites', 'Plants & depots', 'building', 'view_site', match=('sites_new', 'sites_edit')),
     ]),
@@ -138,6 +138,8 @@ def navigation(request):
         quick_create.append(('Production entry', reverse('production_new'), 'factory'))
     if user.has_perm('erp.add_qualitytest'):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
+    if user.has_perm('erp.add_product'):
+        quick_create.append(('Product', reverse('products_new'), 'package'))
     if user.has_perm('erp.post_opening'):
         quick_create.append(('Opening stock', reverse('opening'), 'boxes'))
     if user.is_superuser:

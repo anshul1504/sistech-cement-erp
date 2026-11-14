@@ -194,7 +194,7 @@ class WorkflowTests(TestCase):
     def test_base_unit_locked_after_use(self):
         self.opening()
         self.client.force_login(self.admin)
-        response = self.client.post(reverse('products_edit', args=[self.product.pk]), {'code': 'C1', 'name': 'Cement', 'category': 'Cement', 'unit': 'BAG', 'bag_weight_kg': 25, 'reorder_level': 0, 'active': 'on'})
+        response = self.client.post(reverse('products_edit', args=[self.product.pk]), {'code': 'C1', 'name': 'Cement', 'category': 'Cement', 'grade': 'OPC 53', 'unit': 'BAG', 'bag_weight_kg': 25, 'reorder_level': 0, 'active': 'on'})
         self.assertEqual(response.status_code, 302)
         self.product.refresh_from_db()
         self.assertEqual(self.product.unit, 'MT')

@@ -36,5 +36,16 @@ urlpatterns = [
     path('organisation/documents/<int:pk>/delete/', v.organization_document_delete, name='organization_document_delete'),
     path('brand/<str:kind>/', v.brand_asset, name='brand_asset'),
 ]
-for module in ['sites', 'products', 'partners']:
+from erp import product_views as pv
+urlpatterns += [
+    path('products/', pv.products, name='products'),
+    path('products/new/', pv.product_form, name='products_new'),
+    path('products/catalogue/', pv.products_catalogue, name='products_catalogue'),
+    path('products/<int:pk>/', pv.product_detail, name='product_detail'),
+    path('products/<int:pk>/edit/', pv.product_form, name='products_edit'),
+    path('products/<int:pk>/duplicate/', pv.product_duplicate, name='product_duplicate'),
+    path('products/<int:pk>/status/', pv.product_status, name='product_status'),
+    path('products/<int:pk>/delete/', pv.product_delete, name='product_delete'),
+]
+for module in ['sites', 'partners']:
     urlpatterns += [path(f'{module}/', v.master_list, {'module': module}, name=module), path(f'{module}/new/', v.master_form, {'module': module}, name=module+'_new'), path(f'{module}/<int:pk>/edit/', v.master_form, {'module': module}, name=module+'_edit')]

@@ -17,18 +17,81 @@ class SiteForm(StyledForm):
         fields = ['code', 'name', 'kind', 'address', 'active']
 
 class ProductForm(StyledForm):
+    """Products & materials, with cement- and TMT-specific rules. Unit and bag weight lock once used (see views)."""
+    SECTIONS = [
+        ('Basics', 'Identity and where it is used.', ['category', 'code', 'name', 'brand', 'active']),
+        ('Specification', 'Grade and physical details used on orders, dispatch and test certificates.',
+         ['grade', 'standard', 'bag_weight_kg', 'bar_diameter_mm', 'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle']),
+        ('Stock & tax', 'Unit for stock and orders, reorder alert, HSN and GST.', ['unit', 'reorder_level', 'hsn', 'gst_rate']),
+        ('Notes', 'Optional description for the team.', ['description']),
+    ]
+    # Which category each specification field belongs to (used by the form's JavaScript and validation).
+    FIELD_SCOPE = {'bag_weight_kg': 'Cement', 'bar_diameter_mm': 'TMT', 'weight_per_metre_kg': 'TMT', 'bar_length_m': 'TMT', 'bars_per_bundle': 'TMT'}
+
     class Meta:
         model = Product
-        fields = ['code', 'name', 'category', 'unit', 'bag_weight_kg', 'hsn', 'reorder_level', 'active']
+        fields = ['category', 'code', 'name', 'brand', 'active', 'grade', 'standard', 'bag_weight_kg', 'bar_diameter_mm',
+                  'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle', 'unit', 'reorder_level', 'hsn', 'gst_rate', 'description']
+        widgets = {'description': forms.Textarea(attrs={'rows': 3})}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from .models import CEMENT_GRADES, TMT_GRADES
+        self.fields['grade'].choices = [('', 'Select grade'), ('Cement grades', CEMENT_GRADES), ('TMT grades', TMT_GRADES)]
+        self.fields['category'].choices = [('', 'Select category')] + list(self.fields['category'].choices)[1:]
+        self.fields['bar_diameter_mm'].choices = [('', 'Select size')] + list(self.fields['bar_diameter_mm'].choices)[1:]
+        self.fields['gst_rate'].choices = [('', 'Not set')] + list(self.fields['gst_rate'].choices)[1:]
+        self.fields['code'].widget.attrs.update(placeholder='e.g. CEM-OPC53-50 or TMT-500D-12', style='text-transform:uppercase')
+        self.fields['hsn'].widget.attrs.update(inputmode='numeric', placeholder='e.g. 2523 or 7214')
+        self.fields['standard'].widget.attrs['placeholder'] = 'e.g. IS 269:2015'
+        for name in ['bag_weight_kg', 'weight_per_metre_kg', 'bar_length_m', 'reorder_level']:
+            self.fields[name].widget.attrs['step'] = 'any'
         if not self.instance.pk and not self.is_bound:
             # New products start from the organisation's standard cement bag weight.
             weight = Organization.objects.filter(pk=1).values_list('default_bag_weight', flat=True).first()
             self.initial.setdefault('bag_weight_kg', weight or 50)
+            self.initial.setdefault('bar_length_m', 12)
+
+    def sections(self):
+        return [(title, note, [self[name] for name in names]) for title, note, names in self.SECTIONS]
+
+    def clean_code(self):
+        return self.cleaned_data['code'].strip().upper()
+
+    def clean_hsn(self):
+        value = self.cleaned_data['hsn'].strip()
+        if value and not re.fullmatch(r'\d{4}|\d{6}|\d{8}', value):
+            raise forms.ValidationError('HSN must be 4, 6 or 8 digits.')
+        return value
+
     def clean(self):
+        from .models import CEMENT_GRADES, TMT_GRADES, GRADE_STANDARDS, DEFAULT_HSN
         data = super().clean()
-        if data.get('unit') == 'BAG' and not data.get('bag_weight_kg'): self.add_error('bag_weight_kg', 'Enter the SKU-specific bag weight.')
+        category, grade, unit = data.get('category'), data.get('grade'), data.get('unit')
+        cement_grades, tmt_grades = {g for g, _ in CEMENT_GRADES}, {g for g, _ in TMT_GRADES}
+        if category == 'Cement':
+            if not grade: self.add_error('grade', 'Select the cement grade.')
+            elif grade not in cement_grades: self.add_error('grade', 'Choose a cement grade (OPC, PPC, PSC or PCC).')
+        elif category == 'TMT':
+            if not grade: self.add_error('grade', 'Select the TMT grade.')
+            elif grade not in tmt_grades: self.add_error('grade', 'Choose a steel grade (Fe 415 to Fe 600).')
+            if not data.get('bar_diameter_mm'): self.add_error('bar_diameter_mm', 'Select the bar size.')
+            if unit == 'BAG': self.add_error('unit', 'TMT bars are stocked in MT, KG or pieces, not bags.')
+        elif grade:
+            data['grade'] = ''  # grades only apply to finished cement and TMT
+        if unit == 'BAG' and not data.get('bag_weight_kg') and 'bag_weight_kg' not in self.errors:
+            self.add_error('bag_weight_kg', 'Enter the SKU-specific bag weight.')
+        # Clear fields that do not apply to this category, and fill sensible defaults.
+        for name, scope in self.FIELD_SCOPE.items():
+            if category != scope and not self.fields[name].disabled:
+                data[name] = None
+        if category == 'TMT' and data.get('bar_diameter_mm') and not data.get('weight_per_metre_kg'):
+            d = Decimal(data['bar_diameter_mm'])
+            data['weight_per_metre_kg'] = (d * d / Decimal('162')).quantize(Decimal('0.001'))
+        if data.get('grade') and not (data.get('standard') or '').strip():
+            data['standard'] = GRADE_STANDARDS.get(data['grade'], '')
+        if category in DEFAULT_HSN and not data.get('hsn') and 'hsn' not in self.errors:
+            data['hsn'] = DEFAULT_HSN[category]
         return data
 
 class PartnerForm(StyledForm):
@@ -46,6 +109,9 @@ class LineForm(StyledForm):
     class Meta:
         model = OrderLine
         fields = ['product', 'quantity', 'rate']
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].queryset = Product.objects.filter(active=True).order_by('category', 'name')  # inactive SKUs stay off new orders
 
 Lines = inlineformset_factory(Order, OrderLine, form=LineForm, extra=0, min_num=1, validate_min=True, max_num=50, validate_max=True, can_delete=True)
 
@@ -53,6 +119,9 @@ class ProductionForm(StyledForm):
     class Meta:
         model = Production
         fields = ['site', 'product', 'batch', 'shift', 'planned_quantity', 'actual_quantity', 'notes']
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].queryset = Product.objects.filter(active=True, category__in=['Cement', 'TMT', 'Raw material']).order_by('category', 'name')  # finished goods + intermediates (clinker, billets)
 
 class QualityForm(StyledForm):
     class Meta:

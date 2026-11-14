@@ -1,0 +1,81 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if product %}{% url 'product_detail' product.pk %}{% else %}{% url 'products' %}{% endif %}">← {% if product %}{{ product.name }}{% else %}Products &amp; materials{% endif %}</a></div>
+      <h1>{{ title }}</h1><p>{% if locked %}This product has transactions, so its category, unit and bag weight are locked.{% else %}Choose the category first — the form shows only the fields that apply.{% endif %}</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate data-product-form>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <div class="mst-form-grid">
+      {% for title, note, fields in form.sections %}
+      <section class="org-card{% if title == 'Notes' %} mst-span{% endif %}" data-section="{{ title|slugify }}">
+        <header><h2>{{ title }}</h2><p>{{ note }}</p></header>
+        <div class="org-grid">
+          {% for field in fields %}
+          {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="org-field org-check"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>Active</strong><small>Inactive products are hidden from new orders.</small></span></label></div>
+          {% else %}
+          <div class="org-field{% if field.name == 'name' or field.name == 'description' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}" data-field="{{ field.name }}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}{% if field.field.disabled %} <span class="mst-lock" title="Locked after use">🔒</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% if title == 'Specification' %}<p class="mst-calc" data-calc hidden></p>{% endif %}
+      </section>
+      {% endfor %}
+    </div>
+    <div class="org-actions">
+      <span>Changes are recorded in the audit trail.</span>
+      <div class="org-actions-buttons"><a class="org-btn is-light" href="{% if product %}{% url 'product_detail' product.pk %}{% else %}{% url 'products' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if product %}Save changes{% else %}Add product{% endif %}</button></div>
+    </div>
+  </form>
+</div>
+{{ scope|json_script:"product-scope" }}{{ standards|json_script:"grade-standards" }}
+<script>
+(() => {
+  const form = document.querySelector('[data-product-form]');
+  const scope = JSON.parse(document.getElementById('product-scope').textContent);
+  const standards = JSON.parse(document.getElementById('grade-standards').textContent);
+  const $ = n => form.querySelector(`[name="${n}"]`);
+  const field = n => form.querySelector(`[data-field="${n}"]`);
+  const category = $('category'), grade = $('grade'), unit = $('unit'), hsn = $('hsn'), std = $('standard');
+  const cementGrades = ['OPC 33', 'OPC 43', 'OPC 53', 'PPC', 'PSC', 'PCC'];
+  const calc = form.querySelector('[data-calc]');
+  function apply() {
+    const cat = category.value;
+    Object.entries(scope).forEach(([name, only]) => { const f = field(name); if (f) f.hidden = cat !== only; });
+    const finished = cat === 'Cement' || cat === 'TMT';
+    ['grade', 'standard'].forEach(n => { const f = field(n); if (f) f.hidden = !finished; });
+    if (field('brand')) field('brand').hidden = !finished;
+    // Limit grade options to the category.
+    [...grade.options].forEach(o => { if (!o.value) return; const isCement = cementGrades.includes(o.value); o.hidden = (cat === 'Cement' && !isCement) || (cat === 'TMT' && isCement); });
+    if (grade.selectedOptions[0]?.hidden) grade.value = '';
+    if (cat === 'TMT' && unit.value === 'BAG') unit.value = 'MT';
+    if (cat === 'Cement' && !unit.value) unit.value = 'BAG';
+    if (!hsn.value && !hsn.disabled) hsn.placeholder = cat === 'Cement' ? '2523 (cement)' : cat === 'TMT' ? '7214 (TMT bars)' : 'e.g. 2523 or 7214';
+    showCalc();
+  }
+  function showCalc() {
+    if (category.value !== 'TMT') { calc.hidden = true; return; }
+    const d = parseFloat($('bar_diameter_mm').value), w = parseFloat($('weight_per_metre_kg').value) || (d ? d * d / 162 : 0);
+    const len = parseFloat($('bar_length_m').value), bars = parseInt($('bars_per_bundle').value, 10);
+    if (!d) { calc.hidden = true; return; }
+    let text = `Theoretical weight: ${(d * d / 162).toFixed(3)} kg/m`;
+    if (len && bars) text += ` · Bundle ≈ ${(w * len * bars).toFixed(1)} kg (${bars} × ${len} m)`;
+    calc.textContent = text; calc.hidden = false;
+  }
+  category.addEventListener('change', apply);
+  grade.addEventListener('change', () => { if (std && !std.value && standards[grade.value]) std.value = standards[grade.value]; });
+  ['bar_diameter_mm', 'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle'].forEach(n => $(n)?.addEventListener('input', showCalc));
+  $('bar_diameter_mm')?.addEventListener('change', showCalc);
+  apply();
+})();
+</script>
+{% endblock %}
