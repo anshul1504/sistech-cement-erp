@@ -2568,3 +2568,90 @@ class SchemeSettlement(models.Model):
         permissions = [('approve_schemesettlement', 'Approve scheme payouts')]
 
     def __str__(self): return self.number
+
+
+# ---------- Star programs: verified influencer usage and annual recognition (sistech.co.in) ----------
+
+class InfluencerUsage(models.Model):
+    """SISTECH bags a mason / engineer / contractor bought through a dealer. Counts for recognition only after independent verification."""
+    influencer = models.ForeignKey(Influencer, on_delete=models.PROTECT, related_name='usages')
+    dealer = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='influencer_usages', verbose_name='Bought from (dealer)')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    bags = models.PositiveIntegerField()
+    date = models.DateField(default=timezone.localdate)
+    site_location = models.CharField('Construction site', max_length=150, blank=True)
+    bill_reference = models.CharField("Dealer's bill / slip no.", max_length=40)
+    status = models.CharField(max_length=9, default='pending', choices=[('pending', 'Waiting verification'), ('verified', 'Verified'), ('rejected', 'Rejected')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-date', '-pk']
+        constraints = [models.UniqueConstraint(fields=['dealer', 'bill_reference', 'influencer'], condition=~models.Q(status='rejected'), name='one_usage_per_bill')]
+        permissions = [('verify_influencerusage', 'Verify influencer usage for recognition')]
+
+
+RECOGNITION_AUDIENCES = [('dealer', 'Star Dealer'), ('engineer', 'Star Engineer'), ('mason', 'Star Mason & Contractor')]
+RECOGNITION_LEVELS = [('national', 'National'), ('state', 'State'), ('district', 'District')]
+
+
+class RecognitionProgram(models.Model):
+    """Annual Star programme: participants are ranked on verified volume and the best become district, state or national winners."""
+    name = models.CharField(max_length=120)
+    audience = models.CharField(max_length=8, choices=RECOGNITION_AUDIENCES)
+    starts_on = models.DateField()
+    ends_on = models.DateField()
+    exclude_overdue_days = models.PositiveSmallIntegerField('Exclude dealers overdue beyond (days)', default=90,
+                                                            help_text='Dealers with an invoice overdue longer than this at ranking time are not eligible. 0 = no check.')
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=10, default='open', choices=[('open', 'Open'), ('ranked', 'Ranking waiting approval'), ('published', 'Winners published')])
+    ranked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    ranked_at = models.DateTimeField(null=True, blank=True)
+    published_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-starts_on', 'audience']
+        permissions = [('publish_recognitionprogram', 'Approve and publish recognition winners')]
+
+    def __str__(self): return self.name
+
+    @property
+    def unit(self):
+        return 'MT' if self.audience == 'dealer' else 'bags'
+
+
+class RecognitionLevel(models.Model):
+    program = models.ForeignKey(RecognitionProgram, on_delete=models.CASCADE, related_name='levels')
+    level = models.CharField(max_length=8, choices=RECOGNITION_LEVELS)
+    winners = models.PositiveSmallIntegerField('Winners per area', default=1)
+    minimum = models.DecimalField('Minimum volume', max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    reward = models.CharField(max_length=120, help_text='e.g. Domestic couple trip')
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['program', 'level'], name='one_rule_per_level')]
+
+
+class RecognitionAward(models.Model):
+    program = models.ForeignKey(RecognitionProgram, on_delete=models.CASCADE, related_name='awards')
+    level = models.CharField(max_length=8, choices=RECOGNITION_LEVELS)
+    area = models.CharField(max_length=80)
+    rank = models.PositiveSmallIntegerField()
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='recognitions')
+    influencer = models.ForeignKey(Influencer, null=True, blank=True, on_delete=models.PROTECT, related_name='recognitions')
+    volume = models.DecimalField(max_digits=14, decimal_places=3)
+    reward = models.CharField(max_length=120)
+    fulfilled = models.BooleanField(default=False)
+    fulfilment_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['level', 'area', 'rank']
+
+    @property
+    def participant(self):
+        return self.partner or self.influencer

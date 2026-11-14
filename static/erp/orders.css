@@ -406,3 +406,7 @@ a.ord-tr:hover { background: #fafbfd; }
 .mc-decide .form-select { max-width: 180px; height: 34px; }
 @media (max-width: 1199.98px) { .ent-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ent-table .ord-tr .ord-name { grid-column: 1 / -1; } }
 @media (max-width: 767.98px) { .ent-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sp-row { grid-template-columns: minmax(0, 1fr) !important; } .mc-decide .form-select { max-width: none; flex: 1 1 100%; } }
+.rp-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.rp-level { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--o-line); border-radius: 12px; min-width: 0; }
+.rp-level legend { float: none; width: auto; margin: 0; padding: 0 4px; font-size: 14px; }
+@media (max-width: 991.98px) { .rp-levels { grid-template-columns: minmax(0, 1fr); } }

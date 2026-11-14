@@ -94,7 +94,9 @@ See [Scheme rules and calculations](SCHEMES.md). No accrual, entitlement approva
 ✅ Step 8b stage 2: full-period entitlements with earn-once difference logic, independent approval with accrual posting,
 ledger-credit or bank payouts with maker-checker, dealer scheme statement.
 
-Next: Star Dealer / Star Engineer / Star Mason annual recognition (district → state → national), quotations, complaints/returns with CAPA. Territory hierarchy, unified project pipeline and dealer portal remain pending.
+✅ Star Dealer / Star Engineer / Star Mason & Contractor: verified influencer usage, annual ranking district → state → national with compliance, independent publishing and reward fulfilment.
+
+Next: quotations, complaints/returns with CAPA, territory hierarchy. Territory hierarchy, unified project pipeline and dealer portal remain pending.
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.

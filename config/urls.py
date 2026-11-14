@@ -279,3 +279,10 @@ urlpatterns += [
     path('schemes/payouts/<int:pk>/<str:decision>/', rwv.payout_decide, name='scheme_payout_decide'),
     path('schemes/statement/<int:partner_pk>/', rwv.statement, name='scheme_statement'),
 ]
+from erp import recognition_views as rcv
+urlpatterns += [
+    path('star-programmes/', rcv.programs, name='recognition'),
+    path('star-programmes/<int:pk>/', rcv.program_detail, name='recognition_detail'),
+    path('star-programmes/<int:pk>/<str:action>/', rcv.program_action, name='recognition_action'),
+    path('star-programmes/usage/', rcv.usage, name='influencer_usage'),
+]

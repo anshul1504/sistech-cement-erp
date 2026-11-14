@@ -1,0 +1,31 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · DEALER NETWORK</div><h1>Star programmes</h1><p>Star Dealer, Star Engineer and Star Mason &amp; Contractor. Participants are ranked on verified volume for the programme year; the best win at district, state and national level. A different user publishes the winners.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'influencer_usage' %}">Influencer usage{% if pending %} ({{ pending }} to verify){% endif %}</a></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if can_add %}<section class="org-card" style="margin-bottom:16px"><details class="inf-log" style="border:0;padding:0"{% if errors %} open{% endif %}><summary><svg><use href="#ic-plus"/></svg>New programme year</summary>
+    <form method="post" class="doc-form" novalidate>{% csrf_token %}<div class="org-grid">
+      <div class="org-field"><label class="form-label" for="rp-a">Programme</label><select class="form-select" id="rp-a" name="audience">{% for k, l in audiences %}<option value="{{ k }}"{% if post.audience == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="rp-n">Name</label><input class="form-control" id="rp-n" name="name" maxlength="120" value="{{ post.name }}" placeholder="e.g. Star Dealer 2026-27"></div>
+      <div class="org-field"><label class="form-label" for="rp-s">From</label><input class="form-control" id="rp-s" type="date" name="starts_on" value="{{ post.starts_on|default:year_start }}"></div>
+      <div class="org-field"><label class="form-label" for="rp-e">To</label><input class="form-control" id="rp-e" type="date" name="ends_on" value="{{ post.ends_on|default:year_end }}"></div>
+      <div class="org-field"><label class="form-label" for="rp-o">Exclude dealers overdue beyond (days)</label><input class="form-control" id="rp-o" type="number" min="0" name="overdue" value="{{ post.overdue|default:'90' }}"></div>
+    </div>
+    <div class="rp-levels">
+      {% for level, reward in defaults.items %}<fieldset class="rp-level"><legend><label class="org-check-label"><input class="form-check-input" type="checkbox" name="{{ level }}_on" checked><span>{{ level|capfirst }} winners</span></label></legend>
+        <div class="org-field"><label class="form-label">Winners per {% if level == 'national' %}country{% else %}{{ level }}{% endif %}</label><input class="form-control" type="number" min="1" name="{{ level }}_winners" value="{% if level == 'national' %}1{% elif level == 'state' %}3{% else %}5{% endif %}"></div>
+        <div class="org-field"><label class="form-label">Minimum volume</label><input class="form-control" type="number" step="any" min="0" name="{{ level }}_min" value="0"></div>
+        <div class="org-field"><label class="form-label">Reward</label><input class="form-control" name="{{ level }}_reward" maxlength="120" value="{{ reward }}"></div></fieldset>{% endfor %}</div>
+    <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Create programme</button></div></form></details></section>{% endif %}
+  <section class="org-card doc-list-card">{% if programs %}<ul class="mst-list prc-list pr-list">{% for p in programs %}
+    <li><a class="mst-main" href="{% url 'recognition_detail' p.pk %}"><span class="mst-icon"><svg><use href="#ic-gift"/></svg></span><span><strong>{{ p.name }}</strong><small>{{ p.get_audience_display }} · {{ p.starts_on|date:'d M Y' }} – {{ p.ends_on|date:'d M Y' }}</small></span></a>
+      <div class="mst-cell"><small>Levels</small>{% for l in p.levels.all %}{{ l.get_level_display }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+      <div class="mst-cell"><small>Winners</small>{{ p.awards.all|length }}</div>
+      <div class="mst-cell"><span class="org-chip ord-status is-{% if p.status == 'published' %}completed{% elif p.status == 'ranked' %}submitted{% else %}approved{% endif %}">● {{ p.get_status_display }}</span></div>
+      <div class="mst-cell"><small>Measure</small>{{ p.unit }}</div>
+      <a class="org-btn is-light is-sm mst-open" href="{% url 'recognition_detail' p.pk %}">Open</a></li>{% endfor %}</ul>
+  {% else %}<div class="doc-empty"><svg><use href="#ic-gift"/></svg><strong>No programmes yet</strong><span>Create this year's Star Dealer, Star Engineer and Star Mason programmes.</span></div>{% endif %}</section>
+</div>
+{% endblock %}

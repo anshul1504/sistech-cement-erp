@@ -1,0 +1,22 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'recognition' %}">← Star programmes</a></div></div>
+  <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-gift"/></svg></span>
+    <div class="org-hero-text"><h1>{{ p.name }}</h1><p>{{ p.get_audience_display }} · {{ p.starts_on|date:'d M Y' }} – {{ p.ends_on|date:'d M Y' }} · measured in {{ p.unit }}{% if p.audience == 'dealer' and p.exclude_overdue_days %} · dealers overdue beyond {{ p.exclude_overdue_days }} days excluded{% endif %}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{% if p.status == 'published' %}completed{% elif p.status == 'ranked' %}submitted{% else %}approved{% endif %}">● {{ p.get_status_display }}</span>{% for l in p.levels.all %}<span class="org-chip">{{ l.get_level_display }}: top {{ l.winners }} · {{ l.reward }}</span>{% endfor %}</div></div>
+    <div class="org-hero-side"><small>Winners</small><span class="mst-total">{{ awards|length }}</span><small>{% if p.published_by %}Published by {{ p.published_by|who }}{% elif p.ranked_by %}Ranked by {{ p.ranked_by|who }}{% endif %}</small></div></section>
+  <div class="doc-head-actions pr-actions">{% if can.rank %}<form method="post" action="{% url 'recognition_action' p.pk 'rank' %}">{% csrf_token %}<button class="org-btn is-primary" type="submit">{% if p.status == 'ranked' %}Re-run ranking{% else %}Run ranking{% endif %}</button></form>{% endif %}</div>
+  {% if can.publish %}<section class="org-card" style="margin-bottom:16px"><header><h2>Publish winners</h2><p>You did not run the ranking. Check the list below before publishing.</p></header>
+    <form method="post" action="{% url 'recognition_action' p.pk 'publish' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="rc-n">Note (required to send back)</label><input class="form-control" id="rc-n" name="note" maxlength="200"></div>
+      <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'recognition_action' p.pk 'sendback' %}">Send back</button><button class="org-btn is-primary" type="submit">Publish</button></div></form></section>{% endif %}
+  {% if awards %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Winners</h2></header>
+    <ul class="mst-order-list">{% for a in awards %}<li class="sp-row"><span><strong>{{ a.get_level_display }} · {{ a.area }} · #{{ a.rank }} — {{ a.participant }}</strong><small>{{ a.volume|qty }} {{ p.unit }} · {{ a.reward }}{% if a.fulfilled %} · given: {{ a.fulfilment_note }}{% endif %}</small></span>
+      {% if can.fulfil and not a.fulfilled %}<form method="post" action="{% url 'recognition_action' p.pk 'fulfil' %}" class="mc-decide">{% csrf_token %}<input type="hidden" name="award" value="{{ a.pk }}"><input class="form-control" name="note" maxlength="200" placeholder="e.g. Goa trip 12–15 Jan, PNR AB12C" required><button class="org-btn is-primary is-sm" type="submit">Mark given</button></form>
+      {% else %}<span class="doc-badge{% if a.fulfilled %} is-ok{% endif %}">{% if a.fulfilled %}Given{% else %}To give{% endif %}</span>{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+  {% if board %}<section class="org-card ord-items"><header class="acc-card-head"><h2>Leaderboard (live)</h2><span class="acc-muted">Top 25 by volume so far</span></header>
+    <ul class="mst-order-list">{% for r in board %}<li><span><strong>#{{ forloop.counter }} · {{ r.who }}</strong><small>{{ r.district|default:'—' }} · {{ r.state }}{% if not r.ok %} · not eligible (overdue){% endif %}</small></span><span></span><strong class="{% if not r.ok %}led-late{% endif %}">{{ r.volume|qty }} {{ p.unit }}</strong></li>{% endfor %}</ul></section>
+  {% elif p.status != 'published' %}<section class="org-card"><p class="acc-muted">No volume yet in this programme year.</p></section>{% endif %}
+</div>
+{% endblock %}

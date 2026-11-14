@@ -213,6 +213,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Payouts** take a dealer's open entitlements net of recoveries: as a credit to the dealer account (reduces outstanding and settles invoices like a credit note) or by bank transfer with UTR; a different user approves; cancelling frees the entitlements.
 - **Dealer scheme statement**: earned, recovered, paid, pending approval and balance per scheme version.
 
+## Star programmes (Star Dealer / Star Engineer / Star Mason & Contractor)
+
+- **Influencer usage**: SISTECH bags a mason, engineer or contractor bought from a dealer, with the dealer's bill number (one entry per bill per person). Only usage verified by a second person counts.
+- **Programme year** per audience with national, state and district awards: winners per area, minimum volume and reward (defaults from sistech.co.in — domestic couple trip, international couple trip, Grand Champion Award). Dealers are measured in net MT invoiced (returns deducted); influencers in verified bags. Dealers with an invoice overdue beyond the programme's limit are not eligible.
+- **Ranking** goes national → state → district; each participant gets only the highest award reached. A different user publishes the winners; rewards are then marked as given with details. A live leaderboard shows the top 25 during the year.
+
 ## Implemented workflows
 
 - Responsive internal web ERP with local Poppins/Bootstrap, Sistech blue/yellow branding and The Webfix credit.
