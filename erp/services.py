@@ -1,4 +1,5 @@
 from decimal import Decimal
+from .gst import inr
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.db.models import F
@@ -30,6 +31,8 @@ def transition_order(user, pk, action):
     if action == 'submit':
         if order.status != 'Draft': raise ValidationError('Only draft orders can be submitted.')
         if not order.lines.exists(): raise ValidationError('Add at least one order line.')
+        if order.kind == 'Purchase':
+            _purchase_checks(order)
         order.status = 'Submitted'
     elif action == 'approve':
         if order.status != 'Submitted': raise ValidationError('Only submitted orders can be approved.')
@@ -41,10 +44,16 @@ def transition_order(user, pk, action):
             from .ledger import exposure, overdue
             late = overdue(partner)
             if late:
-                raise ValidationError(f'{len(late)} invoice{"s" if len(late) > 1 else ""} past due (₹{sum(i.outstanding for i in late):,.0f}, oldest {late[0].number}). Collect payment before approving new orders.')
+                raise ValidationError(f'{len(late)} invoice{"s" if len(late) > 1 else ""} past due (₹{inr(sum(i.outstanding for i in late), 0)}, oldest {late[0].number}). Collect payment before approving new orders.')
             exp = exposure(partner, exclude_order=order.pk)
             if exp['total'] + order.grand_total > partner.credit_limit:
-                raise ValidationError(f'Dealer credit limit exceeded: outstanding ₹{exp["balance"]:,.0f} + orders not yet invoiced ₹{exp["pipeline"]:,.0f} + this order ₹{order.grand_total:,.0f} > limit ₹{partner.credit_limit:,.0f}.')
+                raise ValidationError(f'Dealer credit limit exceeded: outstanding ₹{inr(exp["balance"], 0)} + orders not yet invoiced ₹{inr(exp["pipeline"], 0)} + this order ₹{inr(order.grand_total, 0)} > limit ₹{inr(partner.credit_limit, 0)}.')
+        else:
+            _purchase_checks(order)
+            from .procurement import approval_limit
+            limit = approval_limit()
+            if order.grand_total > limit and not user.has_perm('erp.approve_high_value_purchase'):
+                raise ValidationError(f'PO value ₹{inr(order.grand_total, 0)} is above the ₹{inr(limit, 0)} approval limit — a senior purchase approver must approve it.')
         order.status, order.approved_by = 'Approved', user
     elif action == 'post':
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')
@@ -67,8 +76,26 @@ def transition_order(user, pk, action):
         order.status = 'Completed'
     else: raise ValidationError('Unknown action.')
     order.save(update_fields=['status', 'approved_by'])
+    if order.kind == 'Purchase' and action in ('approve', 'cancel', 'post'):
+        from .procurement import refresh_requests
+        refresh_requests(order)
+        if action == 'cancel' and order.quote_id and order.quote.rfq.status == 'awarded':
+            rfq = order.quote.rfq
+            rfq.status = 'open'  # buyer can award the next supplier
+            rfq.save(update_fields=['status'])
     audit(user, f'Order {action}', order)
     return order
+
+
+def _purchase_checks(order):
+    problems = []
+    for line in order.lines.select_related('product'):
+        if line.rate <= 0:
+            problems.append(f'{line.product.name}: enter the agreed rate.')
+    from .procurement import check_po_against_requests
+    problems += check_po_against_requests(order)
+    if problems:
+        raise ValidationError(problems)
 
 @transaction.atomic
 def transition_production(user, pk, action):

@@ -1,0 +1,54 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'rfqs' %}">← RFQs &amp; quotes</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-supplier"><svg><use href="#ic-quote"/></svg></span>
+    <div class="org-hero-text"><h1>{{ rfq.number }}</h1><p>For <a href="{% url 'pr_detail' rfq.request.pk %}">{{ rfq.request.number }}</a> · {{ rfq.request.purpose }} · {{ rfq.site.code }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ rfq.badge }}">● {{ rfq.get_status_display }}</span><span class="org-chip">Quotes due {{ rfq.quotes_due|date:'d M Y' }}</span><span class="org-chip">{{ cmp.quotes|length }} of {{ rfq.suppliers.count }} quoted</span></div></div>
+    <div class="org-hero-side"><small>Lowest landed (L1)</small><span class="mst-total">{% if cmp.l1 %}₹{{ cmp.l1.landed|indian }}{% else %}—{% endif %}</span><small>{% if cmp.l1 %}{{ cmp.l1.supplier.name }}{% else %}No valid quote yet{% endif %}</small></div>
+  </section>
+  {% if rfq.terms %}<ul class="ord-checks"><li class="is-info">Terms sent: {{ rfq.terms }}</li></ul>{% endif %}
+  {% for o in orders %}<ul class="ord-checks"><li class="is-info">Purchase order <a href="{% url 'order_detail' o.pk %}">{{ o.number }}</a> · {{ o.partner.name }} · {{ o.status }}{% if o.award_reason %} · {{ o.award_reason }}{% endif %}</li></ul>{% endfor %}
+
+  <section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Items asked</h2></header>
+    <ul class="mst-order-list">{% for l in cmp.lines %}<li><span><strong>{{ l.product.name }}</strong><small>{{ l.product.code }}{% if l.pr_line.specification %} · {{ l.pr_line.specification }}{% endif %}</small></span><span></span><strong>{{ l.quantity|qty }} {{ l.product.unit }}</strong></li>{% endfor %}</ul></section>
+
+  {% if waiting %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Waiting for quote</h2></header>
+    <ul class="mst-order-list">{% for s in waiting %}<li><span><strong>{{ s.name }}</strong><small>{% if s.phone %}{{ s.phone }}{% endif %}{% if s.email %} · {{ s.email }}{% endif %}</small></span><span></span>{% if can_quote %}<a class="org-btn is-primary is-sm" href="{% url 'quote_form' rfq.pk s.pk %}">Record quote</a>{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+
+  {% if cmp.quotes %}
+  <form method="post" action="{% url 'rfq_award' rfq.pk %}" class="doc-form" novalidate>{% csrf_token %}
+  <section class="org-card"><header><h2>Comparison</h2><p>Landed = rate + supplier freight spread by value, before GST (input credit). Ranked on landed total, then delivery time, then credit days.</p></header>
+    <div class="cmp-grid">{% for q in cmp.quotes %}
+      <label class="cmp-card{% if q.rank == 'L1' %} is-best{% endif %}{% if not q.valid %} is-expired{% endif %}">
+        <div class="cmp-head">{% if can_award and q.valid %}<input class="form-check-input" type="radio" name="quote" value="{{ q.pk }}"{% if q.rank == 'L1' %} checked{% endif %}>{% endif %}<span><strong>{{ q.supplier.name }}</strong><small>{% if q.reference %}Ref {{ q.reference }} · {% endif %}{{ q.quote_date|date:'d M' }}{% if q.valid_until %} · valid to {{ q.valid_until|date:'d M' }}{% endif %}</small></span><span class="cmp-rank">{{ q.rank }}</span></div>
+        <div class="cmp-total"><small>Landed total</small><strong>₹{{ q.landed|indian:2 }}</strong><small>GST ₹{{ q.gst|indian:2 }}{% if q.freight %} · freight ₹{{ q.freight|indian }}{% endif %}</small></div>
+        <dl class="cmp-facts"><div><dt>Delivery</dt><dd>{{ q.lead_time_days }} day{{ q.lead_time_days|pluralize }}</dd></div><div><dt>Credit</dt><dd>{{ q.payment_terms_days }} day{{ q.payment_terms_days|pluralize }}</dd></div>
+          <div><dt>Quality</dt><dd>{% if q.quality is not None %}{{ q.quality|floatformat:1 }}% accepted{% else %}No history{% endif %}</dd></div></dl>
+        {% if q.notes %}<small class="cmp-note">{{ q.notes }}</small>{% endif %}
+        {% if can_quote %}<a class="cmp-edit" href="{% url 'quote_form' rfq.pk q.supplier.pk %}">Revise quote</a>{% endif %}
+      </label>{% endfor %}</div>
+    <h3 class="cmp-sub">By item</h3>
+    {% for row in cmp.rows %}<div class="cmp-item"><div class="cmp-item-name"><strong>{{ row.line.product.name }}</strong><small>{{ row.line.quantity|qty }} {{ row.line.product.unit }}</small></div>
+      <div class="cmp-cells">{% for c in row.cells %}<div class="cmp-cell{% if c.best %} is-best{% endif %}"><small>{{ c.quote.supplier.name }}</small>{% if c.rate is not None %}<strong>₹{{ c.landed|indian:2 }}</strong><small>rate ₹{{ c.rate|indian:2 }} · GST {{ c.gst|qty }}%</small>{% else %}<span>—</span>{% endif %}</div>{% endfor %}</div></div>{% endfor %}
+  </section>
+  {% if can_award %}<section class="org-card"><header><h2>Award</h2><p>Raises a draft purchase order for the chosen supplier, linked to {{ rfq.request.number }}. Supplier freight is added into the PO rate.</p></header>
+    <div class="org-grid">
+      <div class="org-field is-wide"><label class="form-label" for="aw-r">Reason (required if not L1)</label><input class="form-control" id="aw-r" name="reason" maxlength="180" placeholder="e.g. L1 cannot deliver before the kiln shutdown"></div>
+      <div class="org-field"><label class="form-label" for="aw-t">Over-receipt tolerance %</label><input class="form-control" id="aw-t" type="number" step="0.1" min="0" max="10" name="tolerance" value="0"><div class="form-text">For bulk material by weight, e.g. 2.</div></div>
+      <div class="org-field"><label class="form-label" for="aw-d">Delivery terms</label><input class="form-control" id="aw-d" name="delivery_terms" maxlength="120" value="{{ rfq.terms|truncatechars:120 }}"></div>
+    </div>
+  </section>
+  <div class="org-actions"><span>A different user approves the PO; above the limit, a senior approver.</span><div class="org-actions-buttons"><button class="org-btn is-primary" type="submit">Award &amp; raise PO</button></div></div>{% endif %}
+  </form>
+  {% endif %}
+
+  <div class="acc-grid" style="margin-top:16px">
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}
+      {% if can_cancel %}<details class="pr-cancel"><summary>Cancel this RFQ</summary><form method="post" action="{% url 'rfq_cancel' rfq.pk %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="rf-cn">Reason</label><input class="form-control" id="rf-cn" name="note" maxlength="200" required></div><button class="org-btn is-light is-danger is-sm" type="submit">Cancel RFQ</button></form></details>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 """Receivables: receipts (with cheque bounce), GST credit notes (with goods return), customer ledger and outstanding / ageing."""
 import csv
 import re
+from .gst import inr
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -56,7 +57,7 @@ class ReceiptForm(forms.ModelForm):
         if mode == 'cash' and amount and data.get('partner') and on:
             same_day = Receipt.objects.filter(partner=data['partner'], date=on, mode='cash', status='posted').aggregate(t=Sum('amount'))['t'] or 0
             if amount + same_day >= CASH_LIMIT:
-                self.add_error('amount', f'Cash of ₹2,00,000 or more from one person in a day is not allowed (Income-tax s.269ST). Already received in cash today: ₹{same_day:,.0f}.')
+                self.add_error('amount', f'Cash of ₹2,00,000 or more from one person in a day is not allowed (Income-tax s.269ST). Already received in cash today: ₹{inr(same_day, 0)}.')
         if ref and data.get('partner') and Receipt.objects.filter(partner=data['partner'], reference__iexact=ref, mode=mode).exclude(status='bounced').exists():
             self.add_error('reference', 'This reference is already recorded for this customer — possible duplicate.')
         data['reference'] = ref
@@ -97,7 +98,7 @@ def receipt_new(request):
             AuditEvent.objects.create(actor=request.user, action='Receipt posted', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {r.get_mode_display()}')
         r.refresh_from_db()
         adj = r.allocated
-        messages.success(request, f'{r.number}: ₹{r.amount:,.2f} received — ₹{adj:,.2f} adjusted against invoices' + (f', ₹{r.unallocated:,.2f} kept as advance.' if r.unallocated else '.'))
+        messages.success(request, f'{r.number}: ₹{inr(r.amount, 2)} received — ₹{inr(adj, 2)} adjusted against invoices' + (f', ₹{inr(r.unallocated, 2)} kept as advance.' if r.unallocated else '.'))
         return redirect('receipt_detail', pk=r.pk)
     pk = initial.get('partner') or request.POST.get('partner') or ''
     partner = form.fields['partner'].queryset.filter(pk=pk).first() if str(pk).isdigit() else None
@@ -130,7 +131,7 @@ def receipt_bounce(request, pk):
         r.save(update_fields=['status', 'bounced_on', 'bounce_reason'])
         allocate(r.partner)
         AuditEvent.objects.create(actor=request.user, action='Cheque bounced', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {reason}')
-    messages.warning(request, f'{r.number} marked bounced. ₹{r.amount:,.2f} is outstanding again for {r.partner.name}.')
+    messages.warning(request, f'{r.number} marked bounced. ₹{inr(r.amount, 2)} is outstanding again for {r.partner.name}.')
     return redirect('receipt_detail', pk=pk)
 
 
@@ -171,7 +172,7 @@ def credit_note_new(request, pk):
             elif qty:
                 qty = Decimal('0')
             if value < 0 or value > row['room_value']:
-                errors.append(f'{l.description}: credit must be between ₹0 and ₹{row["room_value"]:,.2f} (taxable).'); continue
+                errors.append(f'{l.description}: credit must be between ₹0 and ₹{inr(row["room_value"], 2)} (taxable).'); continue
             if value:
                 picked.append((l, qty, value))
         if not picked and not errors:
@@ -198,7 +199,7 @@ def credit_note_new(request, pk):
                     Settlement.objects.create(invoice=inv, credit_note=cn, amount=own)
                 allocate(inv.partner)
                 AuditEvent.objects.create(actor=request.user, site=inv.site, action='Credit note posted', reference=cn.number, detail=f'{inv.number} · {cn.get_reason_display()} · ₹{cn.total}')
-            messages.success(request, f'Credit note {cn.number} for ₹{cn.total:,.0f} posted against {inv.number}.' + (' Returned stock added back.' if cn.returns_stock else ''))
+            messages.success(request, f'Credit note {cn.number} for ₹{inr(cn.total, 0)} posted against {inv.number}.' + (' Returned stock added back.' if cn.returns_stock else ''))
             return redirect('credit_note_detail', pk=cn.pk)
     return render(request, 'erp/credit_note_form.html', {'title': f'Credit note · {inv.number}', 'inv': inv, 'rows': rows, 'errors': errors,
                                                          'reasons': CREDIT_REASONS, 'reason': reason, 'notes': request.POST.get('notes', '')})

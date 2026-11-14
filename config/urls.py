@@ -136,3 +136,19 @@ urlpatterns += [
     path('freight/bills/<int:pk>/', frv.freight_bill_detail, name='freight_bill_detail'),
     path('freight/bills/<int:pk>/<str:decision>/', frv.freight_bill_decide, name='freight_bill_decide'),
 ]
+from erp import procurement_views as pcv
+urlpatterns += [
+    path('purchase/requests/', pcv.purchase_requests, name='purchase_requests'),
+    path('purchase/requests/new/', pcv.pr_form, name='pr_new'),
+    path('purchase/requests/reorder/', pcv.reorder, name='reorder'),
+    path('purchase/requests/<int:pk>/', pcv.pr_detail, name='pr_detail'),
+    path('purchase/requests/<int:pk>/edit/', pcv.pr_form, name='pr_edit'),
+    path('purchase/requests/<int:pk>/direct-po/', pcv.pr_direct, name='pr_direct'),
+    path('purchase/requests/<int:pk>/rfq/', pcv.rfq_new, name='rfq_new'),
+    path('purchase/requests/<int:pk>/do/<str:action>/', pcv.pr_action, name='pr_action'),
+    path('purchase/rfq/', pcv.rfqs, name='rfqs'),
+    path('purchase/rfq/<int:pk>/', pcv.rfq_detail, name='rfq_detail'),
+    path('purchase/rfq/<int:pk>/quote/<int:supplier_pk>/', pcv.quote_form, name='quote_form'),
+    path('purchase/rfq/<int:pk>/award/', pcv.rfq_award, name='rfq_award'),
+    path('purchase/rfq/<int:pk>/cancel/', pcv.rfq_cancel, name='rfq_cancel'),
+]

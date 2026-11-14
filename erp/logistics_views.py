@@ -1,5 +1,6 @@
 """Logistics screens: vehicles & drivers, gate & dispatch board, truck page with one action per step, weighment slip / gate pass, POD."""
 import re
+from .gst import inr
 from decimal import Decimal, InvalidOperation
 
 from django import forms
@@ -247,7 +248,7 @@ def dispatch_action(request, pk, action):
         elif action == 'approve':
             L.approve_exception(u, pk, P.get('note', '')); msg = 'Exception approved.'
         elif action == 'invoice':
-            inv = L.invoice(u, pk, P.get('eway_bill', '')); msg = f'Invoice {inv.number} posted for ₹{inv.grand_total:,.0f}.'
+            inv = L.invoice(u, pk, P.get('eway_bill', '')); msg = f'Invoice {inv.number} posted for ₹{inr(inv.grand_total, 0)}.'
         elif action == 'gate_out':
             L.gate_out(u, pk); msg = 'Gate-out done. Truck is in transit.'
         elif action == 'deliver':

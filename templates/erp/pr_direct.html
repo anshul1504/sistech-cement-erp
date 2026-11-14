@@ -1,0 +1,22 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'pr_detail' pr.pk %}">← {{ pr.number }}</a></div><h1>Direct purchase order</h1><p>Buy without quotations only for a single source, an existing rate contract or a breakdown. The reason is shown to the PO approver.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Supplier</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="dp-s">Supplier <span class="required">*</span></label><select class="form-select" id="dp-s" name="supplier"><option value="">Choose supplier</option>{% for s in suppliers %}<option value="{{ s.pk }}"{% if post.supplier == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="dp-r">Why no quotations <span class="required">*</span></label><input class="form-control" id="dp-r" name="reason" maxlength="180" value="{{ post.reason }}" placeholder="e.g. OEM spare, only authorised dealer"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Items</h2><p>Rates before GST.</p></header><div class="ord-lines">{% for l in lines %}
+      <div class="ord-line dp-line">
+        <div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>Pending {{ l.pending_quantity|qty }} {{ l.product.unit }}{% if l.specification %} · {{ l.specification }}{% endif %}</small></div>
+        <div class="ord-cell" data-label="Quantity"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{{ l.qty_in }}"><span data-unit>{{ l.product.unit }}</span></div></div>
+        <div class="ord-cell" data-label="Rate (₹)"><input class="form-control" type="number" step="0.01" min="0" name="rate_{{ l.pk }}" value="{{ l.rate_in }}"></div>
+        <div class="ord-cell ord-gst" data-label="GST">{% if l.product.gst_rate is not None %}{{ l.product.gst_rate|qty }}%{% else %}<span class="mst-missing">Not set</span>{% endif %}</div>
+      </div>{% endfor %}</div></section>
+    <div class="org-actions"><span>Creates a draft PO. A different user approves it.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'pr_detail' pr.pk %}">Cancel</a><button class="org-btn is-primary" type="submit">Create draft PO</button></div></div>
+  </form>
+</div>
+{% endblock %}

@@ -54,6 +54,7 @@
       <dl>
         <div><dt>Base unit</dt><dd>{{ product.get_unit_display }}</dd></div>
         <div><dt>Reorder level</dt><dd>{{ product.reorder_level|floatformat:'-3' }} {{ product.unit }}</dd></div>
+        <div><dt>Reorder quantity</dt><dd>{% if product.reorder_quantity %}{{ product.reorder_quantity|floatformat:'-3' }} {{ product.unit }}{% else %}Top up to reorder level{% endif %}</dd></div>
         <div><dt>HSN code</dt><dd>{{ product.hsn|default:'—' }}</dd></div>
         <div><dt>GST rate</dt><dd>{% if product.gst_rate is not None %}{{ product.gst_rate|floatformat:'-2' }}%{% else %}<span class="mst-missing">Not set</span>{% endif %}</dd></div>
       </dl>

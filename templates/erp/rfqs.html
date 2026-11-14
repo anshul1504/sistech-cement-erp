@@ -1,0 +1,27 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PROCUREMENT</div><h1>RFQs &amp; quotes</h1><p>Quotations asked for approved purchase requests. Open an RFQ to record quotes, compare landed cost and award.</p></div></div>
+  {% include 'erp/_proc_tabs.html' with tab='rfq' %}
+  <div class="inf-kpis is-three" role="list">
+    <a role="listitem" class="inf-kpi" href="?status=open"><span>Collecting quotes</span><strong>{{ open }}</strong><small>Open RFQs</small></a>
+    <div role="listitem" class="inf-kpi{% if due %} is-warn{% endif %}"><span>Due today or past</span><strong>{{ due }}</strong><small>Compare and award</small></div>
+    <a role="listitem" class="inf-kpi" href="?status=awarded"><span>Awarded</span><strong>{{ awarded }}</strong><small>Purchase order raised</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>RFQs</h2><p>{{ rfqs|length }} shown</p></div>
+      <form method="get" class="doc-filter"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option><option value="open"{% if status == 'open' %} selected{% endif %}>Collecting quotes</option><option value="awarded"{% if status == 'awarded' %} selected{% endif %}>Awarded</option><option value="cancelled"{% if status == 'cancelled' %} selected{% endif %}>Cancelled</option></select></form></header>
+    {% if rfqs %}<ul class="mst-list prc-list pr-list">{% for r in rfqs %}
+      <li class="{% if r.status == 'cancelled' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'rfq_detail' r.pk %}"><span class="mst-icon is-supplier"><svg><use href="#ic-quote"/></svg></span><span><strong>{{ r.number }}</strong><small>{{ r.site.code }} · {{ r.request.number }} · {{ r.request.purpose }}</small></span></a>
+        <div class="mst-cell"><small>Quotes</small>{{ r.n_quotes }} of {{ r.n_invited }} invited</div>
+        <div class="mst-cell"><small>Due</small><span class="{% if r.status == 'open' and r.quotes_due <= today %}led-late{% endif %}">{{ r.quotes_due|date:'d M Y' }}</span></div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ r.badge }}">● {{ r.get_status_display }}</span></div>
+        <div class="mst-cell"><small>By</small>{{ r.created_by.get_full_name|default:r.created_by.username }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'rfq_detail' r.pk %}">Open</a>
+      </li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-quote"/></svg><strong>No RFQs</strong><span>Create an RFQ from an approved purchase request.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

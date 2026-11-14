@@ -1,0 +1,1 @@
+<ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor.get_full_name|default:e.actor.username }}</small><small>{{ e.created_at|date:'d M Y, H:i' }}</small></li>{% empty %}<li><span><small>No activity yet.</small></span></li>{% endfor %}</ul>

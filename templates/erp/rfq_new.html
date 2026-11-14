@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'pr_detail' pr.pk %}">← {{ pr.number }}</a></div><h1>Ask for quotations</h1><p>Invite suppliers to quote for {{ pr.number }}. Quotes are compared on landed cost — rate plus the supplier's freight — with delivery time, credit days and past quality beside them.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>RFQ</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="rq-d">Quotes due by <span class="required">*</span></label><input class="form-control" id="rq-d" type="date" name="quotes_due" value="{{ due }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="rq-t">Terms for suppliers</label><input class="form-control" id="rq-t" name="terms" maxlength="200" value="{{ post.terms }}" placeholder="e.g. Delivered at plant, GST extra, 30 days credit, test certificate with each lot"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Items</h2><p>Pending quantity on the request is the most you can ask for.</p></header><div class="ord-lines">{% for l in lines %}
+      <div class="ord-line dp-line">
+        <div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>{{ l.product.code }}{% if l.specification %} · {{ l.specification }}{% endif %}</small></div>
+        <div class="ord-cell" data-label="Pending">{{ l.pending_quantity|qty }} {{ l.product.unit }}</div>
+        <div class="ord-cell" data-label="Ask for"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{{ l.qty_in }}"><span data-unit>{{ l.product.unit }}</span></div></div>
+        <div class="ord-cell"></div>
+      </div>{% endfor %}</div></section>
+    <section class="org-card"><header><h2>Suppliers</h2><p>Tick everyone to invite. Acceptance % is from their past goods receipts.</p></header>
+      {% if suppliers %}<div class="rfq-suppliers">{% for s in suppliers %}<label class="rfq-supplier"><input class="form-check-input" type="checkbox" name="suppliers" value="{{ s.pk }}"{% if s.pk|stringformat:'s' in picked %} checked{% endif %}><span><strong>{{ s.name }}</strong><small>{% if s.city %}{{ s.city }} · {% endif %}{% if s.quality is not None %}{{ s.quality|floatformat:1 }}% accepted{% else %}No receipts yet{% endif %}{% if s.payment_terms_days %} · {{ s.payment_terms_days }} days credit{% endif %}</small></span></label>{% endfor %}</div>
+      {% else %}<p class="acc-muted">No active suppliers. Add them in Dealers &amp; suppliers.</p>{% endif %}
+    </section>
+    <div class="org-actions"><span>Record each quote as it arrives.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'pr_detail' pr.pk %}">Cancel</a><button class="org-btn is-primary" type="submit">Create RFQ</button></div></div>
+  </form>
+</div>
+{% endblock %}

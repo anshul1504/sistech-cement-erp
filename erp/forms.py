@@ -2,7 +2,7 @@ from decimal import Decimal
 from django import forms
 from django.forms import inlineformset_factory
 import re
-from .models import Site, Product, Partner, Order, OrderLine, Production, QualityTest, Organization, OrganizationDocument, Influencer, InfluencerActivity, PriceRule, CUSTOMER_KINDS, LEAD_KINDS, clean_place
+from .models import Site, Product, Partner, Order, OrderLine, Production, QualityTest, Organization, OrganizationDocument, Influencer, InfluencerActivity, PriceRule, PurchaseRequest, PurchaseRequestLine, SupplierQuote, CUSTOMER_KINDS, LEAD_KINDS, clean_place
 
 class StyledForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -101,7 +101,7 @@ class ProductForm(StyledForm):
         ('Basics', 'Identity and where it is used.', ['category', 'code', 'name', 'brand', 'active']),
         ('Specification', 'Grade and physical details used on orders, dispatch and test certificates.',
          ['grade', 'standard', 'bag_weight_kg', 'bar_diameter_mm', 'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle']),
-        ('Stock & tax', 'Unit for stock and orders, reorder alert, HSN and GST.', ['unit', 'reorder_level', 'hsn', 'gst_rate']),
+        ('Stock & tax', 'Unit for stock and orders, reorder alert, HSN and GST.', ['unit', 'reorder_level', 'reorder_quantity', 'hsn', 'gst_rate']),
         ('Notes', 'Optional description for the team.', ['description']),
     ]
     # Which category each specification field belongs to (used by the form's JavaScript and validation).
@@ -110,7 +110,7 @@ class ProductForm(StyledForm):
     class Meta:
         model = Product
         fields = ['category', 'code', 'name', 'brand', 'active', 'grade', 'standard', 'bag_weight_kg', 'bar_diameter_mm',
-                  'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle', 'unit', 'reorder_level', 'hsn', 'gst_rate', 'description']
+                  'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle', 'unit', 'reorder_level', 'reorder_quantity', 'hsn', 'gst_rate', 'description']
         widgets = {'description': forms.Textarea(attrs={'rows': 3})}
 
     def __init__(self, *args, **kwargs):
@@ -123,8 +123,9 @@ class ProductForm(StyledForm):
         self.fields['code'].widget.attrs.update(placeholder='e.g. CEM-OPC53-50 or TMT-500D-12', style='text-transform:uppercase')
         self.fields['hsn'].widget.attrs.update(inputmode='numeric', placeholder='e.g. 2523 or 7214')
         self.fields['standard'].widget.attrs['placeholder'] = 'e.g. IS 269:2015'
-        for name in ['bag_weight_kg', 'weight_per_metre_kg', 'bar_length_m', 'reorder_level']:
+        for name in ['bag_weight_kg', 'weight_per_metre_kg', 'bar_length_m', 'reorder_level', 'reorder_quantity']:
             self.fields[name].widget.attrs['step'] = 'any'
+        self.fields['reorder_quantity'].required = False
         if not self.instance.pk and not self.is_bound:
             # New products start from the organisation's standard cement bag weight.
             weight = Organization.objects.filter(pk=1).values_list('default_bag_weight', flat=True).first()
@@ -133,6 +134,9 @@ class ProductForm(StyledForm):
 
     def sections(self):
         return [(title, note, [self[name] for name in names]) for title, note, names in self.SECTIONS]
+
+    def clean_reorder_quantity(self):
+        return self.cleaned_data.get('reorder_quantity') or Decimal('0')
 
     def clean_code(self):
         return self.cleaned_data['code'].strip().upper()
@@ -256,7 +260,8 @@ class PartnerForm(StyledForm):
 class OrderForm(StyledForm):
     class Meta:
         model = Order
-        fields = ['site', 'partner', 'due_date', 'place_of_supply', 'freight_terms', 'customer_ref', 'ship_to', 'notes']
+        fields = ['site', 'partner', 'due_date', 'place_of_supply', 'freight_terms', 'customer_ref', 'payment_terms_days', 'receipt_tolerance_pct', 'advance_amount',
+                  'delivery_terms', 'ship_to', 'notes']
         widgets = {'due_date': forms.DateInput(attrs={'type': 'date'}), 'ship_to': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 2})}
 
     def __init__(self, *args, **kwargs):
@@ -270,8 +275,18 @@ class OrderForm(StyledForm):
                 del self.fields[name]
             self.fields['customer_ref'].label = 'Supplier quotation / reference'
             self.fields['partner'].label = 'Supplier'
+            self.fields['due_date'].label = 'Delivery by'
+            self.fields['receipt_tolerance_pct'].widget.attrs.update(step='0.1', min='0', max='10')
         else:
             self.fields['partner'].label = 'Customer'
+            for name in ['payment_terms_days', 'receipt_tolerance_pct', 'advance_amount', 'delivery_terms']:
+                del self.fields[name]
+
+    def clean_receipt_tolerance_pct(self):
+        v = self.cleaned_data.get('receipt_tolerance_pct') or Decimal('0')
+        if v > 10:
+            raise forms.ValidationError('Keep over-receipt tolerance at 10% or less.')
+        return v
 
     def clean_due_date(self):
         due = self.cleaned_data['due_date']
@@ -293,6 +308,42 @@ class LineForm(StyledForm):
         self.fields['rate'].required = False
         self.fields['rate'].widget.attrs.update(step='0.01', placeholder='List price')
         self.fields['quantity'].widget.attrs.update(step='any', min='0')
+
+class PurchaseRequestForm(StyledForm):
+    class Meta:
+        model = PurchaseRequest
+        fields = ['site', 'needed_by', 'priority', 'source', 'purpose']
+        widgets = {'needed_by': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['site'].empty_label = 'Choose plant / depot'
+        self.fields['purpose'].widget.attrs.update(placeholder='e.g. Coal for kiln, November')
+
+
+class PRLineForm(StyledForm):
+    class Meta:
+        model = PurchaseRequestLine
+        fields = ['product', 'quantity', 'estimated_rate', 'specification']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].queryset = Product.objects.filter(active=True).order_by('category', 'name')
+        self.fields['product'].empty_label = 'Choose item'
+        self.fields['quantity'].widget.attrs.update(step='any', min='0')
+        self.fields['estimated_rate'].widget.attrs.update(step='0.01', min='0', placeholder='Optional')
+        self.fields['specification'].widget.attrs.update(placeholder='Grade, size, make…')
+
+
+PRLines = inlineformset_factory(PurchaseRequest, PurchaseRequestLine, form=PRLineForm, extra=0, min_num=1, validate_min=True, max_num=40, validate_max=True, can_delete=True)
+
+
+class QuoteForm(StyledForm):
+    class Meta:
+        model = SupplierQuote
+        fields = ['reference', 'quote_date', 'valid_until', 'freight', 'lead_time_days', 'payment_terms_days', 'notes']
+        widgets = {'quote_date': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'), 'valid_until': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
+
 
 Lines = inlineformset_factory(Order, OrderLine, form=LineForm, extra=0, min_num=1, validate_min=True, max_num=50, validate_max=True, can_delete=True)
 
@@ -375,6 +426,8 @@ class OrganizationForm(StyledForm):
          ['phone', 'alt_phone', 'customer_care', 'whatsapp', 'email', 'website', 'signatory_name', 'signatory_designation']),
         ('Printing on documents', 'Default text printed on sales orders and invoices.',
          ['terms_conditions', 'document_footer']),
+        ('Purchase controls', 'Approval limit for purchase orders and the tolerance for matching supplier invoices.',
+         ['po_approval_limit', 'match_qty_tolerance_pct', 'match_price_tolerance_pct']),
     ]
 
     class Meta:
@@ -385,12 +438,14 @@ class OrganizationForm(StyledForm):
                   'deals_cement', 'deals_tmt', 'bis_cement_licence', 'bis_tmt_licence', 'fy_start_month', 'default_bag_weight',
                   'bank_name', 'bank_branch', 'bank_account_name', 'bank_account_number', 'bank_ifsc',
                   'phone', 'alt_phone', 'customer_care', 'whatsapp', 'email', 'website', 'signatory_name', 'signatory_designation',
-                  'terms_conditions', 'document_footer']
+                  'terms_conditions', 'document_footer', 'po_approval_limit', 'match_qty_tolerance_pct', 'match_price_tolerance_pct']
         widgets = {'incorporation_date': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
                    'address': forms.Textarea(attrs={'rows': 3}), 'terms_conditions': forms.Textarea(attrs={'rows': 5})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for name in ['po_approval_limit', 'match_qty_tolerance_pct', 'match_price_tolerance_pct']:
+            self.fields[name].required = False
         for name in ['gstin', 'pan', 'tan', 'cin', 'udyam', 'iec', 'bank_ifsc']:
             self.fields[name].widget.attrs.update(style='text-transform:uppercase', autocomplete='off', spellcheck='false')
         self.fields['pincode'].widget.attrs.update(inputmode='numeric', maxlength='6')
@@ -402,6 +457,14 @@ class OrganizationForm(StyledForm):
     def sections(self):
         from django.utils.text import slugify
         return [(title, note, [self[name] for name in names], slugify(title)) for title, note, names in self.SECTIONS]
+
+    def _keep(self, name):
+        value = self.cleaned_data.get(name)
+        return getattr(self.instance, name) if value is None else value
+
+    def clean_po_approval_limit(self): return self._keep('po_approval_limit')
+    def clean_match_qty_tolerance_pct(self): return self._keep('match_qty_tolerance_pct')
+    def clean_match_price_tolerance_pct(self): return self._keep('match_price_tolerance_pct')
 
     def clean_logo_file(self):
         upload = self.cleaned_data.get('logo_file')

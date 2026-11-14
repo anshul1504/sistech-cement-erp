@@ -1,0 +1,30 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PROCUREMENT</div><h1>Purchase requests</h1><p>What each plant needs, by when and why. A request is approved by someone other than the person who raised it, then goes for quotations or a direct order.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'pr_new' %}"><svg><use href="#ic-plus"/></svg>New request</a></div>{% endif %}</div>
+  {% include 'erp/_proc_tabs.html' with tab='pr' %}
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi{% if waiting %} is-warn{% endif %}" href="?status=submitted"><span>Waiting approval</span><strong>{{ waiting }}</strong><small>Maker-checker</small></a>
+    <a role="listitem" class="inf-kpi" href="?status=approved"><span>Approved, to buy</span><strong>{{ to_buy }}</strong><small>Send RFQ or order</small></a>
+    <div role="listitem" class="inf-kpi{% if urgent %} is-danger{% endif %}"><span>Urgent open</span><strong>{{ urgent }}</strong><small>Waiting or to buy</small></div>
+    <a role="listitem" class="inf-kpi{% if reorder_count %} is-warn{% endif %}" href="{% url 'reorder' %}"><span>Below reorder level</span><strong>{{ reorder_count }}</strong><small>Not yet requested</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Requests</h2><p>{{ requests|length }} shown</p></div>
+      <form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Number, item or purpose" aria-label="Search">
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All statuses</option>{% for k, l in statuses %}<option value="{{ k }}"{% if status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></form></header>
+    {% if requests %}<ul class="mst-list prc-list pr-list">{% for r in requests %}
+      <li class="{% if r.status == 'cancelled' or r.status == 'rejected' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'pr_detail' r.pk %}"><span class="mst-icon is-supplier"><svg><use href="#ic-clipboard"/></svg></span><span><strong>{{ r.number }}{% if r.priority == 'urgent' %} <span class="doc-badge is-danger">Urgent</span>{% endif %}</strong><small>{{ r.site.code }} · {{ r.purpose }}</small></span></a>
+        <div class="mst-cell"><small>Items</small>{% for l in r.lines.all|slice:':2' %}{{ l.product.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if r.lines.all|length > 2 %} +{{ r.lines.all|length|add:'-2' }}{% endif %}</div>
+        <div class="mst-cell"><small>Needed by</small>{{ r.needed_by|date:'d M Y' }}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ r.badge }}">● {{ r.get_status_display }}</span></div>
+        <div class="mst-cell"><small>Raised by</small>{{ r.created_by.get_full_name|default:r.created_by.username }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'pr_detail' r.pk %}">Open</a>
+      </li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-clipboard"/></svg><strong>No purchase requests</strong><span>Raise one manually, or from the reorder suggestions.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

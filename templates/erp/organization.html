@@ -58,6 +58,15 @@
     </section>
 
     <section class="org-card org-view">
+      <header><h2>Purchase controls</h2></header>
+      <dl>
+        <div><dt>PO approval limit</dt><dd>₹{{ org.po_approval_limit|floatformat:'0' }}</dd></div>
+        <div><dt>Invoice qty tolerance</dt><dd>{{ org.match_qty_tolerance_pct|floatformat:'-2' }}%</dd></div>
+        <div><dt>Invoice rate tolerance</dt><dd>{{ org.match_price_tolerance_pct|floatformat:'-2' }}%</dd></div>
+      </dl>
+    </section>
+
+    <section class="org-card org-view">
       <header><h2>Bank details</h2></header>
       <dl>
         <div><dt>Bank</dt><dd>{{ org.bank_name|default:'—' }}{% if org.bank_branch %}, {{ org.bank_branch }}{% endif %}</dd></div>

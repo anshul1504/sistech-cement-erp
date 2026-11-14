@@ -124,6 +124,14 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 - At **gate-out** each trip freezes who pays (customer for ex-works orders or customer-owned trucks, otherwise Sistech) and the **contracted freight** for its net weight, so later rate changes never alter past trips.
 - **Freight bills**: enter the transporter's bill against their unbilled trips. Per trip, payable = claimed freight capped at contract + extras allowed up to (detention days × lane detention + unloading) − **shortage/damage recovery** from the POD at invoice value; minus advance already paid. Claims above contract are shown as variance. Duplicate bill numbers are refused. A **different user** approves (a note is required when the claim exceeds contract) or rejects (which frees the trips for a corrected bill). Approved bills become payables for Finance (Step 7).
 
+## Purchase requests, RFQ & PO approval (Step 4a)
+
+- **Purchase requests** (Procurement → Purchase requests): plant, needed-by date, priority, source (manual, reorder level, production plan, maintenance) and purpose; items with optional estimated rate and specification. Stock at the time of request is recorded. Submit → a **different user** approves or rejects (reason required). Requests close automatically when fully ordered and reopen if a PO is cancelled.
+- **Reorder suggestions**: items below their reorder level per plant after counting open POs and pending requests; suggested quantity is the product's reorder quantity or the shortfall. Tick and raise draft requests in one step.
+- **RFQ & quote comparison**: from an approved request, invite suppliers for the pending quantity. Record each quote (rate and GST per item, freight, delivery days, credit days, validity). Quotes are ranked L1, L2… on **landed cost** (rate + supplier freight spread by value), then delivery time, then credit days, with each supplier's past acceptance % beside them. Expired quotes cannot be awarded; awarding anyone other than L1 needs a reason.
+- **Award** raises a draft PO linked line by line to the request, with supplier freight added into the rate (part of the value of supply under GST), payment terms, over-receipt tolerance and delivery terms. **Direct PO** (single source / rate contract / breakdown) is allowed from an approved request with a mandatory reason shown to the approver.
+- **PO controls**: quantities can never exceed what the request approved (drafts count too); zero rates are refused; the approver must differ from the creator; POs above the **PO approval limit** (Organisation setup → Purchase controls, default ₹5,00,000 incl. GST) need the *High-value PO approval* permission (new *Purchase head* role). Roles: *Purchase officer*, *Purchase head*, *Store requester*.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
@@ -146,12 +154,12 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | --- | --- |
 | Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Legal entities, GST registrations, financial periods, territory/dealer isolation and MFA remain. |
 | CRM and dealer network | Dealer/supplier master with GST, credit terms and KYC documents. Leads, KYC approval workflow, territory hierarchy, visits and project pipeline remain. |
-| Sales | Basic net-value orders. Versioned price lists, quotations, credit ageing, stock reservations/ATP, partial delivery and revision workflow remain. Approval does not reserve stock; availability is enforced at posting. |
-| Procurement | Basic order and full receipt. PR/RFQ, GRN inspection/holds and three-way matching remain. Purchase receipts become available immediately. |
+| Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, stock reservations/ATP and order revisions remain. |
+| Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate/weighment/GRN with quality hold (4b) and supplier-invoice three-way match / debit notes (4c) in progress. Budget check remains. |
 | Inventory | Quantity ledger and opening stock. Lots, reservations, locations, transfers, returns, valuation and reversals remain. |
 | Production and quality | Output tracking and quality release only. BOM versions, material consumption, test specifications, COA, energy and actual costing remain. |
-| Logistics | Stock dispatch only. Gate tokens, immutable weighments, tare/gross tolerance, loading, trip, freight and POD remain. |
-| Finance and GST | Not implemented. GL, AP/AR, journals, tax invoices, GST configuration/connectors, banking, assets, financial statements and period close remain. |
+| Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |
+| Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journals, e-invoice/e-way bill connectors, banking, assets, statements and period close remain. |
 | Schemes and claims | Not implemented. Versioned incentive rules, commissions, returns, complaints and settlements remain. |
 | Android and integrations | Not implemented. Scoped APIs, employee/dealer/driver apps, offline drafts, notifications, GST/bank/GPS/hardware integrations remain. |
 | Production operations | PostgreSQL migration, concurrent workload testing, audit retention hardening, monitoring, backups/restore, secure hosting and UAT remain. |

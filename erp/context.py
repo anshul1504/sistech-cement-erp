@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.9.1'
+ASSET_VERSION = '0.9.2'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -34,8 +34,9 @@ NAV_GROUPS = [
         _soon('Schemes & claims', 'gift'),
     ]),
     ('Procurement', [
+        _item('purchase_requests', 'Purchase requests', 'clipboard', 'view_purchaserequest', match=('pr_new', 'pr_detail', 'pr_edit', 'pr_direct', 'reorder')),
+        _item('rfqs', 'RFQs & quotes', 'quote', 'view_rfq', match=('rfq_new', 'rfq_detail', 'quote_form')),
         _item('purchases', 'Purchase orders', 'purchase', 'view_purchase_order'),
-        _soon('Purchase requests', 'clipboard'),
     ]),
     ('Plant operations', [
         _item('production', 'Production', 'factory', 'view_production', match=('production_new', 'production_action')),
@@ -140,6 +141,8 @@ def navigation(request):
     quick_create = []
     if order_permission(user, 'Sale', 'create'):
         quick_create.append(('New sales order', reverse('order_new', args=['Sale']), 'sales'))
+    if user.has_perm('erp.add_purchaserequest'):
+        quick_create.append(('Purchase request', reverse('pr_new'), 'clipboard'))
     if order_permission(user, 'Purchase', 'create'):
         quick_create.append(('New purchase order', reverse('order_new', args=['Purchase']), 'purchase'))
     if user.has_perm('erp.add_production'):

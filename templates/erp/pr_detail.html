@@ -1,0 +1,47 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'purchase_requests' %}">← Purchase requests</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-supplier"><svg><use href="#ic-clipboard"/></svg></span>
+    <div class="org-hero-text"><h1>{{ pr.number }}</h1><p>{{ pr.purpose }} · {{ pr.site.code }} · {{ pr.site.name }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ pr.badge }}">● {{ pr.get_status_display }}</span>{% if pr.priority == 'urgent' %}<span class="org-chip ord-status is-cancelled">Urgent</span>{% endif %}<span class="org-chip">{{ pr.get_source_display }}</span><span class="org-chip">Needed by {{ pr.needed_by|date:'d M Y' }}</span></div></div>
+    <div class="org-hero-side"><small>Estimated value</small><span class="mst-total">{% if estimated %}₹{{ estimated|indian }}{% else %}—{% endif %}</span><small>Before GST</small></div>
+  </section>
+  {% if pr.decision_note %}<ul class="ord-checks"><li class="is-{% if pr.status == 'approved' or pr.status == 'closed' %}info{% else %}danger{% endif %}">{{ pr.get_status_display }}{% if pr.decided_by %} by {{ pr.decided_by.get_full_name|default:pr.decided_by.username }}{% endif %}: {{ pr.decision_note }}</li></ul>{% endif %}
+  {% if pr.status == 'submitted' and not can_decide %}<ul class="ord-checks"><li class="is-info">Waiting for approval by someone other than {{ pr.created_by.get_full_name|default:pr.created_by.username }}.</li></ul>{% endif %}
+  <div class="doc-head-actions pr-actions">
+    {% if can_edit %}<a class="org-btn is-light" href="{% url 'pr_edit' pr.pk %}">Edit</a>{% endif %}
+    {% if can_submit %}<form method="post" action="{% url 'pr_action' pr.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary" type="submit">Submit for approval</button></form>{% endif %}
+    {% if can_rfq %}<a class="org-btn is-primary" href="{% url 'rfq_new' pr.pk %}">Ask for quotations (RFQ)</a>{% endif %}
+    {% if can_direct %}<a class="org-btn is-light" href="{% url 'pr_direct' pr.pk %}">Direct PO (single source)</a>{% endif %}
+  </div>
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Items</h2><span class="acc-muted">Stock now at {{ pr.site.code }}</span></header>
+      <div class="ord-table pr-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Item</span><span>Requested</span><span>Stock then</span><span>Stock now</span><span>Ordered</span><span>Pending</span></div>
+        {% for l in lines %}<div class="ord-tr" role="row">
+          <span class="ord-name"><strong>{{ l.product.name }}</strong><small>{{ l.product.code }}{% if l.specification %} · {{ l.specification }}{% endif %}{% if l.estimated_rate %} · est. ₹{{ l.estimated_rate|indian:2 }}{% endif %}</small></span>
+          <span data-label="Requested">{{ l.quantity|qty }} {{ l.product.unit }}</span>
+          <span data-label="Stock then">{% if l.stock_at_request is not None %}{{ l.stock_at_request|qty }}{% else %}—{% endif %}</span>
+          <span data-label="Stock now" class="{% if l.stock <= l.product.reorder_level %}led-late{% endif %}">{{ l.stock|qty }}</span>
+          <span data-label="Ordered">{{ l.ordered|qty }}</span>
+          <span data-label="Pending"><strong>{{ l.pending|qty }}</strong></span>
+        </div>{% endfor %}
+      </div>
+    </section>
+    {% if can_decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Approve</h2><span class="acc-muted">Check the need against stock before approving.</span></header>
+      <form method="post" action="{% url 'pr_action' pr.pk 'approve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="pr-note">Note (required to reject)</label><input class="form-control" id="pr-note" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'pr_action' pr.pk 'reject' %}">Reject</button><button class="org-btn is-primary" type="submit">Approve</button></div></form></section>{% endif %}
+    {% if rfqs or orders %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Buying</h2></header>
+      <ul class="mst-order-list">{% for r in rfqs %}<li><span><strong><a href="{% url 'rfq_detail' r.pk %}">{{ r.number }}</a></strong><small>{{ r.n }} quote{{ r.n|pluralize }} · due {{ r.quotes_due|date:'d M' }}</small></span><span></span><span class="org-chip ord-status is-{{ r.badge }}">{{ r.get_status_display }}</span></li>{% endfor %}
+        {% for o in orders %}<li><span><strong><a href="{% url 'order_detail' o.pk %}">{{ o.number }}</a></strong><small>{{ o.partner.name }}</small></span><span></span><span class="org-chip ord-status is-{{ o.status|lower|slugify }}">{{ o.status }}</span></li>{% endfor %}</ul></section>{% endif %}
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>History</h2></header>
+      {% include 'erp/_history.html' %}
+      {% if can_cancel %}<details class="pr-cancel"><summary>Cancel this request</summary><form method="post" action="{% url 'pr_action' pr.pk 'cancel' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="pr-cn">Reason</label><input class="form-control" id="pr-cn" name="note" maxlength="200" required></div><button class="org-btn is-light is-danger is-sm" type="submit">Cancel request</button></form></details>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

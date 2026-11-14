@@ -1,0 +1,22 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PROCUREMENT</div><h1>Reorder suggestions</h1><p>Items below their reorder level at each plant, after counting open purchase orders and requests already raised. Tick what to buy and raise draft requests in one go.</p></div></div>
+  {% include 'erp/_proc_tabs.html' with tab='reorder' %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Below reorder level</h2><p>{{ rows|length }} item{{ rows|length|pluralize }}. Set reorder level and quantity on each product.</p></header>
+      {% if rows %}<div class="ord-lines">{% for r in rows %}
+        <div class="ord-line ro-line">
+          <div class="ord-cell ord-product" data-label="Item">{% if can_add %}<label class="org-check-label"><input class="form-check-input" type="checkbox" name="pick_{{ r.key }}" checked><span><strong>{{ r.product.name }}</strong><small>{{ r.site.code }} · {{ r.product.code }}</small></span></label>{% else %}<strong>{{ r.product.name }}</strong><small>{{ r.site.code }}</small>{% endif %}</div>
+          <div class="ord-cell" data-label="Stock"><strong class="led-late">{{ r.stock|qty }}</strong> <small class="ord-hint">{{ r.product.unit }}</small></div>
+          <div class="ord-cell" data-label="Reorder level">{{ r.level|qty }}</div>
+          <div class="ord-cell" data-label="On order / requested">{{ r.po|qty }} / {{ r.pr|qty }}</div>
+          <div class="ord-cell" data-label="Request quantity">{% if can_add %}<div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ r.key }}" value="{{ r.suggest|qty }}"><span data-unit>{{ r.product.unit }}</span></div>{% else %}{{ r.suggest|qty }}{% endif %}</div>
+        </div>{% endfor %}</div>
+      {% else %}<div class="doc-empty"><svg><use href="#ic-boxes"/></svg><strong>Nothing below reorder level</strong><span>Every item with a reorder level has enough stock or is already on order.</span></div>{% endif %}
+    </section>
+    {% if rows and can_add %}<div class="org-actions"><span>One draft request per plant, needed in 7 days. Edit before submitting.</span><div class="org-actions-buttons"><button class="org-btn is-primary" type="submit">Raise draft requests</button></div></div>{% endif %}
+  </form>
+</div>
+{% endblock %}

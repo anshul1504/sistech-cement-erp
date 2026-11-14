@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% if pr %}{% url 'pr_detail' pr.pk %}{% else %}{% url 'purchase_requests' %}{% endif %}">← {% if pr %}{{ pr.number }}{% else %}Purchase requests{% endif %}</a></div>
+    <h1>{{ title }}</h1><p>List what is needed and by when. Estimated rate is optional and helps the approver see the value. Current stock is recorded when you save.</p></div></div>
+  <form method="post" class="doc-form" novalidate data-lines-form>{% csrf_token %}
+    {% if errors or form.errors or formset.total_error_count %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>{% for e in errors %}{{ e }} {% empty %}Please correct the highlighted fields.{% endfor %}{% for e in formset.non_form_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <section class="org-card"><header><h2>Request</h2><p>Which plant needs it, how soon and what for.</p></header>
+      <div class="org-grid">{% for field in form %}
+        <div class="org-field{% if field.name == 'purpose' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div></section>
+    <section class="org-card ord-lines-card"><header class="ord-lines-head"><div><h2>Items</h2><p>Quantity in the item's unit.</p></div></header>
+      {{ formset.management_form }}
+      <div class="ord-lines" data-lines>
+        <div class="ord-line pr-line ord-line-head" aria-hidden="true"><span>Item</span><span>Quantity</span><span>Est. rate (₹)</span><span>Specification</span><span></span></div>
+        {% for line in formset %}{% include 'erp/_pr_line.html' %}{% endfor %}
+      </div>
+      <template data-empty-line>{% include 'erp/_pr_line.html' with line=formset.empty_form %}</template>
+      <button class="org-btn is-light is-sm" type="button" data-add-line><svg><use href="#ic-plus"/></svg>Add item</button>
+    </section>
+    <div class="org-actions"><span>Saved as a draft. Submit it, then a different user approves.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% if pr %}{% url 'pr_detail' pr.pk %}{% else %}{% url 'purchase_requests' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">Save draft</button></div></div>
+  </form>
+</div>
+{{ units|json_script:'unit-data' }}
+<script src="{% load static %}{% static 'erp/lines.js' %}?v={{ asset_version }}" defer></script>
+{% endblock %}

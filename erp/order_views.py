@@ -1,5 +1,6 @@
 """Sales & purchase orders: create / edit draft with price-list lookup and GST, detail with tax breakup, live price API."""
 import json
+from .gst import inr
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -142,15 +143,30 @@ def order_detail(request, pk):
             from .partner_views import credit_position
             credit = credit_position(order.partner)
             if credit['overdue_count']:
-                checks.append(('danger', f'{credit["overdue_count"]} invoice(s) past due — ₹{credit["overdue"]:,.0f}. Approval will be blocked until paid.'))
+                checks.append(('danger', f'{credit["overdue_count"]} invoice(s) past due — ₹{inr(credit["overdue"], 0)}. Approval will be blocked until paid.'))
             if credit['exposure'] + tax['grand_total'] > credit['limit']:
-                checks.append(('danger', f'Credit limit will be exceeded: exposure ₹{credit["exposure"]:,.0f} + this order ₹{tax["grand_total"]:,.0f} > limit ₹{credit["limit"]:,.0f}.'))
+                checks.append(('danger', f'Credit limit will be exceeded: exposure ₹{inr(credit["exposure"], 0)} + this order ₹{inr(tax["grand_total"], 0)} > limit ₹{inr(credit["limit"], 0)}.'))
         for l in lines:
             bal = StockBalance.objects.filter(site=order.site, product=l.product).values_list('quantity', flat=True).first() or Decimal('0')
             reserved = (Order.objects.filter(kind='Sale', site=order.site, status='Approved').exclude(pk=order.pk)
                         .aggregate(q=Sum('lines__quantity', filter=Q(lines__product=l.product)))['q'] or Decimal('0'))
             if bal - reserved < l.quantity:
-                checks.append(('warn', f'{l.product.name}: {max(bal - reserved, 0):,.3f} {l.product.unit} free at {order.site.code} (stock {bal:,.3f}, reserved {reserved:,.3f}).'.replace('.000', '')))
+                checks.append(('warn', f'{l.product.name}: {inr(max(bal - reserved, 0), 3)} {l.product.unit} free at {order.site.code} (stock {inr(bal, 3)}, reserved {inr(reserved, 3)}).'.replace('.000', '')))
+    requests = []
+    if order.kind == 'Purchase':
+        from .procurement import check_po_against_requests, approval_limit
+        from .models import PurchaseRequest
+        requests = list(PurchaseRequest.objects.filter(lines__po_lines__order=order).distinct())
+        if order.status in ('Draft', 'Submitted'):
+            for p in check_po_against_requests(order):
+                checks.append(('danger', p))
+            if not requests:
+                checks.append(('info', 'Not linked to a purchase request — approver please confirm the need.'))
+            if order.award_reason and (order.award_reason.startswith('Direct') or (order.quote_id and not order.award_reason.startswith('Lowest'))):
+                checks.append(('warn', f'Sourcing: {order.award_reason}'))
+            limit = approval_limit()
+            if tax['grand_total'] > limit:
+                checks.append(('info', f'Above the ₹{inr(limit, 0)} approval limit — needs a senior purchase approver.'))
     flow = ['Draft', 'Submitted', 'Approved', 'Completed']
     at = flow.index(order.status) if order.status in flow else -1
     steps = [(name, 'cancelled' if order.status == 'Cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i, name in enumerate(flow)]
@@ -164,5 +180,5 @@ def order_detail(request, pk):
         steps.append(('Invoiced', 'cancelled' if order.status == 'Cancelled' else 'current' if invoices and order.status == 'Completed' else 'todo'))
     history = AuditEvent.objects.filter(reference=order.number).select_related('actor').order_by('-created_at')[:8]
     return render(request, 'erp/order_detail.html', {'title': order.number, 'order': order, 'lines': lines, 'tax': tax, 'words': in_words(tax['grand_total']),
-                                                     'checks': checks, 'history': history, 'steps': steps, 'invoice': invoice, 'invoices': invoices,
+                                                     'checks': checks, 'history': history, 'requests': requests, 'steps': steps, 'invoice': invoice, 'invoices': invoices,
                                                      'dispatches': order.dispatches.select_related('vehicle', 'invoice').prefetch_related('lines__order_line__product') if order.kind == 'Sale' else [], **actions})

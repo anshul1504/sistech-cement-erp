@@ -1,0 +1,20 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'rfq_detail' rfq.pk %}">← {{ rfq.number }}</a></div><h1>{% if existing %}Revise{% else %}Record{% endif %} quote</h1><p>{{ supplier.name }}{% if supplier.gstin %} · {{ supplier.gstin }}{% endif %}. Rates per unit before GST. Put freight here only if the supplier charges it separately.</p></div></div>
+  {% if errors or form.errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}{% for f in form %}{% for e in f.errors %}<li class="is-danger">{{ f.label }}: {{ e }}</li>{% endfor %}{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Quote</h2></header><div class="org-grid">{% for field in form %}
+      <div class="org-field{% if field.name == 'notes' %} is-wide{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endfor %}</div></section>
+    <section class="org-card"><header><h2>Rates</h2></header><div class="ord-lines">{% for l in lines %}
+      <div class="ord-line dp-line">
+        <div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>{{ l.quantity|qty }} {{ l.product.unit }}</small></div>
+        <div class="ord-cell" data-label="Rate (₹ per {{ l.product.unit|lower }})"><input class="form-control" type="number" step="0.01" min="0" name="rate_{{ l.pk }}" value="{{ l.rate_in }}"></div>
+        <div class="ord-cell" data-label="GST %"><input class="form-control" type="number" step="0.01" min="0" max="28" name="gst_{{ l.pk }}" value="{{ l.gst_in }}"></div>
+        <div class="ord-cell"></div>
+      </div>{% endfor %}</div></section>
+    <div class="org-actions"><span>You can revise a quote until the RFQ is awarded.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'rfq_detail' rfq.pk %}">Cancel</a><button class="org-btn is-primary" type="submit">Save quote</button></div></div>
+  </form>
+</div>
+{% endblock %}

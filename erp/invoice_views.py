@@ -1,6 +1,7 @@
 """GST tax invoices: post from a dispatched sales order, register with filters, printable A4 invoice, GSTR-1 style CSV."""
 import csv
 import re
+from .gst import inr
 from datetime import timedelta
 
 from django import forms
@@ -120,7 +121,7 @@ def invoice_new(request, pk):
         except ValidationError as e:
             form.add_error(None, ' '.join(e.messages))
         else:
-            messages.success(request, f'Tax invoice {inv.number} posted for ₹{inv.grand_total:,.0f}.')
+            messages.success(request, f'Tax invoice {inv.number} posted for ₹{inr(inv.grand_total, 0)}.')
             return redirect('invoice_detail', pk=inv.pk)
     return render(request, 'erp/invoice_new.html', {'title': f'Invoice {order.number}', 'order': order, 'form': form, 'blockers': blockers, 'tax': tax})
 

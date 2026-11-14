@@ -1,4 +1,5 @@
 """Freight screens: lane rate card, transporter bill entry against trips, bill check (maker-checker)."""
+from .gst import inr
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -139,7 +140,7 @@ def freight_bill_new(request, transporter_pk):
             except ValidationError as e:
                 errors += e.messages
             else:
-                messages.success(request, f'Bill {bill.bill_number} entered — payable ₹{bill.payable:,.2f} after check. A different user must approve it.')
+                messages.success(request, f'Bill {bill.bill_number} entered — payable ₹{inr(bill.payable, 2)} after check. A different user must approve it.')
                 return redirect('freight_bill_detail', pk=bill.pk)
     return render(request, 'erp/freight_bill_new.html', {'title': f'Freight bill · {transporter.name}', 'transporter': transporter, 'trips': trips, 'errors': errors,
                                                          'post': request.POST, 'today': timezone.localdate()})

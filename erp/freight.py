@@ -3,6 +3,7 @@
 Payable per trip = min(claimed, contracted) + allowed extras (detention days × lane detention + unloading) − shortage/damage recovery.
 Anything claimed above contract is shown as variance and not paid. Ex-works trips (customer arranges the truck) are never billed to Sistech.
 """
+from .gst import inr
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -126,7 +127,7 @@ def decide(user, pk, approve, note):
     if not approve and not note:
         raise ValidationError('Give the reason for rejecting.')
     if approve and bill.variance > 0 and not note:
-        raise ValidationError(f'Claim is ₹{bill.variance:,.2f} above contract — note why the payable is acceptable.')
+        raise ValidationError(f'Claim is ₹{inr(bill.variance, 2)} above contract — note why the payable is acceptable.')
     bill.status, bill.checked_by, bill.checked_at, bill.check_note = ('approved' if approve else 'rejected'), user, timezone.now(), note[:200]
     bill.save()
     if not approve:

@@ -93,6 +93,8 @@ class Product(models.Model):
     bag_weight_kg = models.DecimalField('Bag weight (kg)', max_digits=8, decimal_places=3, null=True, blank=True, validators=POSITIVE)
     hsn = models.CharField('HSN code', max_length=10, blank=True)
     reorder_level = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    reorder_quantity = models.DecimalField('Reorder quantity', max_digits=14, decimal_places=3, default=0, validators=MONEY,
+                                           help_text='Usual quantity to buy when stock falls below the reorder level. 0 = top up to the reorder level.')
     active = models.BooleanField(default=True)
     # Cement & TMT specification
     brand = models.CharField(max_length=60, blank=True, help_text='Brand printed on bags or bundles, if any.')
@@ -229,15 +231,24 @@ class Order(Document):
     kind = models.CharField(max_length=10, choices=[('Sale', 'Sales order'), ('Purchase', 'Purchase order')])
     partner = models.ForeignKey(Partner, on_delete=models.PROTECT)
     due_date = models.DateField(default=timezone.localdate)
-    status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Part dispatched', 'Completed', 'Cancelled']])
+    status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Part dispatched', 'Part received', 'Completed', 'Cancelled']])
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='approved_orders')
     place_of_supply = models.CharField('Place of supply', max_length=2, blank=True, choices=INDIAN_STATES,
                                        help_text="Buyer's delivery state. Same state as the plant → CGST + SGST, otherwise IGST.")
     ship_to = models.TextField('Ship-to address', blank=True, help_text="Leave empty to deliver to the partner's delivery / billing address.")
     freight_terms = models.CharField(max_length=16, choices=FREIGHT_TERMS, default='ex_works')
     customer_ref = models.CharField('Customer PO / reference', max_length=40, blank=True)
+    # Purchase-only terms (FR-PUR-003)
+    quote = models.ForeignKey('SupplierQuote', null=True, blank=True, on_delete=models.PROTECT, related_name='purchase_orders', editable=False)
+    award_reason = models.CharField('Why this supplier', max_length=200, blank=True, editable=False)
+    payment_terms_days = models.PositiveSmallIntegerField('Payment terms (days)', null=True, blank=True)
+    receipt_tolerance_pct = models.DecimalField('Over-receipt tolerance %', max_digits=5, decimal_places=2, default=0, validators=MONEY,
+                                                help_text='How much more than ordered the store may accept, e.g. 2% for bulk material by weight.')
+    advance_amount = models.DecimalField('Advance to supplier (₹)', max_digits=14, decimal_places=2, default=0, validators=MONEY)
+    delivery_terms = models.CharField('Delivery terms', max_length=120, blank=True, help_text='e.g. Door delivery at plant, unloading by supplier.')
     class Meta(Document.Meta):
-        permissions = [('approve_order', 'Approve orders (legacy)'), ('post_order', 'Receive or dispatch orders (legacy)')] + [
+        permissions = [('approve_order', 'Approve orders (legacy)'), ('post_order', 'Receive or dispatch orders (legacy)'),
+                       ('approve_high_value_purchase', 'Approve purchase orders above the approval limit')] + [
             (f'{action}_{kind}_order', f'{action.title()} {kind} orders')
             for kind in ['sales', 'purchase']
             for action in ['view', 'create', 'submit', 'approve', 'post', 'cancel']
@@ -289,6 +300,7 @@ class OrderLine(models.Model):
     price_rule = models.ForeignKey('PriceRule', null=True, blank=True, on_delete=models.PROTECT, related_name='order_lines', editable=False)
     gst_rate = models.DecimalField('GST %', max_digits=5, decimal_places=2, default=0, editable=False)
     hsn = models.CharField('HSN', max_length=10, blank=True, editable=False)
+    pr_line = models.ForeignKey('PurchaseRequestLine', null=True, blank=True, on_delete=models.PROTECT, related_name='po_lines', editable=False)
     class Meta:
         constraints = [models.CheckConstraint(condition=models.Q(quantity__gt=0), name='order_quantity_positive'), models.CheckConstraint(condition=models.Q(rate__gte=0), name='order_rate_nonnegative')]
     @property
@@ -311,6 +323,14 @@ class OrderLine(models.Model):
     @property
     def pending_quantity(self):
         return max(self.quantity - self.dispatched_quantity(include_open=True), Decimal('0'))
+
+    def received_quantity(self):
+        """Purchase lines: quantity taken in. Until GRN (Step 4b) a completed order counts as fully received."""
+        return self.quantity if self.order.status == 'Completed' else Decimal('0')
+
+    @property
+    def to_receive(self):
+        return max(self.quantity - self.received_quantity(), Decimal('0'))
 
 class StockBalance(models.Model):
     site = models.ForeignKey(Site, on_delete=models.PROTECT)
@@ -423,6 +443,13 @@ class Organization(models.Model):
     # Documents
     terms_conditions = models.TextField('Default terms & conditions', blank=True, help_text='Printed on sales orders and invoices.')
     document_footer = models.CharField('Document footer note', max_length=200, blank=True, help_text='e.g. Subject to Bhopal jurisdiction. This is a computer-generated document.')
+    # Purchase controls
+    po_approval_limit = models.DecimalField('PO approval limit (₹)', max_digits=14, decimal_places=2, default=500000, validators=MONEY,
+                                            help_text='Purchase orders above this value (incl. GST) need a senior approver.')
+    match_qty_tolerance_pct = models.DecimalField('Invoice quantity tolerance %', max_digits=5, decimal_places=2, default=0, validators=MONEY,
+                                                  help_text='Supplier invoice may bill this much above the accepted GRN quantity.')
+    match_price_tolerance_pct = models.DecimalField('Invoice rate tolerance %', max_digits=5, decimal_places=2, default=0, validators=MONEY,
+                                                    help_text='Supplier invoice rate may be this much above the PO rate.')
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
 
@@ -659,7 +686,8 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note')]
+DOC_SERIES = [('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+              ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
 class NumberSeries(models.Model):
@@ -1169,3 +1197,142 @@ class FreightBillLine(models.Model):
     def payable(self):
         """Freight capped at contract + allowed extras − shortage/damage recovery."""
         return min(self.claimed, self.contracted) + self.allowed_extra - self.shortage_recovery
+
+
+# ---------- Procurement: purchase request, RFQ, supplier quote (Step 4a, SRS §4.2 / FR-PUR-001…003) ----------
+
+PR_SOURCES = [('manual', 'Manual request'), ('reorder', 'Reorder level'), ('production', 'Production plan'), ('maintenance', 'Maintenance / spares')]
+PR_STATUSES = [('draft', 'Draft'), ('submitted', 'Waiting approval'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('closed', 'Fully ordered'), ('cancelled', 'Cancelled')]
+
+
+class PurchaseRequest(models.Model):
+    """What a plant needs, by when and why. Approved by someone other than the requester before buying starts."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='purchase_requests', verbose_name='Plant / depot')
+    needed_by = models.DateField('Needed by')
+    source = models.CharField('Raised from', max_length=12, choices=PR_SOURCES, default='manual')
+    priority = models.CharField(max_length=8, choices=[('normal', 'Normal'), ('urgent', 'Urgent')], default='normal')
+    purpose = models.CharField('Purpose / department', max_length=150, help_text='e.g. Kiln fuel for November, raw mill liner replacement.')
+    status = models.CharField(max_length=10, choices=PR_STATUSES, default='draft')
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_purchaserequest', 'Approve or reject purchase requests')]
+
+    def __str__(self): return self.number
+
+    @property
+    def badge(self):
+        return {'draft': 'draft', 'submitted': 'submitted', 'approved': 'approved', 'closed': 'completed'}.get(self.status, 'cancelled')
+
+    @property
+    def estimated_value(self):
+        return sum(((l.estimated_rate or 0) * l.quantity for l in self.lines.all()), Decimal('0'))
+
+
+class PurchaseRequestLine(models.Model):
+    request = models.ForeignKey(PurchaseRequest, on_delete=models.CASCADE, related_name='lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='Item')
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    estimated_rate = models.DecimalField('Estimated rate (₹)', max_digits=14, decimal_places=2, null=True, blank=True, validators=MONEY)
+    specification = models.CharField('Specification / remarks', max_length=150, blank=True)
+    stock_at_request = models.DecimalField(max_digits=16, decimal_places=3, null=True, editable=False)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(quantity__gt=0), name='pr_quantity_positive')]
+
+    def ordered_quantity(self, exclude_order=None):
+        qs = self.po_lines.exclude(order__status='Cancelled')
+        if exclude_order:
+            qs = qs.exclude(order_id=exclude_order)
+        return sum((l.quantity for l in qs), Decimal('0'))
+
+    @property
+    def pending_quantity(self):
+        return max(self.quantity - self.ordered_quantity(), Decimal('0'))
+
+
+RFQ_STATUSES = [('open', 'Collecting quotes'), ('awarded', 'Awarded'), ('cancelled', 'Cancelled')]
+
+
+class RFQ(models.Model):
+    """Request for quotation against an approved purchase request. One supplier is awarded the whole RFQ."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    request = models.ForeignKey(PurchaseRequest, on_delete=models.PROTECT, related_name='rfqs')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='rfqs')
+    quotes_due = models.DateField('Quotes due by')
+    suppliers = models.ManyToManyField(Partner, related_name='rfqs_invited', limit_choices_to={'kind': 'Supplier'})
+    terms = models.CharField('Terms sent to suppliers', max_length=200, blank=True)
+    status = models.CharField(max_length=10, choices=RFQ_STATUSES, default='open')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'RFQ'
+        permissions = [('award_rfq', 'Award an RFQ and raise the purchase order')]
+
+    def __str__(self): return self.number
+
+    @property
+    def badge(self):
+        return {'open': 'submitted', 'awarded': 'completed'}.get(self.status, 'cancelled')
+
+
+class RFQLine(models.Model):
+    rfq = models.ForeignKey(RFQ, on_delete=models.CASCADE, related_name='lines')
+    pr_line = models.ForeignKey(PurchaseRequestLine, on_delete=models.PROTECT, related_name='rfq_lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+
+
+class SupplierQuote(models.Model):
+    """A supplier's offer for an RFQ. Compared on landed cost (rate + freight), with lead time, credit days and quality history beside it."""
+    rfq = models.ForeignKey(RFQ, on_delete=models.CASCADE, related_name='quotes')
+    supplier = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='quotes', limit_choices_to={'kind': 'Supplier'})
+    reference = models.CharField('Quote ref.', max_length=40, blank=True)
+    quote_date = models.DateField(default=timezone.localdate)
+    valid_until = models.DateField(null=True, blank=True)
+    freight = models.DecimalField('Freight & handling (₹, total)', max_digits=14, decimal_places=2, default=0, validators=MONEY,
+                                  help_text='0 when the rate is delivered at plant.')
+    lead_time_days = models.PositiveSmallIntegerField('Delivery in (days)', default=7)
+    payment_terms_days = models.PositiveSmallIntegerField('Credit (days)', default=0)
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['rfq', 'supplier__name']
+        constraints = [models.UniqueConstraint(fields=['rfq', 'supplier'], name='one_quote_per_supplier')]
+
+    def __str__(self): return f'{self.supplier} · {self.rfq}'
+
+    @property
+    def taxable(self):
+        return sum((l.rate * l.rfq_line.quantity for l in self.lines.all()), Decimal('0'))
+
+    @property
+    def gst(self):
+        return sum(((l.rate * l.rfq_line.quantity * l.gst_rate / 100) for l in self.lines.all()), Decimal('0')).quantize(Decimal('0.01'))
+
+    @property
+    def landed(self):
+        return self.taxable + self.freight
+
+    def is_valid(self, on=None):
+        return not self.valid_until or self.valid_until >= (on or timezone.localdate())
+
+
+class SupplierQuoteLine(models.Model):
+    quote = models.ForeignKey(SupplierQuote, on_delete=models.CASCADE, related_name='lines')
+    rfq_line = models.ForeignKey(RFQLine, on_delete=models.CASCADE, related_name='quote_lines')
+    rate = models.DecimalField('Rate (₹ per unit, before GST)', max_digits=14, decimal_places=2, validators=MONEY)
+    gst_rate = models.DecimalField('GST %', max_digits=5, decimal_places=2, default=18)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['quote', 'rfq_line'], name='one_rate_per_rfq_line')]

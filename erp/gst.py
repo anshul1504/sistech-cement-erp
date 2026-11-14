@@ -137,3 +137,9 @@ def in_words(amount):
     if paise:
         text += f' and {_two(paise)} Paise'
     return text + ' Only'
+
+
+def inr(value, decimals=2):
+    """Indian digit grouping for messages and audit text: 1525500 → '15,25,500.00'."""
+    from .templatetags.erp_format import indian
+    return indian(value, decimals)

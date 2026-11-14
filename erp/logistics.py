@@ -8,6 +8,7 @@ Control points enforced here (every screen and future API goes through these fun
 - stock posts once, at the plant's configured event, with a unique source per line (FR-LOG-008);
 - gate-out needs a posted invoice and no open exception.
 """
+from .gst import inr
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -172,7 +173,7 @@ def check_weight(d):
     issues = []
     tol = expected * d.site.weight_tolerance_pct / 100
     if not unknown and expected and abs(d.variance_kg) > tol:
-        issues.append(f'Net {net:,} kg vs loaded {expected:,.0f} kg ({"+" if d.variance_kg > 0 else ""}{d.variance_kg:,.0f} kg, allowed ±{tol:,.0f} kg)')
+        issues.append(f'Net {net:,} kg vs loaded {inr(expected, 0)} kg ({"+" if d.variance_kg > 0 else ""}{inr(d.variance_kg, 0)} kg, allowed ±{inr(tol, 0)} kg)')
     if net > d.vehicle.capacity_mt * 1000:
         issues.append(f'Overload: net {net:,} kg > capacity {d.vehicle.capacity_mt} MT')
     d.exception = '; '.join(issues)[:200]

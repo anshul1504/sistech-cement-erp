@@ -78,6 +78,15 @@
         <div class="is-wide"><dt>Plant / depot</dt><dd>{{ order.site }}</dd></div>
         <div><dt>Required by</dt><dd>{{ order.due_date|date:'d M Y' }}</dd></div>
         <div><dt>Approved by</dt><dd>{% if order.approved_by %}{{ order.approved_by.get_full_name|default:order.approved_by.username }}{% else %}—{% endif %}</dd></div>
+        {% if order.kind == 'Purchase' %}
+        <div><dt>Credit</dt><dd>{% if order.payment_terms_days is not None %}{{ order.payment_terms_days }} days{% else %}{{ order.partner.payment_terms_days }} days (supplier){% endif %}</dd></div>
+        <div><dt>Over-receipt tolerance</dt><dd>{{ order.receipt_tolerance_pct|qty }}%</dd></div>
+        {% if order.advance_amount %}<div><dt>Advance</dt><dd>₹{{ order.advance_amount|indian:2 }}</dd></div>{% endif %}
+        {% if order.delivery_terms %}<div class="is-wide"><dt>Delivery terms</dt><dd>{{ order.delivery_terms }}</dd></div>{% endif %}
+        {% if order.quote %}<div class="is-wide"><dt>From quotation</dt><dd><a href="{% url 'rfq_detail' order.quote.rfq_id %}">{{ order.quote.rfq.number }}</a> · {{ order.award_reason }}</dd></div>
+        {% elif order.award_reason %}<div class="is-wide"><dt>Sourcing</dt><dd>{{ order.award_reason }}</dd></div>{% endif %}
+        {% for r in requests %}<div><dt>Purchase request</dt><dd><a href="{% url 'pr_detail' r.pk %}">{{ r.number }}</a></dd></div>{% endfor %}
+        {% endif %}
       </dl>
       {% if order.notes %}<p class="acc-note">{{ order.notes|linebreaksbr }}</p>{% endif %}
     </section>
