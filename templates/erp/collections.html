@@ -1,0 +1,42 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE · CREDIT</div><h1>Collections desk</h1><p>Who to chase today: payment promises due or broken, follow-ups due, open disputes and overdue customers nobody contacted in 7 days. A promise is kept automatically when receipts reach the promised amount by the promised date.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="?{% if not mine %}mine=1{% endif %}">{% if mine %}Show everyone's{% else %}Show only mine{% endif %}</a></div></div>
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi{% if work.due %} is-danger{% endif %}"><span>Promises due / broken</span><strong>{{ work.due|length }}</strong><small>{{ work.promised_open|inr_short }} promised and still open</small></div>
+    <div role="listitem" class="inf-kpi{% if work.followups %} is-warn{% endif %}"><span>Follow-ups due</span><strong>{{ work.followups|length }}</strong><small>today or earlier</small></div>
+    <div role="listitem" class="inf-kpi{% if work.disputes %} is-warn{% endif %}"><span>Open disputes</span><strong>{{ work.disputes|length }}</strong><small>block collection until settled</small></div>
+    <div role="listitem" class="inf-kpi"><span>Promises kept</span><strong>{% if work.kept_pct is not None %}{{ work.kept_pct }}%{% else %}—{% endif %}</strong><small>last 30 days</small></div>
+  </div>
+  <div class="ins-grid">
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>Chase today</h2></div>
+      {% if work.due or work.followups or work.untouched %}<ul class="ins-work">
+        {% for p in work.due %}<li><a class="is-{% if p.state == 'broken' %}danger{% else %}warn{% endif %}" href="?partner={{ p.f.partner_id }}"><b>{% if p.state == 'broken' %}!{% else %}₹{% endif %}</b><span>{{ p.f.partner.name }}<small>{% if p.state == 'broken' %}Broke promise of {{ p.f.promised_amount|rupees }} due {{ p.f.promised_date|date:'d M' }}{% else %}Promised {{ p.f.promised_amount|rupees }} today{% endif %} · {{ p.f.owner|who }}</small></span><em>Open →</em></a></li>{% endfor %}
+        {% for f in work.followups %}<li><a href="?partner={{ f.partner_id }}"><b>↻</b><span>{{ f.partner.name }}<small>Follow up: {{ f.note|truncatechars:70 }} · {{ f.owner|who }}</small></span><em>Open →</em></a></li>{% endfor %}
+        {% for r in work.untouched %}<li><a class="is-danger" href="?partner={{ r.partner.pk }}"><b>{{ r.days }}d</b><span>{{ r.partner.name }}<small>{{ r.overdue|rupees }} overdue · no contact in 7 days</small></span><em>Open →</em></a></li>{% endfor %}
+      </ul>{% else %}<div class="ins-done">Nothing to chase today.</div>{% endif %}</section>
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>Open disputes</h2></div>
+      {% if work.disputes %}<ul class="sup-thread">{% for f in work.disputes %}<li><div><strong>{{ f.partner.name }}</strong><span class="ins-pill is-warn">{{ f.get_dispute_reason_display }}</span><small>{{ f.on|date:'d M Y' }} · {{ f.owner|who }}</small></div><p>{{ f.note }}</p>
+        {% if can_add %}<form method="post" action="{% url 'dispute_resolve' f.pk %}" class="ord-inline" style="margin-top:8px">{% csrf_token %}<input class="form-control" name="resolution" required maxlength="200" placeholder="How was it settled?" aria-label="Resolution"><button class="org-btn is-light is-sm">Resolve</button></form>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="ins-empty">No open disputes.</p>{% endif %}</section>
+  </div>
+  {% if can_add %}<section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Record a follow-up</h2>{% if partner %}<a href="{% url 'partner_ledger' partner.pk %}">{{ partner.name }} ledger</a>{% endif %}</div>
+    {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <form method="post" class="org-grid">{% csrf_token %}
+      <div class="org-field"><label class="form-label" for="c-p">Customer</label><select id="c-p" class="form-select" name="partner" required><option value="">Choose customer</option>{% for c in customers %}<option value="{{ c.pk }}"{% if partner.pk == c.pk %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="c-k">What happened</label><select id="c-k" class="form-select" name="kind">{% for k, l in kinds %}<option value="{{ k }}"{% if post.kind == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="c-n">What the customer said</label><input id="c-n" class="form-control" name="note" required maxlength="300" value="{{ post.note }}" placeholder="e.g. Will pay ₹2 L by RTGS on Friday after site payment"></div>
+      <div class="org-field"><label class="form-label" for="c-a">Promised amount (₹)</label><input id="c-a" class="form-control" name="promised_amount" type="number" step="0.01" min="0" value="{{ post.promised_amount }}" placeholder="for a promise"></div>
+      <div class="org-field"><label class="form-label" for="c-d">Promised date</label><input id="c-d" class="form-control" name="promised_date" type="date" value="{{ post.promised_date }}"></div>
+      <div class="org-field"><label class="form-label" for="c-r">Dispute reason</label><select id="c-r" class="form-select" name="dispute_reason"><option value="">for a dispute</option>{% for k, l in reasons %}<option value="{{ k }}"{% if post.dispute_reason == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="c-x">Next follow-up</label><input id="c-x" class="form-control" name="next_action_on" type="date" value="{{ post.next_action_on }}"></div>
+      <div class="org-field is-wide"><div><button class="org-btn is-primary" type="submit">Save follow-up</button></div></div>
+    </form></section>{% endif %}
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>{% if partner %}{{ partner.name }} — history{% else %}Recent follow-ups{% endif %}</h2>{% if partner %}<a href="?">All customers</a>{% endif %}</div>
+    {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Date</th><th>Customer</th><th>Type</th><th class="is-optional">Note</th><th>Status</th></tr></thead><tbody>
+      {% for r in rows %}<tr><td>{{ r.f.on|date:'d M' }}</td><td><a href="?partner={{ r.f.partner_id }}">{{ r.f.partner.name }}</a></td><td>{{ r.f.get_kind_display }}{% if r.f.promised_amount %}<br><small class="acc-muted">{{ r.f.promised_amount|rupees }} by {{ r.f.promised_date|date:'d M' }}</small>{% endif %}</td><td class="is-optional">{{ r.f.note }}{% if r.f.resolution %}<br><small class="acc-muted">Settled: {{ r.f.resolution }}</small>{% endif %}</td>
+        <td>{% if r.state == 'kept' %}<span class="ins-pill is-good">Kept</span>{% elif r.state == 'broken' %}<span class="ins-pill is-danger">Broken</span>{% elif r.state %}<span class="ins-pill is-warn">{{ r.state|capfirst }}</span>{% elif r.f.kind == 'dispute' %}<span class="ins-pill{% if not r.f.resolved %} is-warn{% else %} is-good{% endif %}">{% if r.f.resolved %}Settled{% else %}Open{% endif %}</span>{% else %}—{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No follow-ups recorded yet.</p>{% endif %}</section>
+</div>
+{% endblock %}

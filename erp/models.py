@@ -2882,3 +2882,33 @@ class TicketMessage(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+
+# ---------- Collections: follow-ups, promise-to-pay, disputes (FR-AR-007) ----------
+
+FOLLOWUP_KINDS = [('call', 'Phone call'), ('visit', 'Visit'), ('promise', 'Promise to pay'), ('dispute', 'Dispute raised'), ('reminder', 'Reminder sent')]
+DISPUTE_REASONS = [('', '—'), ('rate', 'Rate / discount'), ('short', 'Short supply'), ('quality', 'Quality'), ('scheme', 'Scheme / incentive not given'),
+                   ('duplicate', 'Duplicate / wrong invoice'), ('other', 'Other')]
+
+
+class CollectionFollowUp(models.Model):
+    """Every collection contact with a customer. A promise is 'kept' when receipts dated from the promise up to the promised date
+    reach the promised amount; it is 'broken' once the date passes without that. Disputes stay open until resolved."""
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='followups', limit_choices_to={'kind__in': CUSTOMER_KINDS})
+    kind = models.CharField(max_length=8, choices=FOLLOWUP_KINDS)
+    on = models.DateField('Date', default=timezone.localdate)
+    note = models.CharField(max_length=300)
+    promised_amount = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True, validators=POSITIVE)
+    promised_date = models.DateField(null=True, blank=True)
+    dispute_reason = models.CharField(max_length=10, blank=True, choices=DISPUTE_REASONS)
+    resolved = models.BooleanField(default=False)
+    resolution = models.CharField(max_length=200, blank=True)
+    next_action_on = models.DateField('Next follow-up', null=True, blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-on', '-created_at']
+
+    def __str__(self): return f'{self.partner} · {self.get_kind_display()} · {self.on}'

@@ -249,6 +249,13 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Fulfilment** per line: ordered, truck planned, dispatched, invoiced, delivered, balance; stage Draft → Approval pending →
   Approved → Dispatch planned / Part dispatched → Dispatched → Invoiced → Delivered (or Closed).
 
+## Collections desk (FR-AR-007)
+- **Finance → Collections desk**: today's chase list — payment promises due or broken, follow-ups due, open disputes and
+  overdue customers with no contact in 7 days. Log calls, visits, reminders, promises (amount + date) and disputes (reason).
+- A promise is **kept** automatically when posted receipts from the promise date up to the promised date reach the amount,
+  **broken** when the date passes. Promises due and follow-ups due appear in the owner's My work bell; the credit dashboard
+  shows promises kept %, due/broken and open disputes.
+
 ## Help & support tickets
 - Any user raises a ticket from **Help & support** in the sidebar or *Get help / report a problem* in the account menu (the
   screen they were on is attached). Priority sets the target time: urgent 4 h, high 1 day, normal 3 days, low 5 days.

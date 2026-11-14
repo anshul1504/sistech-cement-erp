@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.17.3'
+ASSET_VERSION = '0.17.4'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -64,6 +64,7 @@ NAV_GROUPS = [
         _item('receipts', 'Receipts', 'book', 'view_receipt', match=('receipt_new', 'receipt_detail')),
         _item('credit_notes', 'Credit notes', 'receipt', 'view_creditnote', match=('credit_note_detail', 'credit_note_new')),
         _item('outstanding', 'Outstanding & ageing', 'chart', 'view_receipt', match=('partner_ledger',)),
+        _item('collections', 'Collections desk', 'phone', 'view_receipt'),
         _item('supplier_invoices', 'Supplier invoices', 'purchase', 'view_supplierinvoice', match=('sinv_new', 'sinv_detail')),
         _item('debit_notes', 'Debit notes', 'receipt', 'view_debitnote', match=('dn_new', 'dn_detail')),
         _item('journals', 'Accounts & ledgers', 'book', 'view_journalentry',
@@ -94,7 +95,7 @@ NAV_GROUPS = [
 
 
 def _can_see(user, item):
-    if item['route'] in ('journals', 'payments', 'receipts', 'outstanding') and not user.has_perm('erp.access_company_finance'):
+    if item['route'] in ('journals', 'payments', 'receipts', 'outstanding', 'collections') and not user.has_perm('erp.access_company_finance'):
         return False
     if item['soon']:
         return True

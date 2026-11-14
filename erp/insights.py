@@ -623,6 +623,10 @@ def my_queue(user, sites=None):
         add('Support tickets not assigned', SupportTicket.objects.filter(assigned_to__isnull=True, status__in=['open', 'progress']), reverse('tickets') + '?status=unassigned', 'Help requests from users', 'danger')
         add('Support tickets assigned to you', SupportTicket.objects.filter(assigned_to=user, status__in=['open', 'progress']), reverse('tickets') + '?status=mine', 'Reply or resolve')
     add('Support answers waiting for you', SupportTicket.objects.filter(raised_by=user, status__in=['waiting', 'resolved']), reverse('tickets'), 'Reply, accept or reopen')
+    if fin and has('add_receipt'):
+        from .models import CollectionFollowUp
+        add('Payment promises due today', CollectionFollowUp.objects.filter(owner=user, kind='promise', promised_date=today), reverse('collections') + '?mine=1', 'Check if the money came')
+        add('Collection follow-ups due', CollectionFollowUp.objects.filter(owner=user, next_action_on__lte=today).exclude(kind='promise'), reverse('collections') + '?mine=1', 'Call or visit the customer')
     if fin and has('approve_supplierinvoice'):
         add('Supplier invoice exceptions', SupplierInvoice.objects.filter(status='exception'), reverse('supplier_invoices'), 'Three-way match differences', 'danger')
     if fin and has('approve_supplierpayment'):

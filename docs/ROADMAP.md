@@ -102,7 +102,9 @@ ledger-credit or bank payouts with maker-checker, dealer scheme statement.
 
 ✅ Step 8e sales order controls: duplicate check, credit override with reason/expiry, price-exception authority, ATP/backorder, hold/release, revisions, reasons on cancel/short-close, fulfilment stages and a filtered order list.
 
-Remaining in Step 8: territory hierarchy / beat plan, unified project pipeline, returns/RMA pickup, promise-to-pay and collection routes, dealer portal (with Step 10 apps).
+✅ Collections desk: follow-ups, promise-to-pay (kept/broken from receipts), disputes, daily chase list.
+
+Remaining in Step 8: territory hierarchy / beat plan, unified project pipeline, returns/RMA pickup, collection routes, dealer portal (with Step 10 apps).
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.

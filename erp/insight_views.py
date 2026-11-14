@@ -111,6 +111,8 @@ def dashboard_area(request, area):
         ctx['trend'] = I.trend(sites, 12, finance=False)
     elif area == 'credit':
         ctx['credit'] = I.receivables(period)
+        from .collect import worklist
+        ctx['collect'] = worklist()
         ctx['trend'] = I.trend(sites, 12, finance=True)
     elif area == 'stock':
         ctx['stock'] = I.stock_summary(sites)

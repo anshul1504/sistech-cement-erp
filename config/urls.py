@@ -5,6 +5,7 @@ from erp import views as v
 from erp import order_views as ov
 from erp import insight_views as iv
 from erp import support_views as spv
+from erp import collect_views as cv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -115,6 +116,8 @@ urlpatterns += [
     path('credit-notes/<int:pk>/', fv.credit_note_detail, name='credit_note_detail'),
     path('invoices/<int:pk>/credit-note/', fv.credit_note_new, name='credit_note_new'),
     path('outstanding/', fv.outstanding, name='outstanding'),
+    path('collections/', cv.collections, name='collections'),
+    path('collections/dispute/<int:pk>/resolve/', cv.dispute_resolve, name='dispute_resolve'),
     path('partners/<int:pk>/ledger/', fv.partner_ledger, name='partner_ledger'),
 ]
 from erp import logistics_views as lv
