@@ -24,6 +24,10 @@ AREAS = [
     ('plant', 'Plant', 'factory', lambda u: has(u, 'view_production')),
     ('quality', 'Quality', 'flask', lambda u: has(u, 'view_qualitytest') or has(u, 'view_complaint')),
     ('finance', 'Finance', 'chart', lambda u: I.company_finance(u) and has(u, 'view_financials')),
+    ('dealers', 'Dealer network', 'crm', lambda u: has(u, 'view_partner') and has(u, 'view_invoice')),
+    ('schemes', 'Schemes', 'gift', lambda u: has(u, 'view_schemeentitlementbatch') or has(u, 'view_schemesettlement')),
+    ('procurement', 'Procurement', 'purchase', lambda u: has(u, 'view_purchase_order')),
+    ('risk', 'Audit & risk', 'shield', lambda u: has(u, 'view_auditevent')),
 ]
 AREA_MAP = {a[0]: a for a in AREAS}
 
@@ -44,7 +48,7 @@ def _ctx(request, title, area=None):
     sites, all_sites, chosen = _sites(request)
     return period, sites, {'title': title, 'period': period, 'periods': I.PERIODS, 'all_sites': all_sites, 'site': chosen, 'area': area,
                            'areas': areas_for(request.user), 'fin': I.company_finance(request.user),
-                           'site_q': f'&site={chosen.pk}' if chosen else ''}
+                           'site_q': f'&site={chosen.pk}' if chosen else '', 'generated': timezone.localtime()}
 
 
 @login_required
@@ -121,7 +125,25 @@ def dashboard_area(request, area):
         ctx['quality'] = I.quality_summary(sites, period, sold)
     elif area == 'finance':
         ctx['finance'] = I.finance_summary(period)
+    elif area == 'dealers':
+        ctx['dealers'] = I.dealer_network(sites, period)
+        if fin:
+            ctx['credit'] = I.receivables(period)
+    elif area == 'schemes':
+        ctx['schemes'] = I.scheme_summary(period, I._total(I.net_sales(sites, period.start, period.end))['mt'])
+    elif area == 'procurement':
+        ctx['proc'] = I.procurement_summary(sites, period)
+        ctx['supply'] = I.sourcing_summary(sites, period)
+    elif area == 'risk':
+        ctx['risk'] = I.risk_summary(sites, period)
     return render(request, 'erp/insight_area.html', ctx)
+
+
+@login_required
+def definitions(request):
+    if not areas_for(request.user):
+        raise PermissionDenied
+    return render(request, 'erp/insight_definitions.html', {'title': 'KPI definitions', 'rows': I.DEFINITIONS})
 
 
 # ---------- Drill-down ----------
@@ -224,9 +246,29 @@ def drill(request, kind):
         cols = ['Complaint', 'Customer', 'Received', 'Resolve by', 'Status']
         for c in qs[:500]:
             rows.append({'url': reverse('complaint_detail', args=[c.pk]), 'cells': [c.number, c.partner.name, c.received_on, c.due_on, c.get_status_display()]})
-    ctx.update(kind=kind, cols=cols, rows=rows, filters=filters, total=total if kind in ('sales', 'collections', 'overdue', 'orders') else None,
+    if G.get('export') == 'csv':
+        import csv
+        from django.http import HttpResponse
+        from .models import AuditEvent
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = f'attachment; filename="{kind}-{period.start}-{period.end}.csv"'
+        resp.write('\ufeff')
+        w = csv.writer(resp)
+        safe = lambda v: ("'" + v) if isinstance(v, str) and v[:1] in ('=', '+', '-', '@', '\t', '\r') else v
+        w.writerow([title + (f' · {period.label}' if kind not in ('overdue', 'orders') else ' · as of today'), f'Plants: {chosen_label(ctx)}', 'Filters: ' + (', '.join(filters) or 'none'),
+                    f'Generated {timezone.localtime():%d-%m-%Y %H:%M} IST by {u.get_username()}'])
+        w.writerow(cols)
+        for r in rows:
+            w.writerow([safe(c[1] if isinstance(c, tuple) else c) for c in r['cells']])
+        AuditEvent.objects.create(actor=u, action='Dashboard export', reference=kind, detail=f'{len(rows)} rows · {period.start} – {period.end} · {", ".join(filters)}'[:250])
+        return resp
+    ctx.update(kind=kind, cols=cols, rows=rows, filters=filters, export=request.get_full_path() + ('&' if '?' in request.get_full_path() else '?') + 'export=csv', total=total if kind in ('sales', 'collections', 'overdue', 'orders') else None,
                dated=kind not in ('overdue', 'orders') and not (kind == 'dispatches' and G.get('state') in ('transit', 'yard')), capped=len(rows) >= 500)
     return render(request, 'erp/insight_drill.html', ctx)
+
+
+def chosen_label(ctx):
+    return ctx['site'].code if ctx.get('site') else 'all permitted'
 
 
 # ---------- My work (notification bell) ----------

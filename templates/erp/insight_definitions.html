@@ -1,0 +1,8 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page ins-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'dashboard' %}">← Home</a></div><h1>KPI definitions</h1><p>How every dashboard number is calculated (SRS §11.1 data dictionary). Times are India Standard Time. Only posted documents are counted — drafts and estimates never mix with actuals. Operational figures cover the plants and depots you can access; money figures need company-finance access.</p></div></div>
+  <section class="org-card ins-card"><dl class="ins-defs">{% for name, text in rows %}<dt>{{ name }}</dt><dd>{{ text }}</dd>{% endfor %}</dl></section>
+</div>
+{% endblock %}

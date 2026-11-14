@@ -15,6 +15,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('', iv.home, name='dashboard'),
     path('dashboards/drill/<slug:kind>/', iv.drill, name='insight_drill'),
+    path('dashboards/definitions/', iv.definitions, name='insight_definitions'),
     path('dashboards/<slug:area>/', iv.dashboard_area, name='insight_area'),
     path('my-work/', iv.my_work, name='my_work'),
     path('sales/', ov.order_list, {'kind': 'Sale'}, name='sales'),

@@ -127,3 +127,37 @@ class InsightTests(TestCase):
     def test_formats(self):
         self.assertEqual([inr_short(950), inr_short(12400), inr_short(325000), inr_short(14200000), inr_short(-5000000)], ['₹950', '₹12.4 K', '₹3.25 L', '₹1.42 Cr', '−₹50 L'])
         self.assertEqual(mt(D('12345.678')), '12,345.7 MT')
+
+
+@override_settings(EMAIL_OTP_ENABLED=False)
+class InsightAreaTests(TestCase):
+    def setUp(self):
+        seed_business_data(self)
+        self.today = timezone.localdate()
+        self.inv = invoice_fixture(self, [(self.bag, D(1000))])
+        self.client.force_login(self.checker)
+
+    def test_new_dashboards_definitions_and_export(self):
+        for a in ['dealers', 'schemes', 'procurement', 'risk']:
+            self.assertEqual(self.client.get(reverse('insight_area', args=[a]) + '?p=ytd').status_code, 200, a)
+        d = I.dealer_network([self.site], I.parse_period({'p': 'mtd'}))
+        self.assertEqual((d['active'], d['new']), (1, 1))
+        self.assertContains(self.client.get(reverse('insight_definitions')), 'Realisation')
+        r = self.client.get(reverse('insight_drill', args=['sales']) + '?p=mtd&export=csv')
+        body = r.content.decode('utf-8-sig')
+        self.assertEqual(r['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertIn(self.inv.number, body)
+        self.assertIn('Generated', body.splitlines()[0])
+        from .models import AuditEvent
+        self.assertTrue(AuditEvent.objects.filter(action='Dashboard export', reference='sales').exists())
+
+    def test_risk_lists_overrides(self):
+        from .services import transition_order
+        Partner.objects.filter(pk=self.customer.pk).update(credit_limit=100)
+        o = Order.objects.create(kind='Sale', site=self.site, partner=self.customer, created_by=self.maker)
+        OrderLine.objects.create(order=o, product=self.bulk, quantity=1, rate=500, gst_rate=18)
+        transition_order(self.maker, o.pk, 'submit')
+        transition_order(self.checker, o.pk, 'approve', override_reason='Advance cheque', override_until=self.today + timedelta(days=3), backorder_reason='Partner truck')
+        r = I.risk_summary([self.site], I.parse_period({'p': 'mtd'}))
+        self.assertEqual((r['credit_overrides'], r['backorders']), (1, 1))
+        self.assertContains(self.client.get(reverse('insight_area', args=['risk'])), o.number)

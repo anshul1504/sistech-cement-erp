@@ -253,10 +253,13 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Home** (`/`) is role-based: the work waiting for you (only approvals you may give, never your own documents), headline
   numbers from each dashboard you may open, and *My sales* (orders you created, against your monthly target) for sales staff.
 - **Dashboards** (`/dashboards/<area>/`): Management, Sales, Credit & collections, Stock, Dispatch, Partner supply, Plant,
-  Quality and Finance. Period filter (today, 7 days, month, last month, quarter, financial year, custom) and plant/depot
+  Quality, Finance, Dealer network, Schemes, Procurement and Audit & risk. Period filter (today, 7 days, month, last month, quarter, financial year, custom) and plant/depot
   filter; figures compare with the earlier period. Sales are net of credit notes; tonnage converts bags to MT by bag weight.
 - **Drill-down** (`/dashboards/drill/<kind>/`): every figure opens the invoices, receipts, orders, trips, GRNs, batches or
-  complaints behind it, with the same filters.
+  complaints behind it, with the same filters, and exports to CSV (filters, plants and generation time in the first row;
+  every export is logged in the audit trail).
+- **KPI definitions** (`/dashboards/definitions/`): formula and scope of every number; each dashboard shows when it was
+  generated and counts posted documents only.
 - **Access**: operational figures follow your plant/depot access; collections, receivables, cash and P&L need the
   company-finance scope. The Management dashboard needs *Management dashboard → View* (new preset role **Management**).
 - **My work bell** in the top bar refreshes every 2 minutes. **Daily email digest**: schedule

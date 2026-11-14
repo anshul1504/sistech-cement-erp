@@ -124,6 +124,13 @@
 .ins-done { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; background: #f0f9f4; color: #067647; font-size: 13.5px; }
 
 /* Drill-down */
+.ins-head-actions { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ins-head-actions .org-btn svg { width: 16px; height: 16px; }
+.ins-fresh { white-space: normal; }
+.ins-defs { display: grid; grid-template-columns: minmax(160px, 260px) minmax(0, 1fr); gap: 10px 20px; margin: 0; font-size: 13.5px; }
+.ins-defs dt { font-weight: 600; color: #082859; }
+.ins-defs dd { margin: 0; color: var(--o-ink); }
+@media (max-width: 575.98px) { .ins-defs { grid-template-columns: minmax(0, 1fr); gap: 2px; } .ins-defs dd { margin-bottom: 10px; } }
 .ins-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .ins-total { font-weight: 600; color: #082859; }
 

@@ -640,3 +640,154 @@ def my_sales(user, sites, period):
     return {'value': t['value'], 'mt': t['mt'], 'target': target, 'month': month, 'target_pct': pct(month, target),
             'orders': open_orders.count(), 'pipeline': crm_pipeline(sites, user),
             'quotes': Quotation.objects.filter(created_by=user, status__in=['draft', 'approval', 'ready', 'sent']).count()}
+
+
+# ---------- Dealer network (§11 Dealer network, Credit) ----------
+
+def dealer_network(sites, period, today=None):
+    """Active = bought in the period; new = first invoice in the period; lapsed = bought in the 90 days before the period but not in it."""
+    today = today or timezone.localdate()
+    customers = Partner.objects.filter(kind__in=CUSTOMER_KINDS, active=True)
+    inv = Invoice.objects.filter(site__in=sites)
+    buyers = set(inv.filter(date__range=(period.start, period.end)).values_list('partner', flat=True))
+    before = set(inv.filter(date__lt=period.start, date__gte=period.start - timedelta(days=90)).values_list('partner', flat=True))
+    from django.db.models import Min
+    first = {r['partner']: r['d'] for r in Invoice.objects.values('partner').annotate(d=Min('date'))}
+    new = {p for p in buyers if first.get(p) and first[p] >= period.start}
+    lapsed = before - buyers
+    balances = partner_balances()
+    util = []
+    for p in customers.filter(credit_limit__gt=0):
+        b = max(balances.get(p.pk, ZERO), ZERO)
+        util.append({'partner': p, 'balance': b, 'limit': p.credit_limit, 'pct': pct(b, p.credit_limit)})
+    util.sort(key=lambda r: -(r['pct'] or 0))
+    by_district = defaultdict(lambda: {'dealers': 0, 'active': 0})
+    for p in customers.values('pk', 'district'):
+        d = by_district[p['district'] or 'District not set']
+        d['dealers'] += 1
+        d['active'] += p['pk'] in buyers
+    partners = Partner.objects.in_bulk(lapsed)
+    total_limit = sum((r['limit'] for r in util), ZERO)
+    used = sum((min(r['balance'], r['limit']) for r in util), ZERO)
+    return {'customers': customers.count(), 'active': len(buyers), 'new': len(new), 'lapsed': len(lapsed),
+            'lapsed_rows': sorted(({'partner': partners[k]} for k in lapsed if k in partners), key=lambda r: r['partner'].name)[:15],
+            'coverage': pct(len(buyers), customers.count()), 'utilisation': pct(used, total_limit), 'util_rows': util[:10],
+            'districts': sorted(({'name': k, **v, 'pct': pct(v['active'], v['dealers'])} for k, v in by_district.items()), key=lambda r: -r['dealers'])[:12],
+            'applications': DealerApplication.objects.filter(site__in=sites).exclude(status__in=['approved', 'rejected', 'draft']).count(),
+            'onboarded': DealerApplication.objects.filter(site__in=sites, status='approved', approved_at__date__range=(period.start, period.end)).count()}
+
+
+# ---------- Schemes & incentives (§11 Schemes & commission) ----------
+
+def scheme_summary(period, sold_mt=None):
+    ent = SchemeEntitlementBatch.objects.filter(status='approved', decided_at__date__range=(period.start, period.end))
+    accrued = ent.aggregate(t=Sum('total'))['t'] or ZERO
+    paid = SchemeSettlement.objects.filter(status='posted', date__range=(period.start, period.end))
+    from .models import SchemeEntitlement
+    all_ent = SchemeEntitlement.objects.filter(batch__status='approved')
+    liability = (all_ent.aggregate(t=Sum('amount'))['t'] or ZERO) - (SchemeSettlement.objects.filter(status='posted').aggregate(t=Sum('amount'))['t'] or ZERO)
+    by_scheme = [{'name': r['version__scheme__name'] or '—', 'amount': r['t']} for r in
+                 all_ent.filter(batch__decided_at__date__range=(period.start, period.end)).values('version__scheme__name').annotate(t=Sum('amount')).order_by('-t')[:10]]
+    reversals = all_ent.filter(amount__lt=0, batch__decided_at__date__range=(period.start, period.end)).aggregate(t=Sum('amount'))['t'] or ZERO
+    paid_t = paid.aggregate(t=Sum('amount'))['t'] or ZERO
+    return {'accrued': accrued, 'paid': paid_t, 'paid_count': paid.count(), 'liability': liability, 'reversals': -reversals,
+            'per_mt': (accrued / sold_mt).quantize(Decimal('1')) if sold_mt else None, 'by_scheme': by_scheme,
+            'waiting': SchemeEntitlementBatch.objects.filter(status='submitted').count() + SchemeSettlement.objects.filter(status='proposed').count()}
+
+
+# ---------- Procurement (§11 Procurement) ----------
+
+def procurement_summary(sites, period):
+    pos = Order.objects.filter(kind='Purchase', site__in=sites, created_at__date__range=(period.start, period.end)).exclude(status__in=['Draft', 'Cancelled'])
+    lead = []
+    for o in pos.prefetch_related('lines__pr_line__request'):
+        reqs = {l.pr_line.request for l in o.lines.all() if l.pr_line_id}
+        for r in reqs:
+            lead.append((o.created_at - r.created_at).total_seconds() / 86400)
+    grns = GoodsReceipt.objects.filter(site__in=sites, status='posted', posted_at__date__range=(period.start, period.end)).select_related('order', 'supplier')
+    on_time = late = 0
+    by_supplier = defaultdict(lambda: {'trucks': 0, 'late': 0, 'received': ZERO, 'rejected': ZERO})
+    for g in grns:
+        ok = timezone.localtime(g.posted_at).date() <= g.order.due_date
+        on_time += ok
+        late += not ok
+        s = by_supplier[g.supplier]
+        s['trucks'] += 1
+        s['late'] += not ok
+    for r in GRNLine.objects.filter(grn__in=grns).values('grn__supplier').annotate(rec=Sum('received'), rej=Sum('rejected'), dmg=Sum('damaged'), qr=Sum('qc_rejected')):
+        s = by_supplier[Partner.objects.get(pk=r['grn__supplier'])]
+        s['received'] += r['rec'] or ZERO
+        s['rejected'] += (r['rej'] or ZERO) + (r['dmg'] or ZERO) + (r['qr'] or ZERO)
+    sinv = SupplierInvoice.objects.filter(site__in=sites, created_at__date__range=(period.start, period.end))
+    ppv = JournalLine.objects.filter(account__system_key='ppv', entry__status='posted', entry__date__range=(period.start, period.end)).aggregate(d=Sum('debit'), c=Sum('credit'))
+    rows = sorted(({'supplier': k, **v, 'otd': pct(v['trucks'] - v['late'], v['trucks']), 'reject_pct': pct(v['rejected'], v['received'])} for k, v in by_supplier.items()),
+                  key=lambda r: -r['trucks'])
+    return {'pos': pos.count(), 'po_value': sum((o.total for o in pos.prefetch_related('lines')), ZERO), 'lead_days': (Decimal(sum(lead) / len(lead)).quantize(Decimal('0.1'))) if lead else None,
+            'trucks': on_time + late, 'otd': pct(on_time, on_time + late), 'suppliers': rows[:12],
+            'invoices': sinv.count(), 'mismatch': sinv.filter(Q(status='exception') | Q(decision__in=['billed', 'matched', 'reject'])).count(),
+            'mismatch_pct': pct(sinv.filter(Q(status='exception') | Q(decision__in=['billed', 'matched', 'reject'])).count(), sinv.count()),
+            'ppv': (ppv['d'] or ZERO) - (ppv['c'] or ZERO),
+            'prs_waiting': PurchaseRequest.objects.filter(site__in=sites, status='submitted').count(),
+            'prs_open': PurchaseRequest.objects.filter(site__in=sites, status='approved').count()}
+
+
+# ---------- Audit & risk (§11 Audit / risk) ----------
+
+def risk_summary(sites, period):
+    from .models import Weighment, StockCountLine, AuditEvent
+    rng = (period.start, period.end)
+    approved = Order.objects.filter(kind='Sale', site__in=sites, approved_by__isnull=False).exclude(approval_checks={})
+    in_period = [o for o in approved.select_related('partner') if o.approval_checks.get('at', '')[:10] >= period.start.isoformat() and o.approval_checks.get('at', '')[:10] <= period.end.isoformat()]
+    credit = [o for o in in_period if o.approval_checks.get('credit_override')]
+    price = [o for o in in_period if o.approval_checks.get('below_list')]
+    back = [o for o in in_period if o.approval_checks.get('backorder')]
+    reweigh = Weighment.objects.filter(supersedes__isnull=False, captured_at__date__range=rng).filter(Q(dispatch__site__in=sites) | Q(grn__site__in=sites)).count()
+    manual_w = Weighment.objects.filter(source='manual', captured_at__date__range=rng).filter(Q(dispatch__site__in=sites) | Q(grn__site__in=sites)).count()
+    counts = StockCountLine.objects.filter(count__site__in=sites, count__status='posted', count__approved_at__date__range=rng)
+    adj_value = ZERO
+    for l in counts:
+        final = l.recounted if l.recounted is not None else l.counted
+        if final is not None:
+            adj_value += abs(final - l.system_qty) * l.unit_cost
+    manual_jv = JournalEntry.objects.filter(kind='manual', status='posted', date__range=rng).count()
+    cancelled = Order.objects.filter(kind='Sale', site__in=sites, status='Cancelled').exclude(cancel_reason='')
+    events = AuditEvent.objects.filter(created_at__date__range=rng, action__in=['Order put on hold', 'Order revised', 'Order cancel', 'Dispatch exception approved', 'Stock ledger exported'])
+    rows = sorted([{'kind': 'Credit override', 'order': o, 'detail': o.credit_override_reason, 'tone': 'danger'} for o in credit] +
+                  [{'kind': 'Below list price', 'order': o, 'detail': ', '.join(f"{x['product']} ₹{x['rate']} (list ₹{x['list']})" for x in o.approval_checks['below_list']), 'tone': 'warn'} for o in price] +
+                  [{'kind': 'Backorder', 'order': o, 'detail': o.approval_checks['backorder']['reason'], 'tone': 'warn'} for o in back],
+                  key=lambda r: r['order'].approval_checks.get('at', ''), reverse=True)
+    return {'credit_overrides': len(credit), 'price_overrides': len(price), 'backorders': len(back), 'reweighs': reweigh, 'manual_weighments': manual_w,
+            'count_adjustment': adj_value.quantize(Decimal('1')), 'manual_jv': manual_jv, 'cancelled': cancelled.filter(created_at__date__range=rng).count(),
+            'rows': rows[:25], 'events': events.count()}
+
+
+# ---------- KPI dictionary (§11.1) ----------
+
+DEFINITIONS = [
+    ('Net sales (₹)', 'Taxable value of tax invoices dated in the period minus taxable value of credit notes dated in the period. GST excluded. Posted documents only.'),
+    ('Volume (MT)', 'Invoice line quantity minus credit-note returned quantity, converted to MT by the SKU bag weight (organisation default if blank). Pieces without a weight count 0.'),
+    ('Realisation (₹/MT)', 'Net sales ÷ net volume.'),
+    ('Target achievement', 'Net sales from the first day of the month(s) in the period ÷ monthly sales targets for those months (Sales targets).'),
+    ('Order book', 'Approved, part-dispatched and on-hold sales orders: ordered quantity minus quantity on non-cancelled trucks.'),
+    ('Quotation win rate', 'Accepted + converted ÷ (accepted + converted + rejected + expired) among quotations dated in the period (revised versions excluded).'),
+    ('Collected', 'Receipts dated in the period with status posted (bounced cheques excluded). Company-wide; needs company-finance access.'),
+    ('Collection efficiency', 'Collected ÷ invoice value incl. GST billed in the period.'),
+    ('Receivable / overdue', 'Open invoice amount (invoice total − settlements) today; overdue = due date before today. Ageing by days past due.'),
+    ('DSO (days)', 'Total receivable ÷ average daily billing incl. GST over the last 90 days.'),
+    ('Over credit limit', 'Customer ledger balance (invoices − receipts − credit notes − scheme credits) above the approved credit limit.'),
+    ('Active / new / lapsed dealers', 'Active: invoiced in the period. New: first ever invoice in the period. Lapsed: invoiced in the 90 days before the period but not in it.'),
+    ('Credit utilisation', 'Sum of positive balances (capped at each limit) ÷ sum of credit limits, for customers with a limit.'),
+    ('Finished stock / free', 'Available cement and TMT stock now; free = available − pending quantity on open sales orders. Days of cover = available ÷ average daily invoiced quantity of the last 30 days.'),
+    ('Dispatched (MT)', 'Loaded quantity on trucks whose gate-out time is in the period. Turnaround = gate-out − gate-in.'),
+    ('POD pending', 'Trucks that left the gate and have no proof of delivery yet.'),
+    ('Freight per MT', 'Contracted freight frozen at gate-out for trips paid by Sistech ÷ dispatched MT.'),
+    ('Partner supply fulfilment', 'Usable quantity (accepted + quality-released) on GRNs posted in the period from manufacturing partners ÷ (monthly commitment × days in period ÷ 30.4).'),
+    ('PR → PO lead time', 'Days from purchase-request creation to the purchase order created from it, for POs created in the period.'),
+    ('Supplier on-time delivery', 'GRNs posted on or before the PO delivery date ÷ all GRNs posted in the period.'),
+    ('Invoice mismatch', 'Supplier invoices created in the period that failed the three-way match.'),
+    ('Lab pass rate', 'Current (not superseded) results within specification ÷ all current results tested in the period.'),
+    ('Complaints per 1,000 MT', 'Complaints received in the period × 1,000 ÷ net MT sold in the period.'),
+    ('Scheme accrual / liability', 'Approved entitlement batches in the period; liability = all approved entitlements − posted payouts.'),
+    ('Gross margin', 'Revenue from operations − cost of materials consumed, from posted journal lines in the period.'),
+    ('Overrides', 'Sales orders approved in the period with a credit override, below-list lines or a backorder, as recorded on the order at approval.'),
+]
