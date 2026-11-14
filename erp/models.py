@@ -9,13 +9,50 @@ MONEY = [MinValueValidator(Decimal('0'))]
 def document_number():
     return timezone.localdate().strftime('%y%m%d') + '-' + uuid.uuid4().hex[:8].upper()
 
+INDIAN_STATES = [
+    ('01', 'Jammu and Kashmir'), ('02', 'Himachal Pradesh'), ('03', 'Punjab'), ('04', 'Chandigarh'), ('05', 'Uttarakhand'),
+    ('06', 'Haryana'), ('07', 'Delhi'), ('08', 'Rajasthan'), ('09', 'Uttar Pradesh'), ('10', 'Bihar'), ('11', 'Sikkim'),
+    ('12', 'Arunachal Pradesh'), ('13', 'Nagaland'), ('14', 'Manipur'), ('15', 'Mizoram'), ('16', 'Tripura'), ('17', 'Meghalaya'),
+    ('18', 'Assam'), ('19', 'West Bengal'), ('20', 'Jharkhand'), ('21', 'Odisha'), ('22', 'Chhattisgarh'), ('23', 'Madhya Pradesh'),
+    ('24', 'Gujarat'), ('26', 'Dadra and Nagar Haveli and Daman and Diu'), ('27', 'Maharashtra'), ('29', 'Karnataka'), ('30', 'Goa'),
+    ('31', 'Lakshadweep'), ('32', 'Kerala'), ('33', 'Tamil Nadu'), ('34', 'Puducherry'), ('35', 'Andaman and Nicobar Islands'),
+    ('36', 'Telangana'), ('37', 'Andhra Pradesh'), ('38', 'Ladakh'), ('97', 'Other Territory'),
+]
+FACILITY_TYPES = [
+    ('Plants', [('integrated_cement', 'Integrated cement plant'), ('cement_grinding', 'Cement grinding unit'), ('packing_plant', 'Packing plant'),
+                ('tmt_rolling', 'TMT rolling mill'), ('steel_melting', 'Steel melting shop')]),
+    ('Depots & warehouses', [('depot', 'Depot / godown'), ('warehouse', 'Warehouse / stockyard')]),
+]
+PLANT_FACILITIES = {'integrated_cement', 'cement_grinding', 'packing_plant', 'tmt_rolling', 'steel_melting'}
+
+
 class Site(models.Model):
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField('Location code', max_length=20, unique=True)
     name = models.CharField(max_length=120)
-    kind = models.CharField(max_length=15, choices=[('Plant', 'Plant'), ('Depot', 'Depot'), ('Warehouse', 'Warehouse')])
+    kind = models.CharField('Location type', max_length=15, choices=[('Plant', 'Plant'), ('Depot', 'Depot'), ('Warehouse', 'Warehouse')])
     address = models.TextField(blank=True)
     active = models.BooleanField(default=True)
+    # Plant / depot profile
+    facility_type = models.CharField('Facility', max_length=20, blank=True, choices=FACILITY_TYPES)
+    city = models.CharField(max_length=80, blank=True)
+    district = models.CharField(max_length=80, blank=True)
+    state = models.CharField(max_length=2, blank=True, choices=INDIAN_STATES)
+    pincode = models.CharField('PIN code', max_length=6, blank=True)
+    gstin = models.CharField('Plant GSTIN', max_length=15, blank=True, help_text='Each state registration has its own GSTIN with the company PAN inside it.')
+    phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    manager = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='managed_sites',
+                                verbose_name='Plant / depot manager')
+    capacity_tpa = models.DecimalField('Installed capacity (MT per year)', max_digits=12, decimal_places=2, null=True, blank=True, validators=MONEY)
+    notes = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
     def __str__(self): return f'{self.code} · {self.name}'
+
+    @property
+    def full_address(self):
+        parts = [self.address.strip(), self.city, self.district, f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
+        return ', '.join(p for p in parts if p)
 
 class SiteAccess(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -172,15 +209,6 @@ class AuditEvent(models.Model):
 
 
 
-INDIAN_STATES = [
-    ('01', 'Jammu and Kashmir'), ('02', 'Himachal Pradesh'), ('03', 'Punjab'), ('04', 'Chandigarh'), ('05', 'Uttarakhand'),
-    ('06', 'Haryana'), ('07', 'Delhi'), ('08', 'Rajasthan'), ('09', 'Uttar Pradesh'), ('10', 'Bihar'), ('11', 'Sikkim'),
-    ('12', 'Arunachal Pradesh'), ('13', 'Nagaland'), ('14', 'Manipur'), ('15', 'Mizoram'), ('16', 'Tripura'), ('17', 'Meghalaya'),
-    ('18', 'Assam'), ('19', 'West Bengal'), ('20', 'Jharkhand'), ('21', 'Odisha'), ('22', 'Chhattisgarh'), ('23', 'Madhya Pradesh'),
-    ('24', 'Gujarat'), ('26', 'Dadra and Nagar Haveli and Daman and Diu'), ('27', 'Maharashtra'), ('29', 'Karnataka'), ('30', 'Goa'),
-    ('31', 'Lakshadweep'), ('32', 'Kerala'), ('33', 'Tamil Nadu'), ('34', 'Puducherry'), ('35', 'Andaman and Nicobar Islands'),
-    ('36', 'Telangana'), ('37', 'Andhra Pradesh'), ('38', 'Ladakh'), ('97', 'Other Territory'),
-]
 CONSTITUTIONS = [
     ('private_limited', 'Private Limited Company'), ('public_limited', 'Public Limited Company'), ('opc', 'One Person Company'),
     ('llp', 'Limited Liability Partnership'), ('partnership', 'Partnership firm'), ('proprietorship', 'Proprietorship'),

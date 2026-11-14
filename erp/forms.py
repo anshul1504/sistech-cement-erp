@@ -12,9 +12,69 @@ class StyledForm(forms.ModelForm):
             if isinstance(f.widget, forms.Textarea): f.widget.attrs['rows'] = 3
 
 class SiteForm(StyledForm):
+    """Plants, depots and warehouses. GSTIN is checked against the state and the company PAN."""
+    SECTIONS = [
+        ('Basics', 'What this location is and what it does.', ['kind', 'facility_type', 'code', 'name', 'active']),
+        ('Address', 'Where goods are produced, stored or dispatched from.', ['address', 'city', 'district', 'state', 'pincode']),
+        ('Registration & contact', 'State GST registration and the people to reach.', ['gstin', 'manager', 'phone', 'email']),
+        ('Capacity & notes', 'Installed capacity and anything the team should know.', ['capacity_tpa', 'notes']),
+    ]
+
     class Meta:
         model = Site
-        fields = ['code', 'name', 'kind', 'address', 'active']
+        fields = ['kind', 'facility_type', 'code', 'name', 'active', 'address', 'city', 'district', 'state', 'pincode',
+                  'gstin', 'manager', 'phone', 'email', 'capacity_tpa', 'notes']
+        widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.contrib.auth.models import User
+        self.fields['manager'].queryset = User.objects.filter(is_active=True).order_by('first_name', 'username')
+        self.fields['manager'].label_from_instance = lambda u: f'{u.get_full_name() or u.username} (@{u.username})'
+        self.fields['manager'].empty_label = 'Not assigned'
+        self.fields['kind'].choices = [('', 'Select type')] + list(self.fields['kind'].choices)[1:]
+        self.fields['facility_type'].choices = [('', 'Select facility')] + list(self.fields['facility_type'].choices)[1:]
+        self.fields['state'].choices = [('', 'Select state')] + list(self.fields['state'].choices)[1:]
+        self.fields['code'].widget.attrs.update(placeholder='e.g. PLT-SATNA or DPT-BPL', style='text-transform:uppercase')
+        self.fields['gstin'].widget.attrs.update(placeholder='e.g. 23ABCDE1234F1Z5', style='text-transform:uppercase', autocomplete='off')
+        self.fields['pincode'].widget.attrs.update(inputmode='numeric', maxlength='6')
+        self.fields['phone'].widget.attrs.update(inputmode='tel', placeholder='e.g. +91 98765 43210')
+        self.fields['capacity_tpa'].widget.attrs.update(step='any', placeholder='e.g. 1000000')
+
+    def sections(self):
+        return [(title, note, [self[name] for name in names]) for title, note, names in self.SECTIONS]
+
+    def clean_code(self):
+        return self.cleaned_data['code'].strip().upper()
+
+    def clean(self):
+        from .models import PLANT_FACILITIES
+        data = super().clean()
+        kind, facility = data.get('kind'), data.get('facility_type')
+        if facility:
+            if kind == 'Plant' and facility not in PLANT_FACILITIES:
+                self.add_error('facility_type', 'Choose a plant facility (cement unit, packing plant or rolling mill).')
+            elif kind in ('Depot', 'Warehouse') and facility in PLANT_FACILITIES:
+                self.add_error('facility_type', 'Depots and warehouses cannot be a manufacturing facility.')
+        pincode = (data.get('pincode') or '').strip()
+        if pincode and not re.fullmatch(r'[1-9]\d{5}', pincode):
+            self.add_error('pincode', 'Enter a 6-digit PIN code.')
+        phone = (data.get('phone') or '').strip()
+        if phone and not re.fullmatch(r'\+?[0-9][0-9 \-]{8,17}[0-9]', phone):
+            self.add_error('phone', 'Enter a valid phone number, e.g. +91 98765 43210.')
+        gstin = (data.get('gstin') or '').strip().upper()
+        data['gstin'] = gstin
+        if gstin:
+            if not re.fullmatch(r'\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]', gstin):
+                self.add_error('gstin', 'Enter a valid 15-character GSTIN, e.g. 23ABCDE1234F1Z5.')
+            else:
+                state = data.get('state')
+                if state and gstin[:2] != state:
+                    self.add_error('gstin', f'GSTIN starts with {gstin[:2]}, but this location is in state code {state}.')
+                pan = Organization.objects.filter(pk=1).values_list('pan', flat=True).first()
+                if pan and gstin[2:12] != pan:
+                    self.add_error('gstin', f'GSTIN must contain the company PAN {pan} (characters 3–12).')
+        return data
 
 class ProductForm(StyledForm):
     """Products & materials, with cement- and TMT-specific rules. Unit and bag weight lock once used (see views)."""

@@ -1,0 +1,77 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'sites' %}">← Plants &amp; depots</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-{{ site.kind|slugify }}"><svg><use href="#ic-{{ icon }}"/></svg></span>
+    <div class="org-hero-text">
+      <h1>{{ site.name }}</h1>
+      <p>{{ site.code }} · {% if site.facility_type %}{{ site.get_facility_type_display }}{% else %}{{ site.get_kind_display }}{% endif %}{% if site.city %} · {{ site.city }}{% endif %}</p>
+      <div class="org-chips">
+        <span class="org-chip mst-cat is-{{ site.kind|slugify }}">{{ site.get_kind_display }}</span>
+        {% if site.state %}<span class="org-chip">{{ site.get_state_display }} ({{ site.state }})</span>{% endif %}
+        {% if site.active %}<span class="org-chip is-ok">● Active</span>{% else %}<span class="org-chip">● Inactive</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side">
+      {% if can_change %}<a class="org-btn is-primary" href="{% url 'sites_edit' site.pk %}"><svg><use href="#ic-key"/></svg>Edit location</a>{% endif %}
+      <small>{{ open_orders }} open order{{ open_orders|pluralize }}<br>{{ balance_count }} product{{ balance_count|pluralize }} in stock</small>
+    </div>
+  </section>
+
+  {% if can_change or can_upload %}
+  <section class="adm-actions mst-actions">
+    {% if can_upload %}<a class="adm-action" href="{% url 'organization_document_new' %}?site={{ site.pk }}"><svg><use href="#ic-clipboard"/></svg><span><strong>Add licence / document</strong><small>Factory licence, CTO, BIS, NOC…</small></span></a>{% endif %}
+    {% if can_change %}<form method="post" action="{% url 'site_status' site.pk %}" data-confirm="{% if site.active %}Deactivate this location? It will disappear from new orders, production and stock entries.{% else %}Activate this location again?{% endif %}">{% csrf_token %}<button class="adm-action {% if site.active %}is-danger{% else %}is-ok{% endif %}" type="submit"><svg><use href="#ic-power"/></svg><span><strong>{% if site.active %}Deactivate{% else %}Activate{% endif %}</strong><small>{% if site.active %}Keeps history and stock{% else %}Use for new entries again{% endif %}</small></span></button></form>{% endif %}
+    {% if user.is_superuser %}<form method="post" action="{% url 'site_delete' site.pk %}" data-confirm="Delete {{ site.name }} permanently?">{% csrf_token %}<button class="adm-action is-danger" type="submit" {% if used %}disabled{% endif %}><svg><use href="#ic-trash"/></svg><span><strong>Delete</strong><small>{% if used %}Not possible — has records{% else %}Never used, can be removed{% endif %}</small></span></button></form>{% endif %}
+  </section>
+  {% endif %}
+
+  <div class="acc-grid">
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Location &amp; contact</h2>{% if can_change %}<a href="{% url 'sites_edit' site.pk %}">Edit</a>{% endif %}</header>
+      <dl>
+        <div class="is-wide"><dt>Address</dt><dd>{{ site.full_address|default:'—' }}</dd></div>
+        <div><dt>Manager</dt><dd>{% if site.manager %}{{ site.manager.get_full_name|default:site.manager.username }}{% else %}—{% endif %}</dd></div>
+        <div><dt>Phone</dt><dd>{% if site.phone %}<a href="tel:{{ site.phone }}">{{ site.phone }}</a>{% else %}—{% endif %}</dd></div>
+        <div class="is-wide"><dt>Email</dt><dd>{% if site.email %}<a href="mailto:{{ site.email }}">{{ site.email }}</a>{% else %}—{% endif %}</dd></div>
+      </dl>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Registration &amp; capacity</h2></header>
+      <dl>
+        <div class="is-wide"><dt>Plant GSTIN</dt><dd class="is-mono">{% if site.gstin %}{{ site.gstin }}{% else %}<span class="mst-missing">Not set</span>{% endif %}</dd></div>
+        <div><dt>State code</dt><dd>{{ site.state|default:'—' }}</dd></div>
+        <div><dt>Facility</dt><dd>{{ site.get_facility_type_display|default:'—' }}</dd></div>
+        <div class="is-wide"><dt>Installed capacity</dt><dd>{% if site.capacity_tpa %}{{ site.capacity_tpa|indian }} MT per year{% else %}—{% endif %}</dd></div>
+      </dl>
+      {% if site.notes %}<p class="acc-note">{{ site.notes|linebreaksbr }}</p>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>People with access</h2>{% if user.is_superuser %}<a href="{% url 'access_control' %}?site={{ site.pk }}">Manage</a>{% endif %}</header>
+      {% if people %}<ul class="adm-mini-users">{% for u in people|slice:':6' %}<li>{% if user.is_superuser %}<a href="{% url 'member_detail' u.pk %}">{% else %}<span class="adm-mini-static">{% endif %}{% include 'accounts/_user_avatar.html' %}<span><strong>{{ u.get_full_name|default:u.username }}</strong><small>{{ u.profile.designation|default:u.email }}</small></span>{% if user.is_superuser %}</a>{% else %}</span>{% endif %}</li>{% endfor %}</ul>{% if people|length > 6 %}<p class="acc-note">+ {{ people|length|add:'-6' }} more</p>{% endif %}
+      {% else %}<p class="acc-muted">No users are assigned here yet{% if user.is_superuser %} — assign them from Users{% endif %}.</p>{% endif %}
+    </section>
+
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Licences &amp; documents</h2>{% if can_docs %}<a href="{% url 'organization_documents' %}">All documents</a>{% endif %}</header>
+      {% if not can_docs %}<p class="acc-muted">You need Organisation setup access to see licences.</p>
+      {% elif documents %}
+      <ul class="mst-doc-list">{% for d in documents %}{% with st=d.status %}<li><a href="{% url 'organization_document' d.pk %}"><strong>{{ d.display_title }}</strong><small>{{ d.get_doc_type_display }}{% if d.number %} · {{ d.number }}{% endif %}</small></a>
+        {% if st.0 == 'expired' %}<span class="doc-badge is-danger">Expired {{ d.valid_until|date:'d M Y' }}</span>{% elif st.0 == 'expiring' %}<span class="doc-badge is-warning">{{ st.1 }} day{{ st.1|pluralize }} left</span>{% elif st.0 == 'valid' %}<span class="doc-badge is-ok">Valid till {{ d.valid_until|date:'d M Y' }}</span>{% else %}<span class="doc-badge">No expiry</span>{% endif %}</li>{% endwith %}{% endfor %}</ul>
+      {% else %}<div class="acc-empty-mini"><strong>No licences recorded</strong><span>Add the factory licence, pollution consent (CTO), BIS licence or fire NOC for this location.</span>{% if can_upload %}<a class="org-btn is-light is-sm" href="{% url 'organization_document_new' %}?site={{ site.pk }}">Add document</a>{% endif %}</div>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Recent activity</h2></header>
+      <ul class="acc-timeline">{% for e in activity %}<li><strong>{{ e.action }}</strong><small>{{ e.created_at|date:'d M, H:i' }}{% if e.actor %} · {{ e.actor.get_full_name|default:e.actor.username }}{% endif %}</small></li>{% empty %}<li><small>No activity recorded here yet.</small></li>{% endfor %}</ul>
+    </section>
+
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Stock at this location</h2>{% if perms.erp.view_stockbalance %}<a href="{% url 'inventory' %}">Inventory</a>{% endif %}</header>
+      {% if balances %}<ul class="mst-stock-list">{% for b in balances %}<li><span><strong><a href="{% url 'product_detail' b.product.pk %}">{{ b.product.name }}</a></strong><small>{{ b.product.code }}{% if b.product.spec_line %} · {{ b.product.spec_line }}{% endif %}</small></span><span class="mst-qty{% if b.quantity <= b.product.reorder_level %} is-low{% endif %}">{{ b.quantity|floatformat:'-3' }} {{ b.product.unit }}{% if b.quantity <= b.product.reorder_level %}<em>Low</em>{% endif %}</span></li>{% endfor %}</ul>{% if balance_count > 12 %}<p class="acc-note">Showing 12 of {{ balance_count }} products.</p>{% endif %}
+      {% else %}<p class="acc-muted">No stock posted here yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if site %}{% url 'site_detail' site.pk %}{% else %}{% url 'sites' %}{% endif %}">← {% if site %}{{ site.name }}{% else %}Plants &amp; depots{% endif %}</a></div>
+      <h1>{{ title }}</h1><p>The plant GSTIN must match its state and contain the company PAN from Organisation setup.</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate data-site-form>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <div class="mst-form-grid">
+      {% for title, note, fields in form.sections %}
+      <section class="org-card">
+        <header><h2>{{ title }}</h2><p>{{ note }}</p></header>
+        <div class="org-grid">
+          {% for field in fields %}
+          {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="org-field org-check"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>Active</strong><small>Inactive locations are hidden from new orders, production and stock entries.</small></span></label></div>
+          {% else %}
+          <div class="org-field{% if field.name == 'name' or field.name == 'address' or field.name == 'notes' or field.name == 'gstin' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+    <div class="org-actions"><span>Changes are recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% if site %}{% url 'site_detail' site.pk %}{% else %}{% url 'sites' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if site %}Save changes{% else %}Add location{% endif %}</button></div></div>
+  </form>
+</div>
+<script>
+(() => {
+  // Show only facility types that fit the chosen location type; prefill state from the GSTIN.
+  const form = document.querySelector('[data-site-form]');
+  const kind = form.querySelector('[name=kind]'), facility = form.querySelector('[name=facility_type]');
+  const gstin = form.querySelector('[name=gstin]'), state = form.querySelector('[name=state]');
+  const plants = ['integrated_cement', 'cement_grinding', 'packing_plant', 'tmt_rolling', 'steel_melting'];
+  const apply = () => {
+    [...facility.options].forEach(o => { if (!o.value) return; o.hidden = kind.value === 'Plant' ? !plants.includes(o.value) : (kind.value ? plants.includes(o.value) : false); });
+    [...facility.querySelectorAll('optgroup')].forEach(g => { g.hidden = [...g.children].every(o => o.hidden); });
+    if (facility.selectedOptions[0]?.hidden) facility.value = '';
+  };
+  kind.addEventListener('change', apply); apply();
+  gstin.addEventListener('input', () => { const code = gstin.value.slice(0, 2); if (/^\d{2}$/.test(code) && !state.value && [...state.options].some(o => o.value === code)) state.value = code; });
+})();
+</script>
+{% endblock %}

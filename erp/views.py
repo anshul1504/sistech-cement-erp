@@ -316,7 +316,8 @@ def organization_document_form(request, pk=None):
     """Create (upload) or edit a company document. On edit the file is optional (replace)."""
     _require_edit(request.user)
     doc = get_object_or_404(OrganizationDocument, pk=pk) if pk else None
-    form = OrganizationDocumentForm(request.POST or None, request.FILES or None, instance=doc)
+    initial = {'site': request.GET.get('site')} if not pk and request.GET.get('site', '').isdigit() else None
+    form = OrganizationDocumentForm(request.POST or None, request.FILES or None, instance=doc, initial=initial)
     if request.method == 'POST' and form.is_valid():
         replaced = bool(form.cleaned_data.get('upload'))
         saved = form.save(commit=False)

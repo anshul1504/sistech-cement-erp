@@ -1,0 +1,43 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head">
+    <div><div class="eyebrow">MASTERS</div><h1>Plants &amp; depots</h1><p>Cement units, TMT rolling mills, depots and warehouses — with GST registration, people, stock and licences for each.</p></div>
+    {% if can_add %}<a class="org-btn is-primary" href="{% url 'sites_new' %}"><svg><use href="#ic-plus"/></svg>Add plant or depot</a>{% endif %}
+  </div>
+  <nav class="org-tabs mst-cat-tabs" aria-label="Location types">
+    {% for code, label, count in tabs %}<a class="org-tab{% if filters.kind == code %} is-active{% endif %}" href="?kind={{ code }}{% if filters.status != 'active' %}&status={{ filters.status }}{% endif %}">{{ label }}<span class="org-tab-count">{{ count }}</span></a>{% endfor %}
+  </nav>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Locations</h2><p>{{ rows|length }} shown{% if not user.is_superuser %} · only locations assigned to you{% endif %}</p></div>
+      <form method="get" class="doc-filter">
+        {% if filters.kind %}<input type="hidden" name="kind" value="{{ filters.kind }}">{% endif %}
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Search code, name, city, GSTIN…" aria-label="Search locations">
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="active"{% if filters.status == 'active' %} selected{% endif %}>Active</option><option value="inactive"{% if filters.status == 'inactive' %} selected{% endif %}>Inactive</option><option value="all"{% if filters.status == 'all' %} selected{% endif %}>All statuses</option></select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if rows %}
+    <div class="mst-site-grid">
+      {% for r in rows %}{% with s=r.site %}
+      <a class="mst-site{% if not s.active %} is-inactive{% endif %}" href="{% url 'site_detail' s.pk %}">
+        <header><span class="mst-icon is-{{ s.kind|slugify }}"><svg><use href="#ic-{{ r.icon }}"/></svg></span><div><strong>{{ s.name }}</strong><small>{{ s.code }} · {% if s.facility_type %}{{ s.get_facility_type_display }}{% else %}{{ s.get_kind_display }}{% endif %}</small></div></header>
+        <p class="mst-site-addr">{% if s.city or s.state %}{{ s.city }}{% if s.city and s.state %}, {% endif %}{{ s.get_state_display }}{% else %}<span class="acc-muted">Address not set</span>{% endif %}</p>
+        <dl>
+          <div><dt>GSTIN</dt><dd>{% if s.gstin %}{{ s.gstin }}{% else %}<span class="mst-missing">not set</span>{% endif %}</dd></div>
+          <div><dt>Manager</dt><dd>{% if s.manager %}{{ s.manager.get_full_name|default:s.manager.username }}{% else %}—{% endif %}</dd></div>
+          <div><dt>People</dt><dd>{{ s.people }}</dd></div>
+          <div><dt>Stock lines</dt><dd>{{ s.stock_lines }}</dd></div>
+        </dl>
+        <footer>{% if s.active %}<span class="doc-badge is-ok">Active</span>{% else %}<span class="doc-badge">Inactive</span>{% endif %}{% if r.docs.expired %}<span class="doc-badge is-danger">{{ r.docs.expired }} licence{{ r.docs.expired|pluralize }} expired</span>{% endif %}{% if r.docs.expiring %}<span class="doc-badge is-warning">{{ r.docs.expiring }} expiring</span>{% endif %}</footer>
+      </a>
+      {% endwith %}{% endfor %}
+    </div>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-building"/></svg><strong>No locations here</strong><span>{% if can_add %}Add your cement unit, rolling mill or depot.{% else %}Ask your administrator to assign you to a location.{% endif %}</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
