@@ -1,0 +1,165 @@
+"""Dealers & suppliers: list, detail (credit, orders, KYC), create/edit, activate, delete-if-unused, KYC documents."""
+from decimal import Decimal
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.db.models import Count, Q
+from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.http import require_POST
+
+from accounts.roles import order_permission
+from .forms import PartnerForm, PartnerDocumentForm
+from .models import Partner, PartnerDocument, Order, AuditEvent, PARTNER_KINDS, CUSTOMER_KINDS
+from .services import audit, permitted
+
+KIND_ICONS = {'Dealer': 'handshake', 'Distributor': 'truck', 'Retailer': 'building', 'Institutional': 'factory', 'Supplier': 'boxes', 'Transporter': 'truck'}
+
+
+def credit_position(partner):
+    """Provisional exposure = approved + completed sales orders (collections are not recorded yet)."""
+    orders = Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Completed']).prefetch_related('lines')
+    exposure = sum((o.total for o in orders), Decimal('0'))
+    limit = partner.credit_limit or Decimal('0')
+    used = int(min(100, (exposure / limit * 100))) if limit else (100 if exposure else 0)
+    return {'limit': limit, 'exposure': exposure, 'available': max(limit - exposure, Decimal('0')), 'used_pct': used,
+            'state': 'danger' if limit and exposure >= limit else 'warn' if used >= 80 else 'ok'}
+
+
+def is_used(partner):
+    return Order.objects.filter(partner=partner).exists()
+
+
+@login_required
+def partners(request):
+    permitted(request.user, 'view_partner')
+    group, kind, status = request.GET.get('group', ''), request.GET.get('kind', ''), request.GET.get('status', 'active')
+    q = request.GET.get('q', '').strip()
+    qs = Partner.objects.annotate(order_count=Count('order'))
+    if group == 'customers': qs = qs.filter(kind__in=CUSTOMER_KINDS)
+    elif group == 'vendors': qs = qs.exclude(kind__in=CUSTOMER_KINDS)
+    if kind: qs = qs.filter(kind=kind)
+    if status == 'active': qs = qs.filter(active=True)
+    elif status == 'inactive': qs = qs.filter(active=False)
+    if q: qs = qs.filter(Q(code__icontains=q) | Q(name__icontains=q) | Q(territory__icontains=q) | Q(city__icontains=q) | Q(gstin__icontains=q) | Q(contact_person__icontains=q) | Q(phone__icontains=q))
+    active = Partner.objects.filter(active=True)
+    tabs = [('', 'All', active.count()), ('customers', 'Customers', active.filter(kind__in=CUSTOMER_KINDS).count()),
+            ('vendors', 'Suppliers & transporters', active.exclude(kind__in=CUSTOMER_KINDS).count())]
+    return render(request, 'erp/partners.html', {
+        'title': 'Dealers & suppliers', 'partners': qs.order_by('name')[:300], 'tabs': tabs, 'kinds': PARTNER_KINDS,
+        'filters': {'group': group, 'kind': kind, 'status': status, 'q': q}, 'can_add': request.user.has_perm('erp.add_partner')})
+
+
+@login_required
+def partner_detail(request, pk):
+    permitted(request.user, 'view_partner')
+    partner = get_object_or_404(Partner, pk=pk)
+    kind = 'Sale' if partner.is_customer else 'Purchase'
+    can_orders = order_permission(request.user, kind, 'view')
+    orders = Order.objects.filter(partner=partner).prefetch_related('lines').select_related('site').order_by('-created_at')
+    if not request.user.is_superuser:
+        orders = orders.filter(site__siteaccess__user=request.user)
+    summary = {s: 0 for s in ['Draft', 'Submitted', 'Approved', 'Completed', 'Cancelled']}
+    value = Decimal('0')
+    for o in orders:
+        summary[o.status] += 1
+        if o.status != 'Cancelled':
+            value += o.total
+    return render(request, 'erp/partner_detail.html', {
+        'title': partner.name, 'partner': partner, 'icon': KIND_ICONS.get(partner.kind, 'handshake'),
+        'credit': credit_position(partner) if partner.is_customer else None,
+        'orders': orders[:8] if can_orders else [], 'can_orders': can_orders, 'summary': summary, 'order_value': value,
+        'documents': partner.documents.defer('file'), 'used': is_used(partner),
+        'can_change': request.user.has_perm('erp.change_partner'),
+        'can_create_order': order_permission(request.user, kind, 'create'), 'order_kind': kind,
+        'history': AuditEvent.objects.filter(reference__in=[str(partner), f'partner:{partner.pk}']).select_related('actor').order_by('-created_at')[:6]})
+
+
+@login_required
+def partner_form(request, pk=None):
+    permitted(request.user, 'change_partner' if pk else 'add_partner')
+    partner = get_object_or_404(Partner, pk=pk) if pk else None
+    initial = {'kind': request.GET.get('kind')} if not pk and request.GET.get('kind') in dict(PARTNER_KINDS) else None
+    form = PartnerForm(request.POST or None, instance=partner, initial=initial)
+    if partner and is_used(partner):
+        form.fields['kind'].disabled = True  # type decides which orders use it; lock once used
+    if request.method == 'POST' and form.is_valid():
+        with transaction.atomic():
+            saved = form.save()
+            AuditEvent.objects.create(actor=request.user, action='Master updated' if pk else 'Master created', reference=f'partner:{saved.pk}', detail=f'Partner {saved.code}')
+        messages.success(request, f'{saved.name} {"updated" if pk else "added"}.')
+        return redirect('partner_detail', pk=saved.pk)
+    return render(request, 'erp/partner_form.html', {'title': 'Edit partner' if pk else 'Add partner', 'form': form, 'partner': partner})
+
+
+@login_required
+@require_POST
+def partner_status(request, pk):
+    permitted(request.user, 'change_partner')
+    partner = get_object_or_404(Partner, pk=pk)
+    partner.active = not partner.active
+    partner.save(update_fields=['active', 'updated_at'])
+    AuditEvent.objects.create(actor=request.user, action='Partner activated' if partner.active else 'Partner deactivated', reference=f'partner:{partner.pk}', detail=partner.code)
+    messages.success(request, f'{partner.name} is {"active again" if partner.active else "now inactive — it no longer appears on new orders"}.')
+    return redirect('partner_detail', pk=partner.pk)
+
+
+@login_required
+@require_POST
+def partner_delete(request, pk):
+    permitted(request.user, 'change_partner')
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    partner = get_object_or_404(Partner, pk=pk)
+    if is_used(partner):
+        messages.error(request, f'{partner.name} has orders, so it cannot be deleted. Deactivate it instead.')
+        return redirect('partner_detail', pk=partner.pk)
+    name = partner.name
+    AuditEvent.objects.create(actor=request.user, action='Partner deleted', reference=f'partner:{partner.pk}', detail=partner.code)
+    partner.delete()
+    messages.success(request, f'{name} deleted.')
+    return redirect('partners')
+
+
+# ---------- KYC documents ----------
+
+@login_required
+def partner_document_new(request, pk):
+    permitted(request.user, 'change_partner')
+    partner = get_object_or_404(Partner, pk=pk)
+    form = PartnerDocumentForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        doc = form.save(commit=False)
+        doc.partner, doc.uploaded_by = partner, request.user
+        doc.save()
+        AuditEvent.objects.create(actor=request.user, action='Partner document uploaded', reference=f'partner:{partner.pk}', detail=f'{doc.get_doc_type_display()} · {doc.file_name}')
+        messages.success(request, f'{doc.get_doc_type_display()} added for {partner.name}.')
+        return redirect('partner_detail', pk=partner.pk)
+    return render(request, 'erp/partner_document_form.html', {'title': 'Add KYC document', 'form': form, 'partner': partner})
+
+
+@login_required
+@xframe_options_sameorigin
+def partner_document_file(request, pk, doc_pk):
+    permitted(request.user, 'view_partner')
+    doc = get_object_or_404(PartnerDocument, pk=doc_pk, partner_id=pk)
+    response = HttpResponse(bytes(doc.file), content_type=doc.content_type)
+    response['Content-Disposition'] = f'{"attachment" if request.GET.get("download") else "inline"}; filename="{doc.file_name}"'
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@login_required
+@require_POST
+def partner_document_delete(request, pk, doc_pk):
+    permitted(request.user, 'change_partner')
+    doc = get_object_or_404(PartnerDocument.objects.defer('file'), pk=doc_pk, partner_id=pk)
+    label = doc.get_doc_type_display()
+    AuditEvent.objects.create(actor=request.user, action='Partner document deleted', reference=f'partner:{pk}', detail=f'{label} · {doc.file_name}')
+    doc.delete()
+    messages.success(request, f'{label} removed.')
+    return redirect('partner_detail', pk=pk)

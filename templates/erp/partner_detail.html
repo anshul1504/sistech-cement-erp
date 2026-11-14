@@ -1,0 +1,88 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'partners' %}?group={% if partner.is_customer %}customers{% else %}vendors{% endif %}">← Dealers &amp; suppliers</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-{{ partner.kind|slugify }}">{{ partner.name|first|upper }}</span>
+    <div class="org-hero-text">
+      <h1>{{ partner.name }}</h1>
+      <p>{{ partner.code }}{% if partner.contact_person %} · {{ partner.contact_person }}{% endif %}{% if partner.city %} · {{ partner.city }}{% endif %}</p>
+      <div class="org-chips">
+        <span class="org-chip mst-cat is-{{ partner.kind|slugify }}">{{ partner.get_kind_display }}</span>
+        {% if partner.territory %}<span class="org-chip">{{ partner.territory }}</span>{% endif %}
+        {% if partner.active %}<span class="org-chip is-ok">● Active</span>{% else %}<span class="org-chip">● Inactive</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side">
+      {% if can_change %}<a class="org-btn is-primary" href="{% url 'partners_edit' partner.pk %}"><svg><use href="#ic-key"/></svg>Edit partner</a>{% endif %}
+      <small>{{ summary.Draft|add:summary.Submitted|add:summary.Approved }} open order{{ summary.Draft|add:summary.Submitted|add:summary.Approved|pluralize }}<br>₹{{ order_value|indian }} ordered</small>
+    </div>
+  </section>
+
+  <section class="adm-actions mst-actions">
+    {% if can_create_order and partner.active %}<a class="adm-action" href="{% url 'order_new' order_kind %}"><svg><use href="#ic-{% if partner.is_customer %}sales{% else %}purchase{% endif %}"/></svg><span><strong>New {% if partner.is_customer %}sales{% else %}purchase{% endif %} order</strong><small>Choose {{ partner.name|truncatechars:22 }} on the form</small></span></a>{% endif %}
+    {% if can_change %}<a class="adm-action" href="{% url 'partner_document_new' partner.pk %}"><svg><use href="#ic-clipboard"/></svg><span><strong>Add KYC document</strong><small>GST, PAN, cheque, agreement…</small></span></a>
+    <form method="post" action="{% url 'partner_status' partner.pk %}" data-confirm="{% if partner.active %}Deactivate this partner? They will no longer appear on new orders.{% else %}Activate this partner again?{% endif %}">{% csrf_token %}<button class="adm-action {% if partner.active %}is-danger{% else %}is-ok{% endif %}" type="submit"><svg><use href="#ic-power"/></svg><span><strong>{% if partner.active %}Deactivate{% else %}Activate{% endif %}</strong><small>{% if partner.active %}Hide from new orders, keep history{% else %}Use on new orders again{% endif %}</small></span></button></form>{% endif %}
+    {% if user.is_superuser %}<form method="post" action="{% url 'partner_delete' partner.pk %}" data-confirm="Delete {{ partner.name }} permanently?">{% csrf_token %}<button class="adm-action is-danger" type="submit" {% if used %}disabled{% endif %}><svg><use href="#ic-trash"/></svg><span><strong>Delete</strong><small>{% if used %}Not possible — has orders{% else %}No orders, can be removed{% endif %}</small></span></button></form>{% endif %}
+  </section>
+
+  <div class="acc-grid">
+    {% if credit %}
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Credit position</h2></header>
+      <div class="mst-credit is-{{ credit.state }}">
+        <div class="mst-credit-top"><span>Used</span><strong>₹{{ credit.exposure|indian }}</strong></div>
+        <div class="mst-credit-bar"><span style="width: {{ credit.used_pct }}%"></span></div>
+        <div class="mst-credit-foot"><span>Limit ₹{{ credit.limit|indian }}</span><span>{% if credit.limit %}Available ₹{{ credit.available|indian }}{% else %}Advance payment only{% endif %}</span></div>
+      </div>
+      <dl>
+        <div><dt>Payment terms</dt><dd>{% if partner.payment_terms_days %}{{ partner.payment_terms_days }} days{% else %}Advance / COD{% endif %}</dd></div>
+        <div><dt>Security deposit</dt><dd>₹{{ partner.security_deposit|indian }}</dd></div>
+      </dl>
+      <p class="acc-note">Used = approved and completed sales orders. Payments received are not deducted yet (receipts arrive with Finance).</p>
+    </section>
+    {% endif %}
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Contact</h2>{% if can_change %}<a href="{% url 'partners_edit' partner.pk %}">Edit</a>{% endif %}</header>
+      <dl>
+        <div><dt>Contact person</dt><dd>{{ partner.contact_person|default:'—' }}</dd></div>
+        <div><dt>Phone</dt><dd>{% if partner.phone %}<a href="tel:{{ partner.phone }}">{{ partner.phone }}</a>{% else %}—{% endif %}{% if partner.alt_phone %}<br><a href="tel:{{ partner.alt_phone }}">{{ partner.alt_phone }}</a>{% endif %}</dd></div>
+        <div class="is-wide"><dt>Email</dt><dd>{% if partner.email %}<a href="mailto:{{ partner.email }}">{{ partner.email }}</a>{% else %}—{% endif %}</dd></div>
+        <div class="is-wide"><dt>Billing address</dt><dd>{{ partner.full_address|default:'—' }}</dd></div>
+        {% if partner.shipping_address %}<div class="is-wide"><dt>Delivery address</dt><dd>{{ partner.shipping_address|linebreaksbr }}</dd></div>{% endif %}
+      </dl>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Tax &amp; bank</h2></header>
+      <dl>
+        <div class="is-wide"><dt>GSTIN</dt><dd class="is-mono">{% if partner.gstin %}{{ partner.gstin }}{% else %}<span class="mst-missing">Not set{% if partner.is_customer %} — unregistered buyer{% endif %}</span>{% endif %}</dd></div>
+        <div><dt>PAN</dt><dd class="is-mono">{{ partner.pan|default:'—' }}</dd></div>
+        <div><dt>State</dt><dd>{% if partner.state %}{{ partner.get_state_display }} ({{ partner.state }}){% else %}—{% endif %}</dd></div>
+        <div><dt>Bank</dt><dd>{{ partner.bank_name|default:'—' }}</dd></div>
+        <div><dt>Account / IFSC</dt><dd class="is-mono">{% if partner.bank_account_number %}{{ partner.masked_account }}<br>{{ partner.bank_ifsc }}{% else %}—{% endif %}</dd></div>
+      </dl>
+      {% if partner.notes %}<p class="acc-note">{{ partner.notes|linebreaksbr }}</p>{% endif %}
+    </section>
+    {% if not credit %}
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Orders</h2></header>
+      <dl>{% for status, n in summary.items %}<div><dt>{{ status }}</dt><dd>{{ n }}</dd></div>{% endfor %}<div><dt>Value (excl. cancelled)</dt><dd>₹{{ order_value|indian }}</dd></div></dl>
+    </section>
+    {% endif %}
+
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Recent orders</h2>{% if can_orders %}<a href="{% if partner.is_customer %}{% url 'sales' %}{% else %}{% url 'purchases' %}{% endif %}?q={{ partner.name|urlencode }}">All orders</a>{% endif %}</header>
+      {% if not can_orders %}<p class="acc-muted">You don't have permission to see {% if partner.is_customer %}sales{% else %}purchase{% endif %} orders.</p>
+      {% elif orders %}<ul class="mst-order-list">{% for o in orders %}<li><a href="{% url 'order_detail' o.pk %}"><strong>{{ o.number }}</strong><small>{{ o.created_at|date:'d M Y' }} · {{ o.site.code }} · due {{ o.due_date|date:'d M' }}</small></a><span class="mst-qty">₹{{ o.total|indian:2 }}</span><span class="doc-badge{% if o.status == 'Completed' %} is-ok{% elif o.status == 'Cancelled' %} is-danger{% elif o.status == 'Submitted' %} is-warning{% endif %}">{{ o.status }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No orders with this partner yet.</p>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>KYC documents</h2>{% if can_change %}<a href="{% url 'partner_document_new' partner.pk %}">Add</a>{% endif %}</header>
+      {% if documents %}<ul class="mst-doc-list">{% for d in documents %}{% with st=d.status %}<li><a href="{% url 'partner_document_file' partner.pk d.pk %}" target="_blank" rel="noopener"><strong>{{ d.get_doc_type_display }}</strong><small>{% if d.number %}{{ d.number }} · {% endif %}{{ d.file_name|truncatechars:28 }}</small></a>
+        <span class="mst-doc-actions">{% if st.0 == 'expired' %}<span class="doc-badge is-danger">Expired</span>{% elif st.0 == 'expiring' %}<span class="doc-badge is-warning">{{ st.1 }}d left</span>{% endif %}{% if can_change %}<form method="post" action="{% url 'partner_document_delete' partner.pk d.pk %}" data-confirm="Remove this document?">{% csrf_token %}<button class="mst-x" type="submit" aria-label="Remove {{ d.get_doc_type_display }}"><svg><use href="#ic-trash"/></svg></button></form>{% endif %}</span></li>{% endwith %}{% endfor %}</ul>
+      {% else %}<div class="acc-empty-mini"><strong>No KYC on file</strong><span>Keep the GST certificate, PAN and a cancelled cheque here.</span>{% if can_change %}<a class="org-btn is-light is-sm" href="{% url 'partner_document_new' partner.pk %}">Add document</a>{% endif %}</div>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

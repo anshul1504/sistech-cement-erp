@@ -1,0 +1,44 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head">
+    <div><div class="eyebrow">MASTERS</div><h1>Dealers &amp; suppliers</h1><p>Customers who buy cement and TMT, and the suppliers and transporters you buy from — with GST, credit and KYC.</p></div>
+    {% if can_add %}<a class="org-btn is-primary" href="{% url 'partners_new' %}"><svg><use href="#ic-plus"/></svg>Add partner</a>{% endif %}
+  </div>
+  <nav class="org-tabs mst-cat-tabs" aria-label="Partner groups">
+    {% for code, label, count in tabs %}<a class="org-tab{% if filters.group == code %} is-active{% endif %}" href="?group={{ code }}">{{ label }}<span class="org-tab-count">{{ count }}</span></a>{% endfor %}
+  </nav>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Partners</h2><p>{{ partners|length }} shown</p></div>
+      <form method="get" class="doc-filter">
+        {% if filters.group %}<input type="hidden" name="group" value="{{ filters.group }}">{% endif %}
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Search name, code, city, GSTIN, phone…" aria-label="Search partners">
+        <select class="form-select" name="kind" aria-label="Type" onchange="this.form.submit()"><option value="">All types</option>{% for code, label in kinds %}<option value="{{ code }}"{% if filters.kind == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="active"{% if filters.status == 'active' %} selected{% endif %}>Active</option><option value="inactive"{% if filters.status == 'inactive' %} selected{% endif %}>Inactive</option><option value="all"{% if filters.status == 'all' %} selected{% endif %}>All statuses</option></select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if partners %}
+    <ul class="mst-list mst-partners">
+      {% for p in partners %}
+      <li class="{% if not p.active %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'partner_detail' p.pk %}">
+          <span class="mst-icon is-{{ p.kind|slugify }}">{{ p.name|first|upper }}</span>
+          <span><strong>{{ p.name }}</strong><small>{{ p.code }}{% if p.city %} · {{ p.city }}{% endif %}{% if p.territory %} · {{ p.territory }}{% endif %}</small></span>
+        </a>
+        <div class="mst-cell"><span class="org-chip mst-cat is-{{ p.kind|slugify }}">{{ p.get_kind_display }}</span></div>
+        <div class="mst-cell mst-tax"><small>GSTIN</small>{% if p.gstin %}{{ p.gstin }}{% else %}<span class="mst-missing">not set</span>{% endif %}</div>
+        <div class="mst-cell mst-stock"><small>{% if p.is_customer %}Credit limit{% else %}Contact{% endif %}</small>{% if p.is_customer %}₹{{ p.credit_limit|indian }}{% else %}{{ p.phone|default:'—' }}{% endif %}</div>
+        <div class="mst-cell"><small>Orders</small>{{ p.order_count }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'partner_detail' p.pk %}">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-handshake"/></svg><strong>No partners here</strong><span>{% if can_add %}Add a dealer, distributor, supplier or transporter.{% else %}Partners added by your team will appear here.{% endif %}</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

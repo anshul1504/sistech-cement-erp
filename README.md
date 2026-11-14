@@ -72,6 +72,14 @@ Changes are audited. Plant-level addresses, GST registrations and factory licenc
 - GST rate is stored per product (confirm rates with your accountant). Unit, bag weight and category lock once a product has transactions.
 - **Add standard catalogue** creates OPC 43/53, PPC and PSC 50 kg bags and TMT Fe 500D/550D in 8–32 mm, skipping SKU codes that already exist.
 
+## Plants & depots
+
+`/sites/` shows each location as a card (type tabs, search, licence-expiry badges). A location records its facility (integrated cement plant, grinding unit, packing plant, TMT rolling mill, steel melting shop, depot or warehouse), address with state and PIN, **plant GSTIN** (checked against its state and the company PAN), manager, contacts and installed capacity. The detail page shows people with access, licences and documents (factory licence, CTO, BIS, NOC — reusing company documents with expiry tracking), stock at that location and recent activity. Locations can be deactivated (hidden from new orders, production and stock entries) or, if never used, deleted by a super administrator. Non-administrators see only their assigned locations and keep access to locations they create.
+
+## Dealers & suppliers
+
+`/partners/` covers customers (dealer, distributor, retailer, institutional / project buyer) and vendors (supplier, transporter) with group tabs, type filter and search. Each partner records contact person, phones, email, **GSTIN and PAN** (PAN taken from the GSTIN when empty; state checked), billing and delivery address, territory, **credit limit, payment terms and security deposit**, and bank details (account masked on screen). The detail page shows the **credit position** (approved + completed sales orders against the limit; receipts are not deducted until Finance exists), recent orders, KYC documents (GST, PAN, cancelled cheque, agreement, vehicle RC; PDF or image up to 5 MB) and a shortcut to a new order. Sales orders accept any customer type; purchase orders accept suppliers. The partner type locks once it has orders; partners with orders cannot be deleted.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
@@ -93,7 +101,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | SRS area | Current status / remaining work |
 | --- | --- |
 | Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Legal entities, GST registrations, financial periods, territory/dealer isolation and MFA remain. |
-| CRM and dealer network | Partner master only. Leads, KYC attachments/approvals, territory hierarchy, visits and project pipeline remain. |
+| CRM and dealer network | Dealer/supplier master with GST, credit terms and KYC documents. Leads, KYC approval workflow, territory hierarchy, visits and project pipeline remain. |
 | Sales | Basic net-value orders. Versioned price lists, quotations, credit ageing, stock reservations/ATP, partial delivery and revision workflow remain. Approval does not reserve stock; availability is enforced at posting. |
 | Procurement | Basic order and full receipt. PR/RFQ, GRN inspection/holds and three-way matching remain. Purchase receipts become available immediately. |
 | Inventory | Quantity ledger and opening stock. Lots, reservations, locations, transfers, returns, valuation and reversals remain. |

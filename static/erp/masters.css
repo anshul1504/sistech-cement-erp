@@ -99,3 +99,38 @@
 @media (max-width: 767.98px) {
   .mst-doc-list li { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------- Dealers & suppliers ---------- */
+.mst-partners .mst-icon { font-size: 17px; font-weight: 700; }
+.mst-icon.is-xl { font-size: 28px; font-weight: 700; }
+.mst-icon.is-dealer, .mst-cat.is-dealer { background: #eef3fb; color: #073777; }
+.mst-icon.is-distributor, .mst-cat.is-distributor { background: #f4f0ff; color: #5b3cc4; }
+.mst-icon.is-retailer, .mst-cat.is-retailer { background: #ecfdf3; color: #067647; }
+.mst-icon.is-institutional, .mst-cat.is-institutional { background: #fff4e5; color: #9a5b00; }
+.mst-icon.is-supplier, .mst-cat.is-supplier { background: #f1f2f6; color: #3d4a5c; }
+.mst-icon.is-transporter, .mst-cat.is-transporter { background: #fef3f2; color: #b42318; }
+.mst-credit { margin-bottom: 14px; padding: 14px; border-radius: 12px; background: #f8fafc; }
+.mst-credit-top { display: flex; justify-content: space-between; align-items: baseline; color: #4a5668; font-size: 12.5px; }
+.mst-credit-top strong { color: #082859; font-size: 20px; }
+.mst-credit-bar { height: 8px; margin: 10px 0 8px; border-radius: 99px; background: #e4e9f1; overflow: hidden; }
+.mst-credit-bar span { display: block; height: 100%; border-radius: inherit; background: #12b76a; }
+.mst-credit.is-warn .mst-credit-bar span { background: #f79009; }
+.mst-credit.is-danger .mst-credit-bar span { background: #f04438; }
+.mst-credit.is-danger .mst-credit-top strong { color: #b42318; }
+.mst-credit-foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--o-ink-3); font-size: 12px; }
+.mst-order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mst-order-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: #f8fafc; }
+.mst-order-list a { min-width: 0; color: inherit; text-decoration: none; }
+.mst-order-list a:hover strong { color: var(--o-brand); }
+.mst-order-list strong { display: block; font-size: 13.5px; }
+.mst-order-list small { color: var(--o-ink-3); font-size: 12px; }
+.mst-doc-actions { display: flex; align-items: center; gap: 6px; }
+.mst-doc-actions form { margin: 0; }
+.mst-x { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--o-ink-3); cursor: pointer; }
+.mst-x:hover { background: #fef3f2; color: #b42318; }
+.mst-x svg { width: 16px; height: 16px; }
+[data-section][hidden] { display: none; }
+@media (max-width: 767.98px) {
+  .mst-order-list li { grid-template-columns: minmax(0, 1fr) auto; }
+  .mst-order-list .mst-qty { grid-column: 1; }
+}

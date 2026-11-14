@@ -10,7 +10,7 @@ from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
-from .models import Site, Product, Partner, Order, StockBalance, StockMovement, Production, QualityTest, AuditEvent, Organization, OrganizationDocument, DOCUMENT_TYPES
+from .models import CUSTOMER_KINDS, Site, Product, Partner, Order, StockBalance, StockMovement, Production, QualityTest, AuditEvent, Organization, OrganizationDocument, DOCUMENT_TYPES
 from .forms import SiteForm, ProductForm, PartnerForm, OrderForm, Lines, ProductionForm, QualityForm, OpeningForm, OrganizationForm, OrganizationDocumentForm
 from .services import scope, permitted, audit, move_stock, transition_order, transition_production
 from accounts.roles import order_permission
@@ -32,43 +32,6 @@ def dashboard(request):
     sales_total = sum((o.total for o in sales.exclude(status='Cancelled')), Decimal('0'))
     return render(request, 'erp/dashboard.html', {'title': 'Operations overview', 'sales_total': sales_total, 'pending': orders.filter(status='Submitted').count(), 'held': batches.filter(status='Quality hold').count(), 'low_stock': balances.filter(quantity__lte=F('product__reorder_level')).count(), 'recent_orders': orders[:6], 'balances': balances[:6], 'batches': batches[:4], 'site_count': sites(request.user).count()})
 
-MASTERS = {'sites': (Site, SiteForm, ['Code', 'Name', 'Type', 'Active'], ['code', 'name', 'kind', 'active']), 'products': (Product, ProductForm, ['SKU', 'Product', 'Category', 'UOM', 'Active'], ['code', 'name', 'category', 'unit', 'active']), 'partners': (Partner, PartnerForm, ['Code', 'Partner', 'Type', 'Territory', 'Credit limit INR'], ['code', 'name', 'kind', 'territory', 'credit_limit'])}
-
-@login_required
-def master_list(request, module):
-    if module not in MASTERS: raise Http404
-    model, form, headers, fields = MASTERS[module]
-    permitted(request.user, 'view_' + model._meta.model_name)
-    qs = model.objects.all().order_by('code')
-    if model is Site and not request.user.is_superuser: qs = qs.filter(siteaccess__user=request.user)
-    q = request.GET.get('q', '')
-    if q: qs = qs.filter(Q(code__icontains=q) | Q(name__icontains=q))
-    rows = [{'cells': [getattr(o, f) for f in fields], 'url': f'/{module}/{o.pk}/edit/'} for o in qs]
-    can_add = request.user.has_perm('erp.add_' + model._meta.model_name)
-    return table(request, {'sites': 'Plants & depots', 'products': 'Products & materials', 'partners': 'Business partners'}[module], 'Manage the master data behind your operations.', headers, rows, f'/{module}/new/' if can_add else None, True)
-
-@login_required
-def master_form(request, module, pk=None):
-    if module not in MASTERS: raise Http404
-    model, cls, _, _ = MASTERS[module]
-    permitted(request.user, ('change_' if pk else 'add_') + model._meta.model_name)
-    qs = model.objects.all()
-    if model is Site and not request.user.is_superuser: qs = qs.filter(siteaccess__user=request.user)
-    obj = get_object_or_404(qs, pk=pk) if pk else None
-    form = cls(request.POST or None, instance=obj)
-    if obj and model is Product:
-        # A product's base UOM is fixed once it participates in any transaction.
-        used = obj.orderline_set.exists() or obj.stockbalance_set.exists() or obj.production_set.exists()
-        if used:
-            form.fields['unit'].disabled = True
-            form.fields['bag_weight_kg'].disabled = True
-    if request.method == 'POST' and form.is_valid():
-        with transaction.atomic():
-            obj = form.save()
-            audit(request.user, 'Master updated' if pk else 'Master created', obj, f'{model.__name__} {obj.pk}')
-        messages.success(request, 'Master data saved.')
-        return redirect(module)
-    return render(request, 'erp/form.html', {'title': ('Edit ' if pk else 'New ') + model._meta.verbose_name, 'form': form})
 
 @login_required
 def orders(request, kind):
@@ -90,7 +53,7 @@ def order_new(request, kind):
     obj = Order(kind=kind, created_by=request.user)
     form = OrderForm(request.POST or None, instance=obj)
     form.fields['site'].queryset = sites(request.user)
-    form.fields['partner'].queryset = Partner.objects.filter(active=True, kind='Dealer' if kind == 'Sale' else 'Supplier')
+    form.fields['partner'].queryset = Partner.objects.filter(active=True, kind__in=CUSTOMER_KINDS if kind == 'Sale' else ['Supplier']).order_by('name')
     lines = Lines(request.POST or None, instance=obj)
     for line in lines: line.fields['product'].queryset = Product.objects.filter(active=True)
     if request.method == 'POST' and form.is_valid() and lines.is_valid():

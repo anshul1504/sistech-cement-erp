@@ -118,17 +118,86 @@ class Product(models.Model):
             return (self.weight_per_metre_kg * self.bar_length_m * self.bars_per_bundle).quantize(Decimal('0.01'))
         return None
 
+PARTNER_KINDS = [('Dealer', 'Dealer'), ('Distributor', 'Distributor'), ('Retailer', 'Retailer'), ('Institutional', 'Institutional / project buyer'),
+                 ('Supplier', 'Supplier'), ('Transporter', 'Transporter')]
+CUSTOMER_KINDS = ['Dealer', 'Distributor', 'Retailer', 'Institutional']
+
+
 class Partner(models.Model):
-    code = models.CharField(max_length=25, unique=True)
-    name = models.CharField(max_length=120)
-    kind = models.CharField(max_length=15, choices=[('Dealer', 'Dealer / Customer'), ('Supplier', 'Supplier'), ('Transporter', 'Transporter')])
-    gstin = models.CharField(max_length=15, blank=True)
+    code = models.CharField('Partner code', max_length=25, unique=True)
+    name = models.CharField('Business name', max_length=120)
+    kind = models.CharField('Partner type', max_length=15, choices=PARTNER_KINDS)
+    gstin = models.CharField('GSTIN', max_length=15, blank=True)
     phone = models.CharField(max_length=25, blank=True)
-    territory = models.CharField(max_length=100, blank=True)
-    address = models.TextField(blank=True)
-    credit_limit = models.DecimalField(max_digits=16, decimal_places=2, default=0, validators=MONEY)
+    territory = models.CharField(max_length=100, blank=True, help_text='Sales area, e.g. Bhopal city or Rewa district.')
+    address = models.TextField('Billing address', blank=True)
+    credit_limit = models.DecimalField('Credit limit (₹)', max_digits=16, decimal_places=2, default=0, validators=MONEY,
+                                       help_text='Approved and completed sales orders above this limit are blocked. 0 means advance payment only.')
     active = models.BooleanField(default=True)
+    # Contact & registration
+    contact_person = models.CharField(max_length=100, blank=True)
+    alt_phone = models.CharField('Alternate phone', max_length=25, blank=True)
+    email = models.EmailField(blank=True)
+    pan = models.CharField('PAN', max_length=10, blank=True)
+    city = models.CharField(max_length=80, blank=True)
+    district = models.CharField(max_length=80, blank=True)
+    state = models.CharField(max_length=2, blank=True, choices=INDIAN_STATES)
+    pincode = models.CharField('PIN code', max_length=6, blank=True)
+    shipping_address = models.TextField('Delivery address', blank=True, help_text='Leave empty when it is the same as the billing address.')
+    # Commercial
+    payment_terms_days = models.PositiveSmallIntegerField('Payment terms (days)', default=0, help_text='0 means advance / cash on delivery.')
+    security_deposit = models.DecimalField('Security deposit (₹)', max_digits=14, decimal_places=2, default=0, validators=MONEY)
+    # Bank (for paying suppliers and transporters)
+    bank_name = models.CharField(max_length=100, blank=True)
+    bank_account_number = models.CharField('Account number', max_length=18, blank=True)
+    bank_ifsc = models.CharField('IFSC', max_length=11, blank=True)
+    notes = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
     def __str__(self): return self.name
+
+    @property
+    def is_customer(self):
+        return self.kind in CUSTOMER_KINDS
+
+    @property
+    def full_address(self):
+        parts = [self.address.strip(), self.city, self.district, f'{self.get_state_display()} {self.pincode}'.strip() if (self.state or self.pincode) else '']
+        return ', '.join(p for p in parts if p)
+
+    @property
+    def masked_account(self):
+        n = self.bank_account_number
+        return ('•' * max(len(n) - 4, 0) + n[-4:]) if n else ''
+
+
+PARTNER_DOCUMENT_TYPES = [('gst_certificate', 'GST certificate'), ('pan_card', 'PAN card'), ('cancelled_cheque', 'Cancelled cheque'),
+                          ('dealership_agreement', 'Dealership / supply agreement'), ('security_deposit', 'Security deposit receipt'),
+                          ('vehicle_rc', 'Vehicle RC / permit'), ('aadhaar', 'Proprietor ID proof'), ('other', 'Other document')]
+
+
+class PartnerDocument(models.Model):
+    """KYC and agreement files for a dealer, supplier or transporter (PDF/PNG/JPEG/WebP, max 5 MB)."""
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='documents')
+    doc_type = models.CharField('Document type', max_length=30, choices=PARTNER_DOCUMENT_TYPES)
+    number = models.CharField('Number / reference', max_length=60, blank=True)
+    valid_until = models.DateField('Valid until', null=True, blank=True)
+    file = models.BinaryField(editable=False)
+    file_name = models.CharField(max_length=150, editable=False)
+    content_type = models.CharField(max_length=40, editable=False)
+    size = models.PositiveIntegerField(editable=False)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['doc_type', '-uploaded_at']
+
+    @property
+    def status(self):
+        if not self.valid_until:
+            return 'none', None
+        days = (self.valid_until - timezone.localdate()).days
+        return ('expired' if days < 0 else 'expiring' if days <= 30 else 'valid'), days
 
 class Document(models.Model):
     number = models.CharField(max_length=25, default=document_number, unique=True, editable=False)

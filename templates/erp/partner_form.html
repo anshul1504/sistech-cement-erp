@@ -1,0 +1,56 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if partner %}{% url 'partner_detail' partner.pk %}{% else %}{% url 'partners' %}{% endif %}">← {% if partner %}{{ partner.name }}{% else %}Dealers &amp; suppliers{% endif %}</a></div>
+      <h1>{{ title }}</h1><p>GSTIN is checked against the PAN and state. Leave PAN empty to take it from the GSTIN.</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate data-partner-form>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <div class="mst-form-grid">
+      {% for title, note, fields in form.sections %}
+      <section class="org-card{% if title == 'Notes' %} mst-span{% endif %}" data-section="{{ title|slugify }}">
+        <header><h2>{{ title }}</h2><p>{{ note }}</p></header>
+        <div class="org-grid">
+          {% for field in fields %}
+          {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="org-field org-check"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>Active</strong><small>Inactive partners are hidden from new orders.</small></span></label></div>
+          {% else %}
+          <div class="org-field{% if field.name in 'name address shipping_address notes' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}{% if field.field.disabled %} <span class="mst-lock" title="Locked once the partner has orders">🔒</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+    <div class="org-actions"><span>Changes are recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% if partner %}{% url 'partner_detail' partner.pk %}{% else %}{% url 'partners' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if partner %}Save changes{% else %}Add partner{% endif %}</button></div></div>
+  </form>
+</div>
+<script>
+(() => {
+  // Credit only applies to customers; bank details matter mostly for vendors. Fill PAN/state from GSTIN.
+  const form = document.querySelector('[data-partner-form]');
+  const kind = form.querySelector('[name=kind]'), gstin = form.querySelector('[name=gstin]'), pan = form.querySelector('[name=pan]'), state = form.querySelector('[name=state]');
+  const customers = ['Dealer', 'Distributor', 'Retailer', 'Institutional'];
+  const apply = () => {
+    const isCustomer = customers.includes(kind.value);
+    const commercial = form.querySelector('[data-section="commercial-terms"]');
+    if (commercial) commercial.hidden = kind.value && !isCustomer;
+  };
+  kind.addEventListener('change', apply); apply();
+  gstin.addEventListener('input', () => {
+    const v = gstin.value.toUpperCase();
+    if (v.length >= 12 && !pan.value) pan.value = v.slice(2, 12);
+    const code = v.slice(0, 2);
+    if (/^\d{2}$/.test(code) && !state.value && [...state.options].some(o => o.value === code)) state.value = code;
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'partner_detail' partner.pk %}">← {{ partner.name }}</a></div><h1>Add KYC document</h1><p>GST certificate, PAN, cancelled cheque, agreement or vehicle papers for {{ partner.name }}. PDF, PNG, JPG or WebP, up to 5 MB.</p></div></div>
+  <form method="post" enctype="multipart/form-data" class="doc-form acc-narrow" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.</span></div>{% endif %}
+    <section class="org-card">
+      <div class="org-grid">
+        {% for field in form %}{% if field.name != 'upload' %}
+        <div class="org-field{% if field.errors %} has-error{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+        {% endif %}{% endfor %}
+        <div class="org-field is-wide{% if form.upload.errors %} has-error{% endif %}">
+          <span class="form-label">File <span class="required">*</span></span>
+          <label class="doc-drop" data-drop>{{ form.upload }}<svg><use href="#ic-plus"/></svg><strong data-file-label>Choose a file or drag it here</strong><small>PDF, PNG, JPG or WebP · max 5 MB</small></label>
+          {% for e in form.upload.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+    </section>
+    <div class="org-actions"><span>Recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'partner_detail' partner.pk %}">Cancel</a><button class="org-btn is-primary" type="submit">Upload</button></div></div>
+  </form>
+</div>
+<script>
+const dropInput = document.querySelector('[data-drop] input[type=file]');
+dropInput?.addEventListener('change', () => { const f = dropInput.files[0]; if (f) { document.querySelector('[data-file-label]').textContent = f.name; document.querySelector('[data-drop]').classList.add('has-file'); } });
+</script>
+{% endblock %}

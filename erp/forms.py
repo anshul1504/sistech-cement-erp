@@ -155,9 +155,84 @@ class ProductForm(StyledForm):
         return data
 
 class PartnerForm(StyledForm):
+    """Dealers, distributors, retailers, institutional buyers, suppliers and transporters."""
+    SECTIONS = [
+        ('Basics', 'Who this partner is and where they operate.', ['kind', 'code', 'name', 'territory', 'active']),
+        ('Contact', 'The person and numbers to reach.', ['contact_person', 'phone', 'alt_phone', 'email']),
+        ('Tax & address', 'GST registration and billing / delivery addresses.', ['gstin', 'pan', 'address', 'city', 'district', 'state', 'pincode', 'shipping_address']),
+        ('Commercial terms', 'Credit and payment terms used when approving sales orders.', ['credit_limit', 'payment_terms_days', 'security_deposit']),
+        ('Bank details', 'Used to pay suppliers and transporters.', ['bank_name', 'bank_account_number', 'bank_ifsc']),
+        ('Notes', 'Anything the team should know.', ['notes']),
+    ]
+    TEXT_FORMATS = {
+        'gstin': (r'\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]', 'Enter a valid 15-character GSTIN, e.g. 23ABCDE1234F1Z5.'),
+        'pan': (r'[A-Z]{5}\d{4}[A-Z]', 'Enter a valid 10-character PAN, e.g. ABCDE1234F.'),
+        'bank_ifsc': (r'[A-Z]{4}0[A-Z0-9]{6}', 'Enter a valid 11-character IFSC, e.g. SBIN0001234.'),
+        'pincode': (r'[1-9]\d{5}', 'Enter a 6-digit PIN code.'),
+        'bank_account_number': (r'\d{9,18}', 'Account number must be 9–18 digits.'),
+    }
+
     class Meta:
         model = Partner
-        fields = ['code', 'name', 'kind', 'gstin', 'phone', 'territory', 'address', 'credit_limit', 'active']
+        fields = ['kind', 'code', 'name', 'territory', 'active', 'contact_person', 'phone', 'alt_phone', 'email', 'gstin', 'pan', 'address',
+                  'city', 'district', 'state', 'pincode', 'shipping_address', 'credit_limit', 'payment_terms_days', 'security_deposit',
+                  'bank_name', 'bank_account_number', 'bank_ifsc', 'notes']
+        widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'shipping_address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['kind'].choices = [('', 'Select type'), ('Customers', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Dealer', 'Distributor', 'Retailer', 'Institutional')]),
+                                       ('Vendors', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Supplier', 'Transporter')])]
+        self.fields['state'].choices = [('', 'Select state')] + list(self.fields['state'].choices)[1:]
+        self.fields['code'].widget.attrs.update(placeholder='e.g. DLR-BPL-001', style='text-transform:uppercase')
+        for name in ['gstin', 'pan', 'bank_ifsc']:
+            self.fields[name].widget.attrs.update(style='text-transform:uppercase', autocomplete='off')
+        for name in ['phone', 'alt_phone']:
+            self.fields[name].widget.attrs.update(inputmode='tel', placeholder='e.g. +91 98765 43210')
+        self.fields['pincode'].widget.attrs.update(inputmode='numeric', maxlength='6')
+        self.fields['credit_limit'].widget.attrs.update(step='any')
+        self.fields['security_deposit'].widget.attrs.update(step='any')
+
+    def sections(self):
+        return [(title, note, [self[name] for name in names]) for title, note, names in self.SECTIONS]
+
+    def clean_code(self):
+        return self.cleaned_data['code'].strip().upper()
+
+    def clean(self):
+        data = super().clean()
+        for name, (pattern, message) in self.TEXT_FORMATS.items():
+            value = (data.get(name) or '').strip()
+            value = value.upper() if name in ('gstin', 'pan', 'bank_ifsc') else value.replace(' ', '')
+            data[name] = value
+            if value and not re.fullmatch(pattern, value):
+                self.add_error(name, message)
+        for name in ['phone', 'alt_phone']:
+            value = (data.get(name) or '').strip()
+            data[name] = value
+            if value and not re.fullmatch(r'\+?[0-9][0-9 \-]{8,17}[0-9]', value):
+                self.add_error(name, 'Enter a valid phone number, e.g. +91 98765 43210.')
+        gstin, pan, state = data.get('gstin'), data.get('pan'), data.get('state')
+        if gstin and 'gstin' not in self.errors:
+            if pan and 'pan' not in self.errors and gstin[2:12] != pan:
+                self.add_error('gstin', 'GSTIN characters 3–12 must match the PAN.')
+            if state and gstin[:2] != state:
+                self.add_error('gstin', f'GSTIN starts with {gstin[:2]}, but the state code is {state}.')
+            if not pan:
+                data['pan'] = gstin[2:12]  # PAN is embedded in every GSTIN
+        if data.get('kind') in ('Supplier', 'Transporter'):
+            data['credit_limit'] = data.get('credit_limit') or 0
+        return data
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        for name in list(self.TEXT_FORMATS) + ['phone', 'alt_phone']:
+            setattr(obj, name, self.cleaned_data.get(name, getattr(obj, name)))
+        if commit:
+            obj.save()
+        return obj
+
+
 
 class OrderForm(StyledForm):
     class Meta:
@@ -391,6 +466,31 @@ class OrganizationDocumentForm(StyledForm):
         if self.cleaned_data.get('upload'):
             doc.file, doc.content_type, doc.file_name = self.cleaned_data['upload']
             doc.size = len(doc.file)
+        if commit:
+            doc.save()
+        return doc
+
+
+class PartnerDocumentForm(StyledForm):
+    upload = forms.FileField(label='File', help_text='PDF, PNG, JPG or WebP, up to 5 MB.',
+                             widget=forms.FileInput(attrs={'accept': 'application/pdf,image/png,image/jpeg,image/webp'}))
+
+    class Meta:
+        from .models import PartnerDocument
+        model = PartnerDocument
+        fields = ['doc_type', 'number', 'valid_until']
+        widgets = {'valid_until': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['doc_type'].choices = [('', 'Select document type')] + list(self.fields['doc_type'].choices)[1:]
+
+    clean_upload = OrganizationDocumentForm.clean_upload
+
+    def save(self, commit=True):
+        doc = super().save(commit=False)
+        doc.file, doc.content_type, doc.file_name = self.cleaned_data['upload']
+        doc.size = len(doc.file)
         if commit:
             doc.save()
         return doc

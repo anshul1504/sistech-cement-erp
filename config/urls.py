@@ -56,5 +56,15 @@ urlpatterns += [
     path('sites/<int:pk>/status/', sv.site_status, name='site_status'),
     path('sites/<int:pk>/delete/', sv.site_delete, name='site_delete'),
 ]
-for module in ['partners']:
-    urlpatterns += [path(f'{module}/', v.master_list, {'module': module}, name=module), path(f'{module}/new/', v.master_form, {'module': module}, name=module+'_new'), path(f'{module}/<int:pk>/edit/', v.master_form, {'module': module}, name=module+'_edit')]
+from erp import partner_views as ptv
+urlpatterns += [
+    path('partners/', ptv.partners, name='partners'),
+    path('partners/new/', ptv.partner_form, name='partners_new'),
+    path('partners/<int:pk>/', ptv.partner_detail, name='partner_detail'),
+    path('partners/<int:pk>/edit/', ptv.partner_form, name='partners_edit'),
+    path('partners/<int:pk>/status/', ptv.partner_status, name='partner_status'),
+    path('partners/<int:pk>/delete/', ptv.partner_delete, name='partner_delete'),
+    path('partners/<int:pk>/documents/new/', ptv.partner_document_new, name='partner_document_new'),
+    path('partners/<int:pk>/documents/<int:doc_pk>/file/', ptv.partner_document_file, name='partner_document_file'),
+    path('partners/<int:pk>/documents/<int:doc_pk>/delete/', ptv.partner_document_delete, name='partner_document_delete'),
+]

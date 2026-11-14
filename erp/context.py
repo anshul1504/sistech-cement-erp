@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.5.2'
+ASSET_VERSION = '0.5.3'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -49,7 +49,7 @@ NAV_GROUPS = [
     ]),
     ('Masters', [
         _item('products', 'Products & materials', 'package', 'view_product', match=('products_new', 'products_edit', 'product_detail', 'product_duplicate')),
-        _item('partners', 'Dealers & suppliers', 'handshake', 'view_partner', match=('partners_new', 'partners_edit')),
+        _item('partners', 'Dealers & suppliers', 'handshake', 'view_partner', match=('partners_new', 'partners_edit', 'partner_detail', 'partner_document_new')),
         _item('sites', 'Plants & depots', 'building', 'view_site', match=('sites_new', 'sites_edit', 'site_detail')),
     ]),
     ('Insights', [
@@ -140,6 +140,8 @@ def navigation(request):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
     if user.has_perm('erp.add_product'):
         quick_create.append(('Product', reverse('products_new'), 'package'))
+    if user.has_perm('erp.add_partner'):
+        quick_create.append(('Dealer or supplier', reverse('partners_new'), 'handshake'))
     if user.has_perm('erp.add_site'):
         quick_create.append(('Plant or depot', reverse('sites_new'), 'building'))
     if user.has_perm('erp.post_opening'):
