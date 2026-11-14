@@ -1,0 +1,23 @@
+{% extends 'erp/base.html' %}{% load erp_format static %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  <div class="ord-workflow inv-noprint"><div><a href="{% url 'production_detail' p.pk %}">← {{ p.batch }}</a></div>
+    <form method="get" class="ord-buttons"><input class="form-control" name="for" value="{{ customer }}" placeholder="Customer / project (optional)" style="max-width:260px"><button class="org-btn is-light" type="submit">Set</button><button class="org-btn is-primary" type="button" onclick="window.print()">Print</button></form></div>
+  <article class="inv-sheet lg-slip">
+    <header class="inv-top">
+      <div class="inv-brand">{% if org_logo_url %}<img src="{{ org_logo_url }}" alt="">{% endif %}<div><h2>{{ company.legal_name }}</h2><p>{{ p.site.name }} · {{ p.site.full_address }}</p>{% if p.product.category == 'Cement' and company.bis_cement_licence %}<p><b>BIS licence</b> {{ company.bis_cement_licence }}</p>{% elif p.product.category == 'TMT' and company.bis_tmt_licence %}<p><b>BIS licence</b> {{ company.bis_tmt_licence }}</p>{% endif %}</div></div>
+      <div class="inv-title"><span>{{ p.product.standard|default:'Test certificate' }}</span><h1>{% if p.product.category == 'TMT' %}Mill test certificate{% else %}Test certificate{% endif %}</h1>
+        <dl><div><dt>Batch</dt><dd>{{ p.batch }}</dd></div><div><dt>Product</dt><dd>{{ p.product.name }}</dd></div><div><dt>Grade</dt><dd>{{ p.product.grade|default:'—' }}</dd></div><div><dt>Produced</dt><dd>{{ p.completed_at|date:'d-m-Y' }}</dd></div><div><dt>Quantity</dt><dd>{{ p.actual_quantity|qty }} {{ p.product.unit }}</dd></div></dl></div>
+    </header>
+    {% if customer %}<section class="inv-parties"><div><h3>Issued to</h3><strong>{{ customer }}</strong></div></section>{% endif %}
+    <table class="inv-lines"><thead><tr><th>Parameter</th><th>Method</th><th>Unit</th><th class="num">Requirement</th><th class="num">Result</th><th>Remark</th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td>{{ r.spec.parameter }}</td><td>{{ r.spec.method }}</td><td>{{ r.spec.unit }}</td><td class="num">{{ r.spec.limit_text }}</td><td class="num">{{ r.result.value|qty }}</td><td>{% if r.result.ok %}Conforms{% else %}Deviation{% endif %}</td></tr>{% endfor %}
+        {% for r in pending %}<tr><td>{{ r.spec.parameter }}</td><td>{{ r.spec.method }}</td><td>{{ r.spec.unit }}</td><td class="num">{{ r.spec.limit_text }}</td><td class="num">—</td><td>Result at {{ r.spec.age_days }} days{% if r.due %} ({{ r.due|date:'d-m-Y' }}){% endif %}</td></tr>{% endfor %}</tbody></table>
+    <section class="inv-bottom"><div class="inv-words"><p>{% if p.disposition == 'deviation' %}Released under deviation: {{ p.disposition_note }}{% else %}The batch conforms to the requirements tested above.{% endif %}</p></div>
+      <dl class="inv-totals"><div><dt>Released</dt><dd>{{ p.released_at|date:'d-m-Y' }}</dd></div><div><dt>By</dt><dd>{{ p.released_by.get_full_name|default:p.released_by.username }}</dd></div></dl></section>
+    <footer class="inv-foot"><div class="inv-sign" style="text-align:left"><span></span><p>Chemist / analyst</p></div><div class="inv-sign"><span></span><p>Quality manager</p></div></footer>
+    <p class="inv-credit">Printed {{ now|date:'d-m-Y H:i' }} · Sistech ERP · Design &amp; developed by The Webfix</p>
+  </article>
+</div>
+{% endblock %}

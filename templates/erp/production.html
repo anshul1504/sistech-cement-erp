@@ -1,1 +1,29 @@
-{% extends 'erp/base.html' %}{% load erp_format %}{% block content %}<div class="page-heading"><div><div class="eyebrow">PLANT EXECUTION</div><h1>Production</h1><p>Plan output, record quality evidence and release finished stock.</p></div>{% if perms.erp.add_production %}<a class="btn btn-primary" href="{% url 'production_new' %}">+ New batch</a>{% endif %}</div><div class="info-note mb-4">Output tracking only: BOM consumption, costing and raw-material reconciliation are not implemented in this foundation.</div><div class="row g-4">{% for b in batches %}<div class="col-md-6 col-xl-4"><article class="panel batch-card"><div class="d-flex justify-content-between mb-4"><span class="eyebrow">{{ b.site.code }} · SHIFT {{ b.shift }}</span><span class="status" data-status="{{ b.status }}">{{ b.status }}</span></div><h2>{{ b.batch }}</h2><p>{{ b.product.name }}</p><div class="batch-quantities"><div><small>PLANNED</small><strong>{{ b.planned_quantity|qty }} <small>{{ b.product.unit }}</small></strong></div><div><small>ACTUAL OUTPUT</small><strong>{{ b.actual_quantity|qty }} <small>{{ b.product.unit }}</small></strong></div></div><div class="batch-actions">{% if b.status == 'Planned' and perms.erp.complete_production %}<form method="post" action="{% url 'production_action' b.pk 'complete' %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm">Complete → Quality hold</button></form>{% elif b.status == 'Quality hold' %}{% if perms.erp.add_qualitytest %}<a href="{% url 'quality_new' %}" class="btn btn-light btn-sm">Record test</a>{% endif %}{% if perms.erp.release_production %}<form method="post" action="{% url 'production_action' b.pk 'release' %}" data-confirm="Release this batch and post its output to available stock?">{% csrf_token %}<button class="btn btn-primary btn-sm">Release batch</button></form>{% endif %}{% else %}<span class="text-success small">✓ Output posted to inventory</span>{% endif %}</div></article></div>{% empty %}<div class="col-12 panel empty-state">No batches yet. Plan your first production batch.</div>{% endfor %}</div><div class="pagination-bar"><span>Page {{ batches.number }} of {{ batches.paginator.num_pages }}</span><div>{% if batches.has_previous %}<a href="?page={{ batches.previous_page_number }}">← Previous</a>{% endif %} {% if batches.has_next %}<a href="?page={{ batches.next_page_number }}">Next →</a>{% endif %}</div></div>{% endblock %}
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Production</h1><p>Process orders follow the approved recipe: issue materials, record output, then the lab tests and a quality user releases the batch to stock at its actual cost.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'production_new' %}"><svg><use href="#ic-plus"/></svg>New process order</a></div>{% endif %}</div>
+  {% include 'erp/_prd_tabs.html' with tab='orders' %}
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi" href="?status=In progress"><span>Running</span><strong>{{ kpi.running }}</strong><small>Material issued</small></a>
+    <a role="listitem" class="inf-kpi{% if kpi.hold %} is-warn{% endif %}" href="?status=Quality hold"><span>Quality hold</span><strong>{{ kpi.hold }}</strong><small>Waiting lab / release</small></a>
+    <div role="listitem" class="inf-kpi is-ok"><span>Released today</span><strong>{{ kpi.today|qty }}</strong><small>Units to stock</small></div>
+    <a role="listitem" class="inf-kpi{% if kpi.alerts %} is-danger{% endif %}" href="{% url 'quality' %}"><span>Quality alerts</span><strong>{{ kpi.alerts }}</strong><small>Last 30 days</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Process orders</h2><p>{{ orders|length }} shown</p></div>
+      <form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Batch, product or line" aria-label="Search">
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option>{% for s in statuses %}<option value="{{ s }}"{% if status == s %} selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></header>
+    {% if orders %}<ul class="mst-list prc-list pr-list">{% for p in orders %}
+      <li class="{% if p.status == 'Cancelled' or p.status == 'Rejected' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'production_detail' p.pk %}"><span class="mst-icon"><svg><use href="#ic-factory"/></svg></span><span><strong>{{ p.batch }}</strong><small>{{ p.product.name }} · {{ p.site.code }}{% if p.line %} · {{ p.line }}{% endif %} · shift {{ p.shift }}</small></span></a>
+        <div class="mst-cell"><small>Planned / actual</small>{{ p.planned_quantity|qty }} / {{ p.actual_quantity|qty }} {{ p.product.unit }}</div>
+        <div class="mst-cell"><small>Recipe</small>{% if p.recipe %}v{{ p.recipe.version }}{% else %}—{% endif %}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ p.badge }}">● {{ p.status }}</span></div>
+        <div class="mst-cell"><small>Cost / unit</small>{% if p.unit_cost %}₹{{ p.unit_cost|indian:2 }}{% else %}—{% endif %}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'production_detail' p.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-factory"/></svg><strong>No process orders</strong><span>Create one for the next shift.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

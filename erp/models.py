@@ -374,15 +374,40 @@ class StockMovement(Document):
     class Meta(Document.Meta):
         permissions = [('post_opening', 'Post opening stock'), ('export_stockmovement', 'Export stock ledger')]
 
+SHIFTS = [('A', 'Shift A'), ('B', 'Shift B'), ('C', 'Shift C')]
+PRODUCTION_STATUSES = ['Planned', 'In progress', 'Quality hold', 'Released', 'Rejected', 'Cancelled']
+
+
 class Production(Document):
+    """Process order / production batch (FR-PRD-003): recipe version, line, material issue, output, actual cost and quality release."""
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     planned_quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
     actual_quantity = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
     batch = models.CharField(max_length=60, unique=True)
-    shift = models.CharField(max_length=10, choices=[('A', 'Shift A'), ('B', 'Shift B'), ('C', 'Shift C')])
-    status = models.CharField(max_length=15, default='Planned', choices=[(x, x) for x in ['Planned', 'Quality hold', 'Released']])
+    shift = models.CharField(max_length=10, choices=SHIFTS)
+    status = models.CharField(max_length=15, default='Planned', choices=[(x, x) for x in PRODUCTION_STATUSES])
+    recipe = models.ForeignKey('Recipe', null=True, blank=True, on_delete=models.PROTECT, related_name='orders')
+    line = models.CharField('Line / mill', max_length=40, blank=True)
+    planned_date = models.DateField(null=True, blank=True)
+    scrap_quantity = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    material_cost = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    variance_note = models.CharField(max_length=200, blank=True)
+    disposition = models.CharField(max_length=12, blank=True, choices=[('release', 'Released'), ('deviation', 'Released under deviation'), ('reject', 'Rejected')])
+    disposition_note = models.CharField(max_length=200, blank=True)
+    released_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    released_at = models.DateTimeField(null=True, blank=True)
     class Meta(Document.Meta):
-        permissions = [('complete_production', 'Complete production'), ('release_production', 'Release quality batch')]
+        permissions = [('complete_production', 'Issue material and complete production'), ('release_production', 'Release quality batch')]
+
+    def __str__(self): return self.batch
+
+    @property
+    def badge(self):
+        return {'Planned': 'draft', 'In progress': 'approved', 'Quality hold': 'submitted', 'Released': 'completed'}.get(self.status, 'cancelled')
 
 class QualityTest(Document):
     production = models.ForeignKey(Production, on_delete=models.PROTECT, related_name='tests')
@@ -713,7 +738,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -1107,6 +1132,7 @@ class DispatchLine(models.Model):
     order_line = models.ForeignKey(OrderLine, on_delete=models.PROTECT, related_name='dispatch_lines')
     planned_quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
     loaded_quantity = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)
+    batch = models.ForeignKey('Production', null=True, blank=True, on_delete=models.PROTECT, related_name='dispatch_lines', help_text='Cement batch loaded (traceability, COA).')
 
     @property
     def quantity(self):
@@ -1715,3 +1741,193 @@ class StockCountLine(models.Model):
     def variance_value(self):
         v = self.variance
         return None if v is None else (v * self.unit_cost).quantize(Decimal('0.01'))
+
+
+# ---------- Production: recipes, material issue, shift log, packing (Step 6a, FR-PRD-002…010) ----------
+
+class Recipe(models.Model):
+    """Versioned recipe / BOM. Approved by a different user; a new approved version retires the old one; orders keep the version used."""
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='recipes')
+    version = models.PositiveSmallIntegerField(editable=False)
+    basis_quantity = models.DecimalField('Per output quantity', max_digits=12, decimal_places=3, default=1, validators=POSITIVE,
+                                         help_text="Material quantities below are for this much output, in the product's unit (e.g. 1 MT).")
+    expected_yield_pct = models.DecimalField('Expected yield %', max_digits=5, decimal_places=2, default=100, validators=POSITIVE)
+    effective_from = models.DateField(default=timezone.localdate)
+    status = models.CharField(max_length=10, default='draft', choices=[('draft', 'Draft'), ('approved', 'Approved'), ('retired', 'Retired')])
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['product__name', '-version']
+        constraints = [models.UniqueConstraint(fields=['product', 'version'], name='unique_recipe_version')]
+        permissions = [('approve_recipe', 'Approve recipe / BOM versions')]
+
+    def __str__(self): return f'{self.product.code} v{self.version}'
+
+
+class RecipeLine(models.Model):
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='lines')
+    material = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='+')
+    quantity = models.DecimalField(max_digits=12, decimal_places=4, validators=POSITIVE)
+    tolerance_pct = models.DecimalField('Tolerance %', max_digits=5, decimal_places=2, default=2, validators=MONEY)
+
+
+class MaterialIssue(models.Model):
+    """Material consumed by a process order (FR-PRD-004). Posted to stock at average cost; source silo / lot kept for traceability."""
+    production = models.ForeignKey(Production, on_delete=models.PROTECT, related_name='issues')
+    material = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='+')
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    source = models.CharField('Source silo / lot', max_length=60, blank=True)
+    grn = models.ForeignKey('GoodsReceipt', null=True, blank=True, on_delete=models.PROTECT, related_name='issues', verbose_name='From receipt (lot)')
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    issued_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['issued_at']
+
+    @property
+    def value(self):
+        return (self.quantity * self.unit_cost).quantize(Decimal('0.01'))
+
+
+DOWNTIME_REASONS = [('', 'No downtime'), ('mechanical', 'Mechanical breakdown'), ('electrical', 'Electrical / power'), ('material', 'No material / feed'),
+                    ('planned', 'Planned maintenance'), ('quality', 'Quality problem'), ('other', 'Other')]
+
+
+class ShiftLog(models.Model):
+    """One shift on one line (FR-PRD-005): running hours, downtime with reason, power, output, crew and supervisor."""
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='shift_logs')
+    date = models.DateField(default=timezone.localdate)
+    shift = models.CharField(max_length=1, choices=SHIFTS)
+    line = models.CharField('Line / mill', max_length=40)
+    production = models.ForeignKey(Production, null=True, blank=True, on_delete=models.SET_NULL, related_name='shift_logs')
+    run_hours = models.DecimalField(max_digits=4, decimal_places=2, validators=MONEY)
+    downtime_minutes = models.PositiveIntegerField(default=0)
+    downtime_reason = models.CharField(max_length=12, blank=True, choices=DOWNTIME_REASONS)
+    power_kwh = models.DecimalField('Power (kWh)', max_digits=12, decimal_places=2, default=0, validators=MONEY)
+    output = models.DecimalField('Output', max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    meter_opening = models.DecimalField('Meter opening', max_digits=14, decimal_places=2, null=True, blank=True)
+    meter_closing = models.DecimalField('Meter closing', max_digits=14, decimal_places=2, null=True, blank=True)
+    crew = models.CharField(max_length=150, blank=True)
+    supervisor = models.CharField(max_length=80)
+    remarks = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-shift']
+        constraints = [models.UniqueConstraint(fields=['site', 'date', 'shift', 'line'], name='one_log_per_shift_line')]
+
+    @property
+    def kwh_per_unit(self):
+        return (self.power_kwh / self.output).quantize(Decimal('0.01')) if self.output else None
+
+
+class PackingRun(models.Model):
+    """Bulk cement packed into bags (FR-PRD-008). Bulk issued by silo meter is reconciled to bags × bag weight + spillage (FR-INV-009)."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='packing_runs')
+    date = models.DateField(default=timezone.localdate)
+    shift = models.CharField(max_length=1, choices=SHIFTS)
+    packer = models.CharField('Packer / line', max_length=40)
+    bulk_product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='+', verbose_name='Bulk cement')
+    bag_product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='+', verbose_name='Bagged SKU')
+    batch = models.ForeignKey(Production, null=True, blank=True, on_delete=models.PROTECT, related_name='packing_runs', verbose_name='Cement batch')
+    bulk_issued = models.DecimalField('Bulk issued (MT, silo meter)', max_digits=12, decimal_places=3, validators=POSITIVE)
+    bags_packed = models.PositiveIntegerField()
+    bags_burst = models.PositiveIntegerField('Burst / rejected bags', default=0)
+    spillage_kg = models.DecimalField('Spillage (kg)', max_digits=10, decimal_places=2, default=0, validators=MONEY)
+    downtime_minutes = models.PositiveIntegerField(default=0)
+    empty_bags = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name='+', verbose_name='Empty bag stock item')
+    difference_mt = models.DecimalField(max_digits=12, decimal_places=3, default=0, editable=False)
+    difference_reason = models.CharField(max_length=200, blank=True)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=0, editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self): return self.number
+
+
+# ---------- Quality lab (Step 6b, FR-QC-001…006) ----------
+
+class QualitySpec(models.Model):
+    """Test parameter with limits for a product (e.g. IS 269 OPC 53: 28-day strength ≥ 53 MPa)."""
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='specs')
+    parameter = models.CharField(max_length=80)
+    unit = models.CharField(max_length=20, blank=True)
+    method = models.CharField('Test method', max_length=60, blank=True)
+    min_value = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    max_value = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    age_days = models.PositiveSmallIntegerField('Test age (days)', default=0, help_text='0 = test at once; 3 / 7 / 28 for cube strength.')
+    required_for_release = models.BooleanField(default=True)
+    sequence = models.PositiveSmallIntegerField(default=10)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['product', 'sequence', 'parameter']
+        constraints = [models.UniqueConstraint(fields=['product', 'parameter'], name='unique_spec_parameter')]
+
+    def __str__(self): return f'{self.parameter} ({self.limit_text})'
+
+    @property
+    def limit_text(self):
+        u = f' {self.unit}' if self.unit else ''
+        lo = f'{self.min_value.normalize():f}' if self.min_value is not None else None
+        hi = f'{self.max_value.normalize():f}' if self.max_value is not None else None
+        if lo and hi: return f'{lo}–{hi}{u}'
+        if lo: return f'≥ {lo}{u}'
+        if hi: return f'≤ {hi}{u}'
+        return 'Record only'
+
+    def passes(self, value):
+        return (self.min_value is None or value >= self.min_value) and (self.max_value is None or value <= self.max_value)
+
+
+class LabEquipment(models.Model):
+    """Lab instrument with calibration due date (FR-QC-006). Overdue equipment cannot be used for results."""
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='lab_equipment')
+    code = models.CharField(max_length=30)
+    name = models.CharField(max_length=100)
+    last_calibrated = models.DateField(null=True, blank=True)
+    calibration_due = models.DateField()
+    certificate = models.CharField('Calibration certificate no.', max_length=60, blank=True)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['site', 'code']
+        constraints = [models.UniqueConstraint(fields=['site', 'code'], name='unique_lab_equipment')]
+
+    def __str__(self): return f'{self.code} · {self.name}'
+
+    @property
+    def overdue(self):
+        return self.calibration_due < timezone.localdate()
+
+    @property
+    def due_days(self):
+        return (self.calibration_due - timezone.localdate()).days
+
+
+class QualityResult(models.Model):
+    """One measured value (FR-QC-002). Never edited: a retest adds a new result with a reason and supersedes the old one (FR-QC-003)."""
+    production = models.ForeignKey(Production, on_delete=models.PROTECT, related_name='results')
+    spec = models.ForeignKey(QualitySpec, on_delete=models.PROTECT, related_name='results')
+    value = models.DecimalField(max_digits=12, decimal_places=4)
+    ok = models.BooleanField(editable=False)
+    equipment = models.ForeignKey(LabEquipment, null=True, blank=True, on_delete=models.PROTECT, related_name='results')
+    sample_ref = models.CharField('Sample ref.', max_length=40, blank=True)
+    remarks = models.CharField(max_length=150, blank=True)
+    retest_reason = models.CharField(max_length=150, blank=True)
+    superseded_by = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='supersedes')
+    analyst = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    tested_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['spec__sequence', 'tested_at']

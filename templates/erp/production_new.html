@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'production' %}">← Production</a></div><h1>New process order</h1><p>The approved recipe in force is attached automatically and kept with the batch. Leave batch empty for an automatic number (plant-date-shift).</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Order</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="po-s">Plant <span class="required">*</span></label><select class="form-select" id="po-s" name="site"><option value="">Choose</option>{% for s in sites %}<option value="{{ s.pk }}"{% if post.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="po-p">Product <span class="required">*</span></label><select class="form-select" id="po-p" name="product"><option value="">Choose</option>{% for p in products %}<option value="{{ p.pk }}"{% if post.product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }} ({{ p.unit }}){% if p.pk in recipes %} · recipe v{{ recipes|get_item:p.pk }}{% endif %}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="po-q">Planned output <span class="required">*</span></label><input class="form-control" id="po-q" type="number" step="any" min="0" name="planned_quantity" value="{{ post.planned_quantity }}"></div>
+      <div class="org-field"><label class="form-label" for="po-sh">Shift <span class="required">*</span></label><select class="form-select" id="po-sh" name="shift">{% for k, l in shifts %}<option value="{{ k }}"{% if post.shift == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="po-l">Line / mill</label><input class="form-control" id="po-l" name="line" maxlength="40" value="{{ post.line }}" placeholder="e.g. Cement mill 2"></div>
+      <div class="org-field"><label class="form-label" for="po-d">Date</label><input class="form-control" id="po-d" type="date" name="planned_date" value="{{ post.planned_date|default:today }}"></div>
+      <div class="org-field"><label class="form-label" for="po-b">Batch no.</label><input class="form-control" id="po-b" name="batch" maxlength="60" value="{{ post.batch }}" placeholder="Automatic" style="text-transform:uppercase"></div>
+      <div class="org-field is-wide"><label class="form-label" for="po-n">Notes</label><input class="form-control" id="po-n" name="notes" maxlength="200" value="{{ post.notes }}"></div>
+    </div></section>
+    <div class="org-actions"><span>Materials are issued from the order page.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'production' %}">Cancel</a><button class="org-btn is-primary" type="submit">Create order</button></div></div>
+  </form>
+</div>
+{% endblock %}

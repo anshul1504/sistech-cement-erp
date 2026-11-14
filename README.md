@@ -158,6 +158,16 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 - **Stock counts**: cycle or annual, by location and optionally category, blind by default. System quantity is frozen at start; counters enter quantities (save as they go), submit, and a different user reviews the variance at cost, sends chosen items for recount, and approves — each variance is posted as a count adjustment against today's stock, so sales during the count are not lost.
 - **Ageing & slow-moving**: stock value by age bucket (0–30, 31–60, 61–90, 90+ days since last receipt), days idle since the last issue, slow-moving after 30/60/90/180 days, and flags for above maximum / below reorder. Products now carry reorder quantity and maximum stock.
 
+## Production & quality (Step 6)
+
+- **Recipes & BOM**: material per unit of output with tolerance and expected yield, versioned; a different user approves and the earlier version retires; each batch keeps the version it used.
+- **Process orders**: plant, product, planned output, shift, line/mill, automatic batch number. **Material issue** from available stock at average cost with source silo and optional receipt lot (GRN). **Completion** records good output and scrap, compares issued material with the recipe standard (outside tolerance needs an explanation) and fixes the batch's **actual cost per unit**. Output enters stock only on quality release, at that cost.
+- **Quality lab**: IS-standard specifications created by `python manage.py seed_quality_specs` (IS 269 OPC 33/43/53, IS 1489-1 PPC, IS 455 PSC, IS 16415 PCC, IS 1786 Fe 415…600) — fineness, setting times, soundness, chemistry, 3/7/28-day strength; yield, UTS, UTS/YS, elongation, C/S/P, bend. Results are checked against limits automatically and never edited; a retest needs a reason and keeps the first value. Equipment with overdue calibration cannot be used. Release needs every release parameter passing and a quality user who neither created nor completed the batch; out-of-spec batches can be rejected or released under deviation with justification. A failing result after release (e.g. 28-day strength) raises a quality alert.
+- **COA / mill test certificate** per released batch (optionally addressed to a customer); results still to come show their due date.
+- **Batch traceability**: loading records the batch on each dispatch line; the trace page shows raw-material lots and issues → QC results → packing → trucks → invoices → customers.
+- **Shift log**: running hours, downtime minutes with reason, meter readings, power kWh (kWh per unit), output, crew and supervisor — one entry per shift and line.
+- **Packing**: bulk issued by silo meter vs bags × bag weight + spillage; a difference above 0.5 % needs a reason. Bulk and empty bags are consumed and bags enter stock at their combined cost. Roles: *Production head*, *Production operator*, *Quality manager*.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
@@ -183,7 +193,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, stock reservations/ATP and order revisions remain. |
 | Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier invoices with three-way match, duplicate check, exception queue and debit notes / returns. Budget check and supplier payments (Step 7) remain. |
 | Inventory | Stock states, weighted-average valuation, stock card, transfers with in-transit and discrepancy, damaged-stock disposition, blind cycle counts with recount and approval, ageing and slow-moving. Bin locations and lot/batch balances remain (lot traceability comes with production, Step 6). |
-| Production and quality | Output tracking and quality release only. BOM versions, material consumption, test specifications, COA, energy and actual costing remain. |
+| Production and quality | Versioned recipes, process orders, material issue, variance and actual costing, shift log, packing reconciliation, IS-standard specifications, immutable results, calibration control, release / deviation / reject, COA and batch traceability. Production planning against demand, PLC/SCADA data and CAPA remain. |
 | Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |
 | Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journals, e-invoice/e-way bill connectors, banking, assets, statements and period close remain. |
 | Schemes and claims | Not implemented. Versioned incentive rules, commissions, returns, complaints and settlements remain. |

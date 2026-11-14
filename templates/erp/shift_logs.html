@@ -1,0 +1,40 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Shift log</h1><p>Each shift on each line: running hours, downtime with reason, power, output and the people on duty. One entry per shift and line.</p></div></div>
+  {% include 'erp/_prd_tabs.html' with tab='shifts' %}
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Running hours (7 days)</span><strong>{{ week.h|default:0|qty }}</strong><small>All lines</small></div>
+    <div role="listitem" class="inf-kpi{% if week.d %} is-warn{% endif %}"><span>Downtime (7 days)</span><strong>{{ week.d|default:0 }} min</strong><small>All reasons</small></div>
+    <div role="listitem" class="inf-kpi"><span>Power (7 days)</span><strong>{{ week.k|default:0|indian }} kWh</strong><small>Output {{ week.o|default:0|qty }}</small></div>
+  </div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if can_add %}<section class="org-card" style="margin-bottom:16px"><header><h2>Log a shift</h2></header>
+    <form method="post" class="doc-form" novalidate>{% csrf_token %}<div class="org-grid">
+      <div class="org-field"><label class="form-label" for="sl-s">Plant <span class="required">*</span></label><select class="form-select" id="sl-s" name="site">{% for s in sites %}<option value="{{ s.pk }}"{% if post.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="sl-d">Date</label><input class="form-control" id="sl-d" type="date" name="date" value="{{ post.date|default:today }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-sh">Shift</label><select class="form-select" id="sl-sh" name="shift">{% for k, l in shifts %}<option value="{{ k }}"{% if post.shift == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="sl-l">Line / mill <span class="required">*</span></label><input class="form-control" id="sl-l" name="line" maxlength="40" value="{{ post.line }}" placeholder="e.g. Kiln 1, Cement mill 2"></div>
+      <div class="org-field"><label class="form-label" for="sl-p">Process order</label><select class="form-select" id="sl-p" name="production"><option value="">—</option>{% for p in running %}<option value="{{ p.pk }}">{{ p.batch }} · {{ p.product.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="sl-h">Running hours <span class="required">*</span></label><input class="form-control" id="sl-h" type="number" step="0.25" min="0" max="12" name="run_hours" value="{{ post.run_hours }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-dm">Downtime (min)</label><input class="form-control" id="sl-dm" type="number" min="0" name="downtime_minutes" value="{{ post.downtime_minutes|default:'0' }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-dr">Downtime reason</label><select class="form-select" id="sl-dr" name="downtime_reason"><option value="">—</option>{% for k, l in reasons %}<option value="{{ k }}"{% if post.downtime_reason == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="sl-mo">Meter opening</label><input class="form-control" id="sl-mo" type="number" step="any" name="meter_opening" value="{{ post.meter_opening }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-mc">Meter closing</label><input class="form-control" id="sl-mc" type="number" step="any" name="meter_closing" value="{{ post.meter_closing }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-k">Power (kWh)</label><input class="form-control" id="sl-k" type="number" step="any" min="0" name="power_kwh" value="{{ post.power_kwh }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-o">Output</label><input class="form-control" id="sl-o" type="number" step="any" min="0" name="output" value="{{ post.output }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-sv">Supervisor <span class="required">*</span></label><input class="form-control" id="sl-sv" name="supervisor" maxlength="80" value="{{ post.supervisor }}"></div>
+      <div class="org-field"><label class="form-label" for="sl-c">Crew</label><input class="form-control" id="sl-c" name="crew" maxlength="150" value="{{ post.crew }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="sl-r">Remarks</label><input class="form-control" id="sl-r" name="remarks" maxlength="200" value="{{ post.remarks }}"></div>
+    </div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Save shift</button></div></form></section>{% endif %}
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Recent shifts</h2><p>{{ logs|length }} shown</p></div></header>
+    {% if logs %}<div class="ord-table shift-table" role="table">
+      <div class="ord-tr ord-th" role="row"><span>Shift · line</span><span>Run</span><span>Downtime</span><span>Output</span><span>Power</span><span>kWh / unit</span></div>
+      {% for l in logs %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ l.date|date:'d M' }} · {{ l.shift }} · {{ l.line }}</strong><small>{{ l.site.code }} · {{ l.supervisor }}{% if l.production %} · {{ l.production.batch }}{% endif %}{% if l.remarks %} · {{ l.remarks }}{% endif %}</small></span>
+        <span data-label="Run">{{ l.run_hours|qty }} h</span><span data-label="Downtime" class="{% if l.downtime_minutes > 60 %}led-late{% endif %}">{{ l.downtime_minutes }} min<small>{{ l.get_downtime_reason_display }}</small></span>
+        <span data-label="Output">{{ l.output|qty }}</span><span data-label="Power">{{ l.power_kwh|indian }}</span><span data-label="kWh / unit">{{ l.kwh_per_unit|default:'—' }}</span></div>{% endfor %}</div>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-history"/></svg><strong>No shifts logged</strong><span>Log the first shift above.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -10,7 +10,7 @@ PAISE = Decimal('0.01')
 
 def qtxt(value):
     """Quantity for messages: 200.000 → '200', 12.500 → '12.5' (never scientific notation)."""
-    text = f'{Decimal(value or 0):f}'
+    text = f'{Decimal(str(value or 0)).quantize(Decimal("0.001")):f}'
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
 

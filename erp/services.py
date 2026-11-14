@@ -130,19 +130,12 @@ def _purchase_checks(order):
         raise ValidationError(problems)
 
 @transaction.atomic
-def transition_production(user, pk, action):
-    production = scope(Production.objects.select_for_update(), user).get(pk=pk)
+def transition_production(user, pk, action, **kwargs):
+    """complete → quality hold (via production.complete); release → stock at actual cost once quality evidence is in."""
     if action == 'complete':
-        permitted(user, 'complete_production')
-        if production.status != 'Planned' or production.actual_quantity <= 0: raise ValidationError('Planned batch must have a positive actual output.')
-        production.status = 'Quality hold'
-    elif action == 'release':
-        permitted(user, 'release_production')
-        if production.status != 'Quality hold': raise ValidationError('Batch must be on quality hold.')
-        if production.created_by_id == user.pk: raise ValidationError('A different quality user must release the batch.')
-        if not production.tests.exists() or production.tests.filter(disposition='Fail').exists(): raise ValidationError('At least one passing test and no failing tests are required.')
-        move_stock(user, production.site, production.product, production.actual_quantity, f'production:{production.pk}', 'Production', production.batch)
-        production.status = 'Released'
-    else: raise ValidationError('Unknown action.')
-    production.save(update_fields=['status'])
-    audit(user, f'Production {action}', production)
+        from .production import complete
+        return complete(user, pk, kwargs.get('output'), kwargs.get('scrap', 0), kwargs.get('note', ''))
+    if action != 'release':
+        raise ValidationError('Unknown action.')
+    from .quality import release
+    return release(user, pk, kwargs.get('decision', 'release'), kwargs.get('note', ''))

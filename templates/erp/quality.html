@@ -1,0 +1,41 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Quality lab</h1><p>Batches waiting for results, out-of-specification results, strength tests falling due after release, and lab equipment calibration.</p></div></div>
+  {% include 'erp/_prd_tabs.html' with tab='quality' %}
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi{% if held %} is-warn{% endif %}"><span>On quality hold</span><strong>{{ held|length }}</strong><small>Batches</small></div>
+    <div role="listitem" class="inf-kpi{% if oos %} is-danger{% endif %}"><span>Out of spec</span><strong>{{ oos|length }}</strong><small>Last 60 days, current results</small></div>
+    <div role="listitem" class="inf-kpi{% if pending %} is-warn{% endif %}"><span>Tests due</span><strong>{{ pending|length }}</strong><small>3 / 7 / 28-day after release</small></div>
+    <div role="listitem" class="inf-kpi{% if due_soon %} is-danger{% endif %}"><span>Calibration due</span><strong>{{ due_soon|length }}</strong><small>Within 15 days or overdue</small></div>
+  </div>
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Batches on hold</h2></header>
+      {% if held %}<ul class="mst-order-list">{% for p in held %}<li><a href="{% url 'production_detail' p.pk %}"><strong>{{ p.batch }} · {{ p.product.name }}</strong><small>{{ p.site.code }} · {{ p.actual_quantity|qty }} {{ p.product.unit }}{% if p.ev.has_specs %} · {{ p.ev.missing|length }} result{{ p.ev.missing|length|pluralize }} still needed{% else %} · no specification{% endif %}</small></a>{% if p.ev.failed %}<span class="doc-badge is-danger">Out of spec</span>{% elif p.ev.missing %}<span class="doc-badge is-warning">Testing</span>{% else %}<span class="doc-badge is-ok">Ready to release</span>{% endif %}<span></span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">Nothing on hold.</p>{% endif %}</section>
+    {% if pending %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Tests now due</h2></header><ul class="mst-order-list">{% for p, s in pending %}<li><a href="{% url 'production_detail' p.pk %}"><strong>{{ p.batch }}</strong><small>{{ s.parameter }}</small></a><span class="doc-badge is-warning">Due</span><span></span></li>{% endfor %}</ul></section>{% endif %}
+    {% if oos %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Out of specification</h2></header><ul class="mst-order-list">{% for r in oos %}<li><a href="{% url 'production_detail' r.production_id %}"><strong>{{ r.production.batch }} · {{ r.spec.parameter }}</strong><small>{{ r.value|qty }} vs {{ r.spec.limit_text }} · {{ r.tested_at|date:'d M' }}</small></a><span class="doc-badge is-danger">{{ r.production.status }}</span><span></span></li>{% endfor %}</ul></section>{% endif %}
+    {% if alerts %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Alerts after release</h2></header>{% with history=alerts %}{% include 'erp/_history.html' %}{% endwith %}</section>{% endif %}
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Lab equipment</h2><span class="acc-muted">Overdue equipment cannot be used for results</span></header>
+      {% if equipment %}<ul class="mst-order-list">{% for e in equipment %}<li><span><strong>{{ e.code }} · {{ e.name }}</strong><small>{{ e.site.code }}{% if e.last_calibrated %} · calibrated {{ e.last_calibrated|date:'d M Y' }}{% endif %}{% if e.certificate %} · cert {{ e.certificate }}{% endif %}</small></span><span class="doc-badge{% if e.overdue %} is-danger{% elif e.due_days <= 15 %} is-warning{% else %} is-ok{% endif %}">{% if e.overdue %}Overdue since {{ e.calibration_due|date:'d M' }}{% else %}Due {{ e.calibration_due|date:'d M Y' }}{% endif %}</span><span></span></li>{% endfor %}</ul>{% else %}<p class="acc-muted">No equipment registered.</p>{% endif %}
+      {% if can_eq %}<details class="inf-log" style="margin-top:12px"><summary><svg><use href="#ic-plus"/></svg>Add equipment / record calibration</summary>
+        <form method="post" action="{% url 'equipment_save' %}" class="inf-log-form">{% csrf_token %}
+          <div class="org-field"><label class="form-label" for="eq-s">Plant</label><select class="form-select" id="eq-s" name="site">{% for s in sites %}<option value="{{ s.pk }}">{{ s.code }}</option>{% endfor %}</select></div>
+          <div class="org-field"><label class="form-label" for="eq-p">Existing (to recalibrate)</label><select class="form-select" id="eq-p" name="pk"><option value="">New equipment</option>{% for e in equipment %}<option value="{{ e.pk }}">{{ e.code }}</option>{% endfor %}</select></div>
+          <div class="org-field"><label class="form-label" for="eq-c">Code</label><input class="form-control" id="eq-c" name="code" maxlength="30" required placeholder="e.g. CTM-01"></div>
+          <div class="org-field"><label class="form-label" for="eq-n">Name</label><input class="form-control" id="eq-n" name="name" maxlength="100" required placeholder="e.g. Compression testing machine"></div>
+          <div class="org-field"><label class="form-label" for="eq-l">Calibrated on</label><input class="form-control" id="eq-l" type="date" name="last"></div>
+          <div class="org-field"><label class="form-label" for="eq-d">Next due</label><input class="form-control" id="eq-d" type="date" name="due" required></div>
+          <div class="org-field"><label class="form-label" for="eq-x">Certificate no.</label><input class="form-control" id="eq-x" name="certificate" maxlength="60"></div>
+          <div class="inf-log-actions"><button class="org-btn is-primary is-sm" type="submit">Save</button></div></form></details>{% endif %}
+    </section>
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Specifications</h2><span class="acc-muted">{{ spec_groups|length }} product{{ spec_groups|length|pluralize }} · confirm limits with the QC manager</span></header>
+      {% for product, specs in spec_groups %}<details class="inf-log spec-group"><summary>{{ product.name }} · {{ specs|length }} parameters · {{ product.standard|default:product.grade }}</summary>
+        <div class="ord-table spec-table" role="table"><div class="ord-tr ord-th" role="row"><span>Parameter</span><span>Limit</span><span>Method</span><span>Age</span><span>For release</span></div>
+        {% for s in specs %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ s.parameter }}</strong></span><span data-label="Limit">{{ s.limit_text }}</span><span data-label="Method">{{ s.method|default:'—' }}</span><span data-label="Age">{% if s.age_days %}{{ s.age_days }} d{% else %}—{% endif %}</span><span data-label="For release">{{ s.required_for_release|yesno:'Yes,Monitor' }}</span></div>{% endfor %}</div></details>
+      {% empty %}<p class="acc-muted">No specifications. Run <code>python manage.py seed_quality_specs</code> to create IS 269 / 1489 / 455 / 1786 parameters for every graded product.</p>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -73,43 +73,6 @@ def opening(request):
     return render(request, 'erp/form.html', {'title': 'Post opening stock', 'form': form})
 
 @login_required
-def production(request):
-    permitted(request.user, 'view_production')
-    qs = scope(Production.objects.select_related('site', 'product'), request.user)
-    return render(request, 'erp/production.html', {'title': 'Production', 'batches': Paginator(qs, 12).get_page(request.GET.get('page'))})
-
-@login_required
-def production_new(request):
-    permitted(request.user, 'add_production')
-    form = ProductionForm(request.POST or None)
-    form.fields['site'].queryset = sites(request.user)
-    form.fields['product'].queryset = Product.objects.filter(active=True, category='Cement')
-    if request.method == 'POST' and form.is_valid():
-        with transaction.atomic():
-            obj = form.save(commit=False)
-            obj.created_by = request.user
-            obj.save()
-            audit(request.user, 'Production created', obj)
-        return redirect('production')
-    return render(request, 'erp/form.html', {'title': 'New production batch', 'form': form})
-
-@login_required
-@require_POST
-def production_action(request, pk, action):
-    get_object_or_404(scope(Production.objects.all(), request.user), pk=pk)
-    try:
-        transition_production(request.user, pk, action)
-        messages.success(request, 'Production workflow updated.')
-    except ValidationError as e: messages.error(request, ' '.join(e.messages))
-    return redirect('production')
-
-@login_required
-def quality(request):
-    permitted(request.user, 'view_qualitytest')
-    qs = scope(QualityTest.objects.select_related('production', 'site', 'created_by'), request.user)
-    return table(request, 'Quality lab', 'Recorded test evidence controls production release. Failed batches remain on hold.', ['Batch', 'Test', 'Result', 'Disposition', 'Lab user', 'Recorded'], [{'cells': [o.production.batch, o.test_name, o.result, o.disposition, o.created_by.username, o.created_at]} for o in qs], '/quality/new/' if request.user.has_perm('erp.add_qualitytest') else None, False, '+ Record test')
-
-@login_required
 def quality_new(request):
     permitted(request.user, 'add_qualitytest')
     form = QualityForm(request.POST or None)
@@ -124,7 +87,7 @@ def quality_new(request):
                 obj.created_by, obj.site = request.user, batch.site
                 obj.save()
                 audit(request.user, 'Quality test recorded', obj, f'{batch.batch}: {obj.disposition}')
-                return redirect('quality')
+                return redirect('production_detail', pk=batch.pk)
     return render(request, 'erp/form.html', {'title': 'Record quality test', 'form': form})
 
 @login_required

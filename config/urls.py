@@ -21,10 +21,6 @@ urlpatterns = [
     path('orders/<int:pk>/edit/', ov.order_edit, name='order_edit'),
     path('orders/<int:pk>/<str:action>/', v.order_action, name='order_action'),
     path('inventory/opening/', v.opening, name='opening'),
-    path('production/', v.production, name='production'),
-    path('production/new/', v.production_new, name='production_new'),
-    path('production/<int:pk>/<str:action>/', v.production_action, name='production_action'),
-    path('quality/', v.quality, name='quality'),
     path('quality/new/', v.quality_new, name='quality_new'),
     path('reports/', v.reports, name='reports'),
     path('audit/', v.audit_list, name='audit'),
@@ -187,4 +183,20 @@ urlpatterns += [
     path('inventory/counts/<int:pk>/', stv.count_detail, name='count_detail'),
     path('inventory/counts/<int:pk>/do/<str:action>/', stv.count_action, name='count_action'),
     path('inventory/analysis/', stv.stock_analysis, name='stock_analysis'),
+]
+from erp import production_views as pdv
+urlpatterns += [
+    path('production/', pdv.production, name='production'),
+    path('production/new/', pdv.production_new, name='production_new'),
+    path('production/<int:pk>/', pdv.production_detail, name='production_detail'),
+    path('production/<int:pk>/coa/', pdv.coa, name='coa'),
+    path('production/<int:pk>/trace/', pdv.trace, name='trace'),
+    path('production/<int:pk>/<str:action>/', pdv.production_action, name='production_action'),
+    path('production/recipes/', pdv.recipes, name='recipes'),
+    path('production/recipes/new/', pdv.recipe_new, name='recipe_new'),
+    path('production/recipes/<int:pk>/approve/', pdv.recipe_approve, name='recipe_approve'),
+    path('production/shifts/', pdv.shift_logs, name='shift_logs'),
+    path('production/packing/', pdv.packing, name='packing'),
+    path('quality/', pdv.quality, name='quality'),
+    path('quality/equipment/', pdv.equipment_save, name='equipment_save'),
 ]

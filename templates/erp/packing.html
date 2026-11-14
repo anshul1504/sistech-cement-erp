@@ -1,0 +1,34 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Packing</h1><p>Bulk cement from the silo is packed into bags. Bulk issued (meter) is reconciled with bags × bag weight + spillage; a difference above 0.5 % needs a reason. Bags enter stock at the bulk cost plus empty bags.</p></div></div>
+  {% include 'erp/_prd_tabs.html' with tab='packing' %}
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if can_add %}<section class="org-card" style="margin-bottom:16px"><header><h2>Record packing</h2></header>
+    <form method="post" class="doc-form" novalidate>{% csrf_token %}<div class="org-grid">
+      <div class="org-field"><label class="form-label" for="pk-s">Plant</label><select class="form-select" id="pk-s" name="site">{% for s in sites %}<option value="{{ s.pk }}"{% if post.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="pk-d">Date</label><input class="form-control" id="pk-d" type="date" name="date" value="{{ post.date|default:today }}"></div>
+      <div class="org-field"><label class="form-label" for="pk-sh">Shift</label><select class="form-select" id="pk-sh" name="shift">{% for k, l in shifts %}<option value="{{ k }}"{% if post.shift == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="pk-p">Packer</label><input class="form-control" id="pk-p" name="packer" maxlength="40" value="{{ post.packer }}" placeholder="e.g. Rotary packer 1"></div>
+      <div class="org-field"><label class="form-label" for="pk-b">Bulk cement (MT)</label><select class="form-select" id="pk-b" name="bulk_product"><option value="">Choose</option>{% for p in bulk %}<option value="{{ p.pk }}"{% if post.bulk_product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="pk-g">Bagged SKU</label><select class="form-select" id="pk-g" name="bag_product"><option value="">Choose</option>{% for p in bags %}<option value="{{ p.pk }}"{% if post.bag_product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="pk-bt">Cement batch</label><select class="form-select" id="pk-bt" name="batch"><option value="">—</option>{% for b in batches %}<option value="{{ b.pk }}">{{ b.batch }} · {{ b.product.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="pk-bi">Bulk issued (MT, meter)</label><input class="form-control" id="pk-bi" type="number" step="any" min="0" name="bulk_issued" value="{{ post.bulk_issued }}"></div>
+      <div class="org-field"><label class="form-label" for="pk-n">Bags packed</label><input class="form-control" id="pk-n" type="number" min="0" name="bags_packed" value="{{ post.bags_packed }}"></div>
+      <div class="org-field"><label class="form-label" for="pk-x">Burst / rejected bags</label><input class="form-control" id="pk-x" type="number" min="0" name="bags_burst" value="{{ post.bags_burst|default:'0' }}"></div>
+      <div class="org-field"><label class="form-label" for="pk-sp">Spillage (kg)</label><input class="form-control" id="pk-sp" type="number" step="any" min="0" name="spillage_kg" value="{{ post.spillage_kg|default:'0' }}"></div>
+      <div class="org-field"><label class="form-label" for="pk-dt">Downtime (min)</label><input class="form-control" id="pk-dt" type="number" min="0" name="downtime_minutes" value="{{ post.downtime_minutes|default:'0' }}"></div>
+      <div class="org-field"><label class="form-label" for="pk-e">Empty bag stock item</label><select class="form-select" id="pk-e" name="empty_bags"><option value="">Not tracked</option>{% for p in empties %}<option value="{{ p.pk }}"{% if post.empty_bags == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="pk-r">Reason for bulk difference (if above 0.5 %)</label><input class="form-control" id="pk-r" name="difference_reason" maxlength="200" value="{{ post.difference_reason }}"></div>
+    </div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Record packing</button></div></form></section>{% endif %}
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Packing runs</h2><p>{{ runs|length }} shown</p></div></header>
+    {% if runs %}<div class="ord-table shift-table" role="table">
+      <div class="ord-tr ord-th" role="row"><span>Run</span><span>Bags</span><span>Burst</span><span>Bulk issued</span><span>Difference</span><span>Cost / bag</span></div>
+      {% for r in runs %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ r.number }} · {{ r.bag_product.name }}</strong><small>{{ r.date|date:'d M' }} · {{ r.shift }} · {{ r.packer }}{% if r.batch %} · {{ r.batch.batch }}{% endif %}{% if r.difference_reason %} · {{ r.difference_reason }}{% endif %}</small></span>
+        <span data-label="Bags">{{ r.bags_packed|indian }}</span><span data-label="Burst" class="{% if r.bags_burst %}led-late{% endif %}">{{ r.bags_burst }}</span><span data-label="Bulk issued">{{ r.bulk_issued|qty }} MT</span>
+        <span data-label="Difference" class="{% if r.difference_reason %}led-late{% endif %}">{{ r.difference_mt|qty }} MT</span><span data-label="Cost / bag">₹{{ r.unit_cost|indian:2 }}</span></div>{% endfor %}</div>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-package"/></svg><strong>No packing recorded</strong><span>Record each packer's shift output.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

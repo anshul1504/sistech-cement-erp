@@ -212,8 +212,15 @@ def start_loading(user, pk, bay=''):
 
 
 @transaction.atomic
-def complete_loading(user, pk, quantities, seal='', team='', damaged_bags=0, notes=''):
-    """quantities: {DispatchLine.pk: actual qty}. Actual may be lower than planned, never higher."""
+def batches_for(site, product):
+    """Released batches of this product at this site, or released bulk batches packed into this bag SKU."""
+    from .models import Production
+    from django.db.models import Q
+    return Production.objects.filter(site=site, status='Released').filter(Q(product=product) | Q(packing_runs__bag_product=product)).distinct().order_by('-released_at')
+
+
+def complete_loading(user, pk, quantities, seal='', team='', damaged_bags=0, notes='', batches=None):
+    """quantities: {DispatchLine.pk: actual qty}. Actual may be lower than planned, never higher. batches: {DispatchLine.pk: Production.pk} (optional)."""
     _need(user, 'load_dispatch')
     d = _lock(pk)
     _state(d, 'loading')
@@ -228,12 +235,18 @@ def complete_loading(user, pk, quantities, seal='', team='', damaged_bags=0, not
         if qty < 0 or qty > l.planned_quantity:
             problems.append(f'{l.order_line.product.name}: loaded quantity must be between 0 and planned {qtxt(l.planned_quantity)}.'); continue
         l.loaded_quantity = qty
+        b = (batches or {}).get(l.pk, (batches or {}).get(str(l.pk)))
+        if b:
+            batch = batches_for(d.site, l.order_line.product).filter(pk=b).first()
+            if not batch:
+                problems.append(f'{l.order_line.product.name}: choose a released batch of this product at {d.site.code}.'); continue
+            l.batch = batch
     if not problems and not any(l.loaded_quantity for l in lines):
         problems.append('Nothing was loaded — cancel the dispatch instead.')
     if problems:
         raise ValidationError(problems)
     for l in lines:
-        l.save(update_fields=['loaded_quantity'])
+        l.save(update_fields=['loaded_quantity', 'batch'])
     d.status, d.loading_done_at, d.loaded_by = 'loaded', timezone.now(), user
     d.seal_number, d.loading_team, d.damaged_bags, d.loading_notes = seal.strip()[:30], team.strip()[:80], int(damaged_bags or 0), notes.strip()[:200]
     d.save()

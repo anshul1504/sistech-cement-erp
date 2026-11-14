@@ -1,0 +1,17 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Recipes &amp; BOM</h1><p>Material per unit of output, versioned. A different user approves; the new version retires the old one, and every batch keeps the version it used.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'recipe_new' %}"><svg><use href="#ic-plus"/></svg>New recipe</a></div>{% endif %}</div>
+  {% include 'erp/_prd_tabs.html' with tab='recipes' %}
+  {% if recipes %}<div class="cmp-grid">{% for r in recipes %}
+    <article class="cmp-card{% if r.status == 'approved' %} is-best{% elif r.status == 'retired' %} is-expired{% endif %}" style="cursor:default">
+      <div class="cmp-head"><span><strong>{{ r.product.name }}</strong><small>v{{ r.version }} · per {{ r.basis_quantity|qty }} {{ r.product.unit }} · yield {{ r.expected_yield_pct|qty }}% · from {{ r.effective_from|date:'d M Y' }}</small></span><span></span><span class="cmp-rank">{{ r.get_status_display }}</span></div>
+      <ul class="mst-order-list">{% for l in r.lines.all %}<li><span><strong>{{ l.material.name }}</strong><small>±{{ l.tolerance_pct|qty }}%</small></span><span></span><strong>{{ l.quantity|qty }} {{ l.material.unit }}</strong></li>{% endfor %}</ul>
+      <small class="cmp-note">By {{ r.created_by.get_full_name|default:r.created_by.username }}{% if r.approved_by %} · approved by {{ r.approved_by.get_full_name|default:r.approved_by.username }}{% endif %}{% if r.notes %} · {{ r.notes }}{% endif %}</small>
+      <div class="inf-log-actions">{% if can_add %}<a class="org-btn is-light is-sm" href="{% url 'recipe_new' %}?from={{ r.pk }}">New version from this</a>{% endif %}{% if r.status == 'draft' and can_approve and r.created_by_id != request.user.pk %}<form method="post" action="{% url 'recipe_approve' r.pk %}">{% csrf_token %}<button class="org-btn is-primary is-sm" type="submit">Approve</button></form>{% endif %}</div>
+    </article>{% endfor %}</div>
+  {% else %}<section class="org-card"><div class="doc-empty"><svg><use href="#ic-clipboard"/></svg><strong>No recipes yet</strong><span>e.g. OPC 53: clinker 0.95 MT + gypsum 0.05 MT per MT.</span></div></section>{% endif %}
+</div>
+{% endblock %}

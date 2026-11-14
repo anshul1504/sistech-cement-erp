@@ -1,0 +1,25 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'recipes' %}">← Recipes &amp; BOM</a></div><h1>New recipe version</h1><p>{% if base %}Starting from {{ base }}. {% endif %}Quantities are per output basis. Saved as a draft; a different user approves.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Output</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="rc-p">Product made <span class="required">*</span></label><select class="form-select" id="rc-p" name="product"><option value="">Choose</option>{% for p in products %}<option value="{{ p.pk }}"{% if chosen == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }} ({{ p.unit }})</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="rc-b">Per output quantity</label><input class="form-control" id="rc-b" type="number" step="any" min="0" name="basis" value="{{ basis }}"></div>
+      <div class="org-field"><label class="form-label" for="rc-y">Expected yield %</label><input class="form-control" id="rc-y" type="number" step="0.01" min="0" max="100" name="yield" value="{{ yield_pct }}"></div>
+      <div class="org-field"><label class="form-label" for="rc-e">Effective from</label><input class="form-control" id="rc-e" type="date" name="effective_from" value="{{ post.effective_from }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="rc-n">Notes</label><input class="form-control" id="rc-n" name="notes" maxlength="200" value="{{ post.notes }}" placeholder="e.g. Gypsum raised for winter setting time"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Materials</h2><p>Up to 8. Tolerance is how far actual use may differ before an explanation is needed.</p></header><div class="ord-lines">
+      <div class="ord-line dp-line ord-line-head" aria-hidden="true"><span>Material</span><span>Quantity</span><span>Tolerance %</span><span></span></div>
+      {% for r in rows %}<div class="ord-line dp-line">
+        <div class="ord-cell ord-product" data-label="Material"><select class="form-select" name="material_{{ forloop.counter0 }}"><option value="">—</option>{% for p in products %}<option value="{{ p.pk }}"{% if r.material == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }} ({{ p.unit }})</option>{% endfor %}</select></div>
+        <div class="ord-cell" data-label="Quantity"><input class="form-control" type="number" step="any" min="0" name="qty_{{ forloop.counter0 }}" value="{{ r.qty }}"></div>
+        <div class="ord-cell" data-label="Tolerance %"><input class="form-control" type="number" step="0.1" min="0" name="tol_{{ forloop.counter0 }}" value="{{ r.tol }}"></div><div class="ord-cell"></div>
+      </div>{% endfor %}</div></section>
+    <div class="org-actions"><span>Draft until approved.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'recipes' %}">Cancel</a><button class="org-btn is-primary" type="submit">Save draft</button></div></div>
+  </form>
+</div>
+{% endblock %}

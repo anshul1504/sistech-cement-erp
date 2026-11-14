@@ -279,3 +279,17 @@ a.ord-tr:hover { background: #fafbfd; }
 @media (max-width: 991.98px) { .cnt-line { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 1199.98px) { .age-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } .age-table .ord-tr .ord-name { grid-column: 1 / -1; } }
 @media (max-width: 767.98px) { .age-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Production & quality (Step 6) */
+.var-table .ord-tr { grid-template-columns: minmax(0, 2.2fr) repeat(4, minmax(0, 1fr)); }
+.qc-table .ord-tr { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .9fr) minmax(0, 1.3fr); }
+.qc-table .ord-tr > span:nth-child(n+4) { text-align: left; }
+.shift-table .ord-tr { grid-template-columns: minmax(0, 2.4fr) repeat(5, minmax(0, 1fr)); }
+.spec-table .ord-tr { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, .6fr) minmax(0, .8fr); }
+.spec-table .ord-tr > span:nth-child(3) { text-align: left; }
+.qc-form { margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf1f7; }
+@media (max-width: 1199.98px) { .var-table .ord-tr, .qc-table .ord-tr, .shift-table .ord-tr, .spec-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .var-table .ord-tr .ord-name, .qc-table .ord-tr .ord-name, .shift-table .ord-tr .ord-name, .spec-table .ord-tr .ord-name { grid-column: 1 / -1; } }
+@media (max-width: 767.98px) { .var-table .ord-tr, .qc-table .ord-tr, .shift-table .ord-tr, .spec-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.spec-group + .spec-group { margin-top: 8px; }
+.spec-group .ord-table { margin-top: 8px; }

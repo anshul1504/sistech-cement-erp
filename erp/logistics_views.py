@@ -210,7 +210,10 @@ def dispatch_new(request, order_pk):
 def dispatch_detail(request, pk):
     permitted(request.user, 'view_dispatch')
     d = get_object_or_404(scope(Dispatch.objects.select_related('order__partner', 'vehicle', 'driver', 'site', 'transporter', 'gate_in_by', 'loaded_by', 'exception_approved_by'), request.user), pk=pk)
-    lines = list(d.lines.select_related('order_line__product'))
+    lines = list(d.lines.select_related('order_line__product', 'batch'))
+    if d.status == 'loading':
+        for l in lines:
+            l.batch_options = list(L.batches_for(d.site, l.order_line.product)[:20])
     weighments = list(d.weighments.select_related('captured_by', 'superseded_by'))
     flow = ['planned', 'gate_in', 'tared', 'loading', 'loaded', 'weighed', 'gate_out', 'delivered']
     labels = ['Planned', 'Gate-in', 'Tare', 'Loading', 'Loaded', 'Gross & invoice', 'Gate-out', 'POD']
@@ -243,7 +246,8 @@ def dispatch_action(request, pk, action):
         elif action == 'start_loading':
             L.start_loading(u, pk, P.get('bay', '')); msg = 'Loading started.'
         elif action == 'complete_loading':
-            L.complete_loading(u, pk, {k[4:]: v for k, v in P.items() if k.startswith('qty_')}, P.get('seal', ''), P.get('team', ''), P.get('damaged_bags') or 0, P.get('notes', ''))
+            L.complete_loading(u, pk, {k[4:]: v for k, v in P.items() if k.startswith('qty_')}, P.get('seal', ''), P.get('team', ''), P.get('damaged_bags') or 0, P.get('notes', ''),
+                               {k[6:]: v for k, v in P.items() if k.startswith('batch_') and v})
             msg = 'Loading complete. Send the truck for gross weight.'
         elif action == 'approve':
             L.approve_exception(u, pk, P.get('note', '')); msg = 'Exception approved.'

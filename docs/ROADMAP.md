@@ -59,10 +59,10 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 in-transit stock and discrepancy cases, blind cycle counts with recount and approved adjustments, damaged/wet bag reports with disposition,
 bag ↔ MT equivalents, ageing / slow-moving / min-max. Lot/batch balances move to Step 6 (batch traceability).
 
-### Step 6 — Production & quality for cement and TMT (SRS Phase 2, §4.3, §5.6, §5.7)
-1. Versioned recipes/BOM (clinker + gypsum + fly ash/slag; billet → TMT), process orders, material issue, shift log, downtime, packing line.
-2. Test specifications with limits (cement IS 269/1489/455: fineness, setting time, 3/7/28-day strength; TMT IS 1786: YS, UTS, elongation, bend), out-of-spec hold, release, **COA / mill test certificate**, calibration.
-3. Batch traceability from raw material to dispatched invoice.
+### Step 6 — Production & quality for cement and TMT (SRS Phase 2, §4.3, §5.6, §5.7) ✅
+1. ✅ Versioned recipes/BOM (clinker + gypsum + fly ash/slag; billet → TMT), process orders, material issue, shift log, downtime, packing line.
+2. ✅ Test specifications with limits (cement IS 269/1489/455: fineness, setting time, 3/7/28-day strength; TMT IS 1786: YS, UTS, elongation, bend), out-of-spec hold, release, **COA / mill test certificate**, calibration.
+3. ✅ Batch traceability from raw material to dispatched invoice.
 
 ### Step 7 — Finance (SRS Phase 3, §5.10, §9)
 Chart of accounts, double-entry posting engine (invoices, receipts, GRN, payments post automatically), AR/AP ageing,

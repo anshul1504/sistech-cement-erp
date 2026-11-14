@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.9.6'
+ASSET_VERSION = '0.9.7'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -40,7 +40,10 @@ NAV_GROUPS = [
         _item('inbound', 'Goods receipt (GRN)', 'boxes', 'view_goodsreceipt', match=('grn_new', 'grn_detail', 'grn_print')),
     ]),
     ('Plant operations', [
-        _item('production', 'Production', 'factory', 'view_production', match=('production_new', 'production_action')),
+        _item('production', 'Production', 'factory', 'view_production', match=('production_new', 'production_action', 'production_detail', 'coa', 'trace')),
+        _item('recipes', 'Recipes & BOM', 'clipboard', 'view_recipe', match=('recipe_new',)),
+        _item('shift_logs', 'Shift log', 'history', 'view_shiftlog'),
+        _item('packing', 'Packing', 'package', 'view_packingrun'),
         _item('quality', 'Quality lab', 'flask', 'view_qualitytest', match=('quality_new',)),
         _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening', 'stock_card', 'stock_analysis')),
         _item('counts', 'Stock counts', 'clipboard', 'view_stockcount', match=('count_detail',)),
@@ -152,7 +155,9 @@ def navigation(request):
     if order_permission(user, 'Purchase', 'create'):
         quick_create.append(('New purchase order', reverse('order_new', args=['Purchase']), 'purchase'))
     if user.has_perm('erp.add_production'):
-        quick_create.append(('Production entry', reverse('production_new'), 'factory'))
+        quick_create.append(('Process order', reverse('production_new'), 'factory'))
+    if user.has_perm('erp.add_shiftlog'):
+        quick_create.append(('Shift log', reverse('shift_logs'), 'history'))
     if user.has_perm('erp.add_qualitytest'):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
     if user.has_perm('erp.add_product'):

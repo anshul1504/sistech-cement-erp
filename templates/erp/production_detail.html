@@ -1,0 +1,67 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'production' %}">← Production</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl"><svg><use href="#ic-factory"/></svg></span>
+    <div class="org-hero-text"><h1>{{ p.batch }}</h1><p>{{ p.product.name }} · {{ p.site.code }}{% if p.line %} · {{ p.line }}{% endif %} · shift {{ p.shift }} · {{ p.planned_date|date:'d M Y' }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ p.badge }}">● {{ p.status }}</span>{% if p.recipe %}<span class="org-chip">Recipe v{{ p.recipe.version }}</span>{% else %}<span class="org-chip">No recipe</span>{% endif %}{% if p.disposition == 'deviation' %}<span class="org-chip ord-status is-submitted">Under deviation</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Output · planned {{ p.planned_quantity|qty }}</small><span class="mst-total">{{ p.actual_quantity|qty }} {{ p.product.unit }}</span><small>{% if p.unit_cost %}Cost ₹{{ p.unit_cost|indian:2 }} / {{ p.product.unit|lower }} · ₹{{ p.material_cost|indian }}{% else %}Cost fixed at completion{% endif %}</small></div>
+  </section>
+  {% if p.variance_note %}<ul class="ord-checks"><li class="is-warn">Variance note: {{ p.variance_note }}</li></ul>{% endif %}
+  {% if p.disposition_note %}<ul class="ord-checks"><li class="is-{% if p.disposition == 'reject' %}danger{% else %}info{% endif %}">{{ p.get_disposition_display }} by {{ p.released_by.get_full_name|default:p.released_by.username }}: {{ p.disposition_note }}</li></ul>{% endif %}
+  <div class="doc-head-actions pr-actions">{% if p.status == 'Released' %}<a class="org-btn is-light" href="{% url 'coa' p.pk %}" target="_blank">Test certificate (COA)</a>{% endif %}<a class="org-btn is-light" href="{% url 'trace' p.pk %}">Trace batch</a></div>
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Material use</h2><span class="acc-muted">{% if p.recipe %}Standard for {{ output|qty }} {{ p.product.unit }} incl. yield {{ p.recipe.expected_yield_pct|qty }}%{% else %}No recipe — actual use only{% endif %}</span></header>
+      {% if variance %}<div class="ord-table var-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Material</span><span>Standard</span><span>Issued</span><span>Difference</span><span>Tolerance</span></div>
+        {% for r in variance %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ r.material.name }}</strong><small>{{ r.material.code }} · {{ r.material.unit }}</small></span>
+          <span data-label="Standard">{{ r.standard|qty }}</span><span data-label="Issued">{{ r.issued|qty }}</span>
+          <span data-label="Difference" class="{% if r.out %}led-late{% endif %}">{% if r.diff > 0 %}+{% endif %}{{ r.diff|qty }}{% if r.pct is not None %}<small>{{ r.pct }}%</small>{% endif %}</span>
+          <span data-label="Tolerance">{% if r.out %}<em class="ord-flag">Outside ±{{ r.tol|qty }}%</em>{% else %}±{{ r.tol|qty }}%{% endif %}</span></div>{% endfor %}</div>
+      {% else %}<p class="acc-muted">No material issued yet.</p>{% endif %}
+      {% if issues %}<h3 class="cmp-sub">Issues</h3><ul class="mst-order-list">{% for i in issues %}<li><span><strong>{{ i.material.name }} · {{ i.quantity|qty }} {{ i.material.unit }}</strong><small>{{ i.issued_at|date:'d M, H:i' }} · {{ i.issued_by.get_full_name|default:i.issued_by.username }}{% if i.source %} · {{ i.source }}{% endif %}{% if i.grn %} · lot {{ i.grn.number }}{% endif %}</small></span><span></span><strong>₹{{ i.value|indian }}</strong></li>{% endfor %}</ul>{% endif %}
+    </section>
+    {% if can.issue %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Issue material</h2></header>
+      <form method="post" action="{% url 'production_action' p.pk 'issue' %}">{% csrf_token %}<div class="org-grid">
+        <div class="org-field is-wide"><label class="form-label" for="is-m">Material</label><select class="form-select" id="is-m" name="material">{% for m in materials %}<option value="{{ m.pk }}">{{ m.name }} — {{ m.on_hand|qty }} {{ m.unit }} in stock</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="is-q">Quantity</label><input class="form-control" id="is-q" type="number" step="any" min="0" name="quantity" required></div>
+        <div class="org-field"><label class="form-label" for="is-s">Source silo / heap</label><input class="form-control" id="is-s" name="source" maxlength="60" placeholder="e.g. Clinker silo 1"></div>
+        <div class="org-field is-wide"><label class="form-label" for="is-g">From receipt (lot, optional)</label><select class="form-select" id="is-g" name="grn"><option value="">Not tracked</option>{% for g in grns %}<option value="{{ g.pk }}">{{ g.number }} · {{ g.supplier.name }}</option>{% endfor %}</select></div>
+      </div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Issue</button></div></form></section>{% endif %}
+    {% if can.complete %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Complete batch</h2></header>
+      <form method="post" action="{% url 'production_action' p.pk 'complete' %}">{% csrf_token %}<div class="org-grid">
+        <div class="org-field"><label class="form-label" for="cp-o">Good output ({{ p.product.unit }})</label><input class="form-control" id="cp-o" type="number" step="any" min="0" name="output" value="{{ p.actual_quantity|default:p.planned_quantity|floatformat:'-3' }}" required></div>
+        <div class="org-field"><label class="form-label" for="cp-s">Scrap / rejects</label><input class="form-control" id="cp-s" type="number" step="any" min="0" name="scrap" value="0"></div>
+        <div class="org-field is-wide"><label class="form-label" for="cp-n">Variance explanation (if outside tolerance)</label><input class="form-control" id="cp-n" name="note" maxlength="200"></div>
+      </div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Complete → quality hold</button></div></form></section>{% endif %}
+
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Quality</h2><span class="acc-muted">{% if ev.has_specs %}{{ ev.rows|length }} parameters · {{ ev.missing|length }} still needed for release{% else %}No specification for this product — run "seed_quality_specs"{% endif %}</span></header>
+      {% if ev.has_specs %}<div class="ord-table qc-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Parameter</span><span>Limit</span><span>Result</span><span>Status</span><span>Analyst · equipment</span></div>
+        {% for r in ev.rows %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ r.spec.parameter }}</strong><small>{{ r.spec.method }}{% if r.spec.age_days %} · at {{ r.spec.age_days }} days{% if r.due %} (due {{ r.due|date:'d M' }}){% endif %}{% endif %}{% if r.spec.required_for_release %} · needed for release{% endif %}</small></span>
+          <span data-label="Limit">{{ r.spec.limit_text }}</span>
+          <span data-label="Result">{% if r.result %}<strong>{{ r.result.value|qty }}</strong> {{ r.spec.unit }}{% if r.result.retest_reason %}<small>retest: {{ r.result.retest_reason }}</small>{% endif %}{% else %}—{% endif %}</span>
+          <span data-label="Status">{% if r.result %}{% if r.result.ok %}<span class="doc-badge is-ok">Pass</span>{% else %}<span class="doc-badge is-danger">Out of spec</span>{% endif %}{% else %}<span class="doc-badge">Pending</span>{% endif %}</span>
+          <span data-label="Analyst">{% if r.result %}{{ r.result.analyst.get_full_name|default:r.result.analyst.username }}{% if r.result.equipment %} · {{ r.result.equipment.code }}{% endif %}<small>{{ r.result.tested_at|date:'d M, H:i' }}</small>{% else %}—{% endif %}</span></div>{% endfor %}</div>
+      {% if history_results %}<details class="inf-log" style="margin-top:10px"><summary>Earlier results kept on record ({{ history_results|length }})</summary><ul class="mst-order-list">{% for r in history_results %}<li><span><strong>{{ r.spec.parameter }} · {{ r.value|qty }}</strong><small>{{ r.tested_at|date:'d M, H:i' }} · {{ r.analyst.username }} · superseded</small></span><span></span><span class="doc-badge{% if not r.ok %} is-danger{% endif %}">{{ r.ok|yesno:'Pass,Out of spec' }}</span></li>{% endfor %}</ul></details>{% endif %}
+      {% if can.test %}<form method="post" action="{% url 'production_action' p.pk 'result' %}" class="qc-form">{% csrf_token %}<div class="org-grid">
+        <div class="org-field is-wide"><label class="form-label" for="qr-s">Parameter</label><select class="form-select" id="qr-s" name="spec">{% for r in ev.rows %}<option value="{{ r.spec.pk }}"{% if not r.result and forloop.first %} selected{% endif %}>{{ r.spec.parameter }} ({{ r.spec.limit_text }}){% if r.result %} — has result{% endif %}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="qr-v">Value</label><input class="form-control" id="qr-v" type="number" step="any" name="value" required></div>
+        <div class="org-field"><label class="form-label" for="qr-e">Equipment</label><select class="form-select" id="qr-e" name="equipment"><option value="">—</option>{% for e in equipment %}<option value="{{ e.pk }}"{% if e.overdue %} disabled{% endif %}>{{ e.code }} · {{ e.name }}{% if e.overdue %} (calibration overdue){% endif %}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="qr-r">Sample ref.</label><input class="form-control" id="qr-r" name="sample_ref" maxlength="40"></div>
+        <div class="org-field"><label class="form-label" for="qr-t">Retest reason (if repeating)</label><input class="form-control" id="qr-t" name="retest_reason" maxlength="150"></div>
+      </div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Record result</button></div></form>{% endif %}{% endif %}
+    </section>
+    {% if can.release %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Quality decision</h2><span class="acc-muted">You neither created nor completed this batch.</span></header>
+      {% if ev.missing %}<ul class="ord-checks"><li class="is-warn">Still needed: {% for s in ev.missing %}{{ s.parameter }}{% if not forloop.last %}, {% endif %}{% endfor %}.</li></ul>{% endif %}
+      {% if ev.failed %}<ul class="ord-checks"><li class="is-danger">Out of specification: {% for r in ev.failed %}{{ r.spec.parameter }} {{ r.result.value|qty }}{% if not forloop.last %}, {% endif %}{% endfor %}.</li></ul>{% endif %}
+      <form method="post" action="{% url 'production_action' p.pk 'release' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="rl-n">Note (required for deviation or rejection)</label><input class="form-control" id="rl-n" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'production_action' p.pk 'reject' %}">Reject batch</button>{% if ev.failed %}<button class="org-btn is-light" type="submit" formaction="{% url 'production_action' p.pk 'deviation' %}">Release under deviation</button>{% endif %}<button class="org-btn is-primary" type="submit">Release to stock</button></div></form></section>
+    {% elif p.status == 'Quality hold' %}<section class="org-card org-view acc-wide ord-items"><p class="acc-muted">Waiting for a quality user who neither created nor completed this batch.</p></section>{% endif %}
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}
+      {% if can.cancel %}<details class="pr-cancel"><summary>Cancel process order</summary><form method="post" action="{% url 'production_action' p.pk 'cancel' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="pc-n">Reason</label><input class="form-control" id="pc-n" name="note" maxlength="200" required></div><button class="org-btn is-light is-danger is-sm" type="submit">Cancel</button></form></details>{% endif %}</section>
+  </div>
+</div>
+{% endblock %}
