@@ -187,3 +187,21 @@ document.getElementById('add-line')?.addEventListener('click', () => {
 });
 const statuses = ['Draft', 'Submitted', 'Approved', 'Completed', 'Cancelled', 'Quality hold', 'Released', 'Planned', 'Pass', 'Fail', 'Available', 'Low stock'];
 document.querySelectorAll('.cell-value[data-status]').forEach(el => { if (statuses.includes(el.dataset.status)) el.classList.add('status'); });
+// My work bell: counts what is waiting for this user (approvals, PODs, follow-ups); refreshes every 2 minutes.
+(() => {
+  const wrap = document.querySelector('[data-my-work]');
+  if (!wrap) return;
+  const badge = wrap.querySelector('.hd-bell-count'), list = wrap.querySelector('.hd-bell-list');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  const load = () => fetch(wrap.dataset.myWork + '?format=json', {headers: {'Accept': 'application/json'}, credentials: 'same-origin'})
+    .then(r => r.ok ? r.json() : null).then(data => {
+      if (!data) return;
+      badge.hidden = !data.count;
+      badge.textContent = data.count > 99 ? '99+' : data.count;
+      wrap.querySelector('.hd-bell').setAttribute('aria-label', data.count ? `My work: ${data.count} waiting` : 'My work: nothing waiting');
+      list.innerHTML = data.items.length ? data.items.map(i => `<a class="hd-bell-item is-${esc(i.tone)}" href="${esc(i.url)}"><b>${esc(i.count)}</b><span>${esc(i.label)}<small>${esc(i.hint)}</small></span></a>`).join('')
+        : '<p class="hd-bell-empty">Nothing waiting for you. 🎉</p>';
+    }).catch(() => {});
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 120000);
+})();

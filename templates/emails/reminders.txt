@@ -1,0 +1,11 @@
+Hello {{ name }},
+
+{{ total }} item{{ total|pluralize }} {{ total|pluralize:"is,are" }} waiting for you in Sistech ERP on {{ today|date:"d M Y" }}:
+{% for i in items %}
+- {{ i.label }}: {{ i.count }} ({{ i.hint }})
+  {{ i.link }}{% endfor %}
+
+Open My work: {{ my_work }}
+
+You receive this daily reminder because these actions need your role. Ask your administrator to change your role if this is not your work.
+Design & developed by The Webfix · https://thewebfix.in

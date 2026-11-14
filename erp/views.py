@@ -24,17 +24,6 @@ def table(request, title, subtitle, headers, rows, create=None, filters=False, c
                                              'create': create, 'filters': filters, 'create_label': create_label})
 
 @login_required
-def dashboard(request):
-    allowed_kinds = [kind for kind in ['Sale', 'Purchase'] if order_permission(request.user, kind, 'view')]
-    orders = scope(Order.objects.filter(kind__in=allowed_kinds).select_related('partner', 'site').prefetch_related('lines'), request.user)
-    balances = scope(StockBalance.objects.filter(status='available').select_related('product', 'site'), request.user) if request.user.has_perm('erp.view_stockbalance') else StockBalance.objects.none()
-    batches = scope(Production.objects.all(), request.user) if request.user.has_perm('erp.view_production') else Production.objects.none()
-    sales = orders.filter(kind='Sale')
-    sales_total = sum((o.total for o in sales.exclude(status='Cancelled')), Decimal('0'))
-    return render(request, 'erp/dashboard.html', {'title': 'Operations overview', 'sales_total': sales_total, 'pending': orders.filter(status='Submitted').count(), 'held': batches.filter(status='Quality hold').count(), 'low_stock': balances.filter(quantity__lte=F('product__reorder_level')).count(), 'recent_orders': orders[:6], 'balances': balances[:6], 'batches': batches[:4], 'site_count': sites(request.user).count()})
-
-
-@login_required
 def orders(request, kind):
     if not order_permission(request.user, kind, 'view'):
         from django.core.exceptions import PermissionDenied

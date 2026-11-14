@@ -1,0 +1,2 @@
+{% load erp_format %}<div class="ins-stack" role="img" aria-label="Receivable ageing">{% for b in credit.ageing %}<i class="ins-c{{ forloop.counter0 }}" style="width:{{ b.share|stringformat:'s' }}%" title="{{ b.label }}: {{ b.amount|rupees }}"></i>{% endfor %}</div>
+<ul class="ins-keys">{% for b in credit.ageing %}<li><a href="{{ b.url }}"><span><i class="ins-dot ins-c{{ forloop.counter0 }}"></i>{{ b.label }}</span><span class="ins-num">{{ b.amount|rupees }}{% if b.share %}<small>{{ b.share }}%</small>{% endif %}</span></a></li>{% endfor %}</ul>

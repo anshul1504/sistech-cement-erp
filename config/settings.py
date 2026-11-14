@@ -46,6 +46,8 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Sistech ERP <no-reply@example.test>')
 EMAIL_OTP_ENABLED = os.environ.get('EMAIL_OTP_ENABLED', '1') == '1'
+# Public address of the ERP, used for links in reminder emails (python manage.py send_reminders).
+ERP_BASE_URL = os.environ.get('ERP_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
 # OTP is required for username and email sign-ins, including admin, by default.
 # An explicit local-development override can enable password-only username login.
 EMAIL_OTP_SKIP_FOR_USERNAME = os.environ.get('EMAIL_OTP_SKIP_FOR_USERNAME', '0') == '1'

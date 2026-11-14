@@ -105,3 +105,26 @@ def who(user):
     if not user:
         return '—'
     return user.get_full_name() or user.username
+
+
+@register.filter
+def inr_short(value):
+    """Compact rupees for dashboards: ₹950 · ₹12.4 K · ₹3.25 L · ₹1.42 Cr (Indian lakh / crore)."""
+    try:
+        n = Decimal(str(value or 0))
+    except (InvalidOperation, ValueError):
+        return value
+    sign, a = ('−' if n < 0 else ''), abs(n)
+    for size, unit, places in ((Decimal('10000000'), 'Cr', 2), (Decimal('100000'), 'L', 2), (Decimal('1000'), 'K', 1)):
+        if a >= size:
+            text = f'{(a / size):.{places}f}'.rstrip('0').rstrip('.')
+            return f'{sign}₹{text} {unit}'
+    return f'{sign}₹{indian(a)}'
+
+
+@register.filter
+def mt(value):
+    """Tonnage with one decimal and Indian grouping: 12345.678 → 12,345.7 MT."""
+    if value in (None, ''):
+        return '—'
+    return f'{indian(Decimal(str(value)).quantize(Decimal("0.1")), 1)} MT'

@@ -520,6 +520,7 @@ class Organization(models.Model):
 
     class Meta:
         verbose_name = 'organisation'
+        permissions = [('view_executive_dashboard', 'View the management (executive) dashboard')]
 
     def __str__(self):
         return self.legal_name

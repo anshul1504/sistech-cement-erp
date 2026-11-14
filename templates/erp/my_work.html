@@ -1,0 +1,9 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">REMINDERS</div><h1>My work</h1><p>Everything waiting for your action: approvals you are allowed to give (never your own documents), deliveries without POD, complaints and CAPA you own, and follow-ups due. The bell at the top shows the same count on every page; a daily email digest sends it too.</p></div></div>
+  <section class="org-card ins-card">{% if items %}<ul class="ins-work">{% for i in items %}<li><a class="is-{{ i.tone }}" href="{{ i.url }}"><b>{{ i.count }}</b><span>{{ i.label }}<small>{{ i.hint }}</small></span><em>Open →</em></a></li>{% endfor %}</ul>
+    {% else %}<div class="ins-done">All clear — nothing is waiting for you.</div>{% endif %}</section>
+</div>
+{% endblock %}

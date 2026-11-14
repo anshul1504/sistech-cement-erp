@@ -1,0 +1,1 @@
+{% if d is not None %}<span class="ins-delta {% if d >= 0 %}is-up{% else %}is-down{% endif %}">{% if d >= 0 %}▲{% else %}▼{% endif %} {{ d }}%</span>{% else %}<span>no earlier data</span>{% endif %}

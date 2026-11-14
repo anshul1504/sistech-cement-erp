@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth
 from django.urls import path, include
 from erp import views as v
 from erp import order_views as ov
+from erp import insight_views as iv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -12,7 +13,10 @@ urlpatterns = [
     path('admin/password_change/done/', RedirectView.as_view(pattern_name='password_change_done')),
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
-    path('', v.dashboard, name='dashboard'),
+    path('', iv.home, name='dashboard'),
+    path('dashboards/drill/<slug:kind>/', iv.drill, name='insight_drill'),
+    path('dashboards/<slug:area>/', iv.dashboard_area, name='insight_area'),
+    path('my-work/', iv.my_work, name='my_work'),
     path('sales/', v.orders, {'kind': 'Sale'}, name='sales'),
     path('purchases/', v.orders, {'kind': 'Purchase'}, name='purchases'),
     path('orders/new/<str:kind>/', ov.order_new, name='order_new'),

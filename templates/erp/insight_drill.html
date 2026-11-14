@@ -1,0 +1,13 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">DRILL-DOWN{% if dated %} · {{ period.label|upper }}{% endif %}{% if site %} · {{ site.code }}{% endif %}</div><h1>{{ title }}</h1><p>The source documents behind the dashboard figure. Open any row to see the document.</p></div>
+    {% if dated %}{% include 'erp/_insight_filter.html' %}{% endif %}</div>
+  {% if filters %}<div class="ins-chips">{% for f in filters %}<span class="ins-pill">{{ f }}</span>{% endfor %}<a class="ins-pill" href="?{{ period.query }}{{ site_q }}">Clear filters ✕</a></div>{% endif %}
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>{{ rows|length }} document{{ rows|length|pluralize }}{% if capped %} (first 500){% endif %}</h2>{% if total is not None %}<span class="ins-total">Total {{ total|rupees }}</span>{% endif %}</div>
+    {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr>{% for c in cols %}<th{% if forloop.counter > 2 and not forloop.last %} class="is-optional"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead><tbody>
+      {% for r in rows %}<tr>{% for c in r.cells %}<td{% if forloop.counter > 2 and not forloop.last %} class="is-optional{% if c.0 == '₹' %} n{% endif %}"{% elif c.0 == '₹' %} class="n"{% endif %}>{% if forloop.first %}<a href="{{ r.url }}">{{ c }}</a>{% elif c.0 == '₹' %}{{ c.1|rupees:2 }}{% elif c.year %}{{ c|date:'d M Y' }}{% else %}{{ c|default:'—' }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No documents match.</p>{% endif %}</section>
+</div>
+{% endblock %}

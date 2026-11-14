@@ -65,10 +65,11 @@ MODULES = [
     ('sites', 'Plants & depots', {'view': 'view_site', 'create': 'add_site', 'edit': 'change_site'}),
     ('reports', 'Stock reports', {'view': 'view_stockmovement', 'export': 'export_stockmovement'}),
     ('audit', 'Audit trail', {'view': 'view_auditevent'}),
+    ('dashboards', 'Management dashboard', {'view': 'view_executive_dashboard'}),
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
-ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm', 'view_schemeevaluation'}
+ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm', 'view_schemeevaluation', 'view_executive_dashboard'}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'approve_stockcount', 'approve_stocktransfer', 'decide_damagereport', 'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
@@ -99,7 +100,8 @@ PRESETS = {
     'Loading supervisor': {'view_dispatch', 'load_dispatch', 'view_vehicle'},
     'Logistics manager': {'view_freightrate', 'add_freightrate', 'change_freightrate', 'view_freightbill', 'approve_freightbill', 'view_dispatch', 'add_dispatch', 'approve_weight_exception', 'pod_dispatch', 'view_vehicle', 'add_vehicle', 'change_vehicle',
                           'view_sales_order', 'view_partner', 'view_product', 'view_site'},
-    'Internal auditor': ALL_VIEWS | {'view_schemeevaluation', 'export_schemeevaluation', 'view_team_crm', 'export_crmlead', 'access_company_finance', 'export_invoice', 'export_influencer', 'export_stockmovement'},
+    'Management': ALL_VIEWS | {'view_executive_dashboard', 'access_company_finance', 'view_team_crm', 'view_schemeevaluation'},
+    'Internal auditor': ALL_VIEWS | {'view_executive_dashboard', 'view_schemeevaluation', 'export_schemeevaluation', 'view_team_crm', 'export_crmlead', 'access_company_finance', 'export_invoice', 'export_influencer', 'export_stockmovement'},
 }
 
 

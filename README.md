@@ -233,6 +233,20 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - An owner records the **investigation findings**; a user who neither logged nor investigated **decides** — accept, partly accept (quantity cannot exceed the claim) or reject — and the settlement: credit note on that invoice, replacement order, or none.
 - **Closure** needs the settlement evidence linked (the credit note on the same invoice, or a sales order for the customer). Quality complaints close only when every **CAPA** (root cause, containment, corrective and preventive action, owner, due date) is implemented and verified effective by someone other than its owner — or with a written reason why no CAPA is needed.
 
+## Dashboards, My work & reminders (Step 9a)
+- **Home** (`/`) is role-based: the work waiting for you (only approvals you may give, never your own documents), headline
+  numbers from each dashboard you may open, and *My sales* (orders you created, against your monthly target) for sales staff.
+- **Dashboards** (`/dashboards/<area>/`): Management, Sales, Credit & collections, Stock, Dispatch, Partner supply, Plant,
+  Quality and Finance. Period filter (today, 7 days, month, last month, quarter, financial year, custom) and plant/depot
+  filter; figures compare with the earlier period. Sales are net of credit notes; tonnage converts bags to MT by bag weight.
+- **Drill-down** (`/dashboards/drill/<kind>/`): every figure opens the invoices, receipts, orders, trips, GRNs, batches or
+  complaints behind it, with the same filters.
+- **Access**: operational figures follow your plant/depot access; collections, receivables, cash and P&L need the
+  company-finance scope. The Management dashboard needs *Management dashboard → View* (new preset role **Management**).
+- **My work bell** in the top bar refreshes every 2 minutes. **Daily email digest**: schedule
+  `python manage.py send_reminders` once a day (e.g. 08:30). Set `ERP_BASE_URL` to the public ERP address for the links;
+  `--dry-run` lists recipients without sending.
+
 ## Implemented workflows
 
 - Responsive internal web ERP with local Poppins/Bootstrap, Sistech blue/yellow branding and The Webfix credit.

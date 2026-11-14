@@ -100,10 +100,17 @@ ledger-credit or bank payouts with maker-checker, dealer scheme statement.
 
 ✅ Step 8d complaints & CAPA: invoice/truck/batch links, SLA by type, independent decision, settlement evidence, CAPA with effectiveness verification.
 
-Remaining in Step 8: territory hierarchy / beat plan, dealer portal (with Step 10 apps). Next: dashboards (Step 9). Territory hierarchy, unified project pipeline and dealer portal remain pending.
+Remaining in Step 8: territory hierarchy / beat plan, unified project pipeline, dealer portal (with Step 10 apps).
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.
+
+✅ Step 9a: role-based home (work waiting for the user, headline KPIs by permission, personal sales vs target), management /
+sales / credit / stock / dispatch / partner-supply / plant / quality / finance dashboards with period and plant filters and
+comparison with the earlier period, drill-down lists to source documents, notification bell and daily email reminder digest
+(`send_reminders`).
+
+Remaining in Step 9: scheduled PDF/Excel report packs, saved report filters, help & support tickets and in-app assistant.
 
 ### Step 10 — APIs & Android apps (SRS Phase 4, §6)
 Versioned REST API with token auth and idempotency keys, then employee, dealer and transporter/driver apps.

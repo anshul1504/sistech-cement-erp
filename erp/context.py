@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.15.4'
+ASSET_VERSION = '0.16.2'
 
 NAV_GROUPS = [
     ('Overview', [
