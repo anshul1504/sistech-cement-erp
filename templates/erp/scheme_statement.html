@@ -1,0 +1,14 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_scheme_head.html' %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'scheme_payouts' %}">← Entitlements &amp; payouts</a></div><h1>{{ partner.name }}</h1><p>Scheme statement: what was earned, recovered after returns, paid, and what is still pending approval.</p></div></div>
+  <div class="inf-kpis" role="list"><div role="listitem" class="inf-kpi"><span>Earned</span><strong>{{ totals.earned|rupees }}</strong><small>Approved</small></div>
+    <div role="listitem" class="inf-kpi"><span>Recovered</span><strong>{{ totals.recovered|rupees }}</strong><small>After returns</small></div>
+    <div role="listitem" class="inf-kpi is-ok"><span>Paid</span><strong>{{ totals.paid|rupees }}</strong><small>Credited or transferred</small></div>
+    <div role="listitem" class="inf-kpi{% if totals.balance %} is-warn{% endif %}"><span>Balance due</span><strong>{{ totals.balance|rupees }}</strong><small>Pending approval {{ totals.pending|rupees }}</small></div></div>
+  {% for r in rows %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>{{ r.version }}</h2><span class="acc-muted">{{ r.version.starts_on|date:'d M Y' }} – {{ r.version.ends_on|date:'d M Y' }} · balance {{ r.balance|rupees:2 }}</span></header>
+    <ul class="mst-order-list">{% for e in r.items %}<li><a href="{% url 'scheme_batch' e.batch_id %}"><strong>{{ e.batch }} · {{ e.amount|rupees:2 }}</strong><small>Eligible {{ e.eligible|rupees:2 }} @ {{ e.rate|qty }}% · {{ e.batch.get_status_display }}{% if e.settlement %} · {{ e.settlement.number }} {{ e.settlement.get_status_display|lower }}{% endif %}</small></a><span></span><span></span></li>{% endfor %}</ul></section>
+  {% empty %}<section class="org-card"><p class="acc-muted">No scheme entitlements for this dealer yet.</p></section>{% endfor %}
+</div>
+{% endblock %}

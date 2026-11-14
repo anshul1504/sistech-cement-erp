@@ -31,6 +31,8 @@ def allocate(partner):
         return 0
     sources = [('credit_note', c, credit_unapplied(c)) for c in CreditNote.objects.filter(partner=partner).order_by('date', 'id')]
     sources += [('receipt', r, r.unallocated) for r in Receipt.objects.filter(partner=partner, status='posted').order_by('date', 'id')]
+    from .models import SchemeSettlement
+    sources += [('scheme_credit', c, c.amount - _sum(c.settlements.all(), 'amount')) for c in SchemeSettlement.objects.filter(partner=partner, mode='ledger', status='posted').order_by('date', 'id')]
     made = 0
     for kind, source, free in sources:
         for inv in invoices:
@@ -52,7 +54,9 @@ def balance(partner):
     billed = _sum(Invoice.objects.filter(partner=partner), 'grand_total')
     received = _sum(Receipt.objects.filter(partner=partner, status='posted'), 'amount')
     credited = _sum(CreditNote.objects.filter(partner=partner), 'total')
-    return billed - received - credited
+    from .models import SchemeSettlement
+    schemes = _sum(SchemeSettlement.objects.filter(partner=partner, mode='ledger', status='posted'), 'amount')
+    return billed - received - credited - schemes
 
 
 def open_invoices(partner=None):
@@ -112,6 +116,9 @@ def ledger_rows(partner, start=None, end=None):
             rows.append({'date': r.bounced_on or r.date, 'kind': 'Cheque bounced', 'ref': r.number, 'obj': r, 'debit': r.amount, 'credit': ZERO, 'note': r.bounce_reason, 'seq': (r.created_at, 3)})
     for c in CreditNote.objects.filter(partner=partner).select_related('invoice'):
         rows.append({'date': c.date, 'kind': 'Credit note', 'ref': c.number, 'obj': c, 'debit': ZERO, 'credit': c.total, 'note': f'{c.get_reason_display()} · {c.invoice.number}', 'seq': (c.created_at, 2)})
+    from .models import SchemeSettlement
+    for c in SchemeSettlement.objects.filter(partner=partner, mode='ledger', status='posted'):
+        rows.append({'date': c.date, 'kind': 'Scheme credit', 'ref': c.number, 'obj': c, 'debit': ZERO, 'credit': c.amount, 'note': c.note or 'Scheme incentive', 'seq': (c.created_at, 2)})
     rows.sort(key=lambda r: (r['date'], r['seq']))
     opening, out, running = ZERO, [], ZERO
     for r in rows:

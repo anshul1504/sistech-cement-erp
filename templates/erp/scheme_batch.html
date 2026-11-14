@@ -1,0 +1,20 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_scheme_head.html' %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'scheme_payouts' %}">← Entitlements &amp; payouts</a></div></div>
+  <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-gift"/></svg></span>
+    <div class="org-hero-text"><h1>{{ b }}</h1><p>{{ b.version }} · from <a href="{% url 'scheme_evaluation' b.evaluation.pk %}">{{ b.evaluation }}</a> · {{ b.evaluation.starts_on|date:'d M Y' }} – {{ b.evaluation.ends_on|date:'d M Y' }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{% if b.status == 'approved' %}completed{% elif b.status == 'submitted' %}submitted{% else %}cancelled{% endif %}">● {{ b.get_status_display }}</span></div></div>
+    <div class="org-hero-side"><small>Net entitlement</small><span class="mst-total">{{ b.total|rupees:2 }}</span><small>Prepared by {{ b.created_by|who }}</small></div></section>
+  {% if b.decision_note %}<ul class="ord-checks"><li class="is-info">{{ b.get_status_display }} by {{ b.decided_by|who }}: {{ b.decision_note }}</li></ul>{% endif %}
+  <section class="org-card ord-items"><div class="ord-table ent-table" role="table"><div class="ord-tr ord-th" role="row"><span>Dealer</span><span>Eligible sales</span><span>Rate</span><span>Calculated</span><span>Already approved</span><span>This batch</span></div>
+    {% for e in rows %}<div class="ord-tr" role="row"><span class="ord-name"><strong><a href="{% url 'scheme_statement' e.partner.pk %}">{{ e.partner.name }}</a></strong><small>{{ e.partner.district }}{% if e.settlement %} · {{ e.settlement.number }} ({{ e.settlement.get_status_display|lower }}){% endif %}</small></span>
+      <span data-label="Eligible sales">{{ e.eligible|rupees:2 }}</span><span data-label="Rate">{{ e.rate|qty }}%</span><span data-label="Calculated">{{ e.calculated|rupees:2 }}</span><span data-label="Already approved">{{ e.prior|rupees:2 }}</span>
+      <span data-label="This batch"><strong class="{% if e.amount < 0 %}led-late{% endif %}">{{ e.amount|rupees:2 }}</strong>{% if e.amount < 0 %}<small>recovery</small>{% endif %}</span></div>{% endfor %}</div></section>
+  {% if can_decide %}<section class="org-card" style="margin-top:16px"><header><h2>Approve entitlements</h2><p>Sources are re-checked against the calculation; approval posts the accrual.</p></header>
+    <form method="post" action="{% url 'scheme_batch_decide' b.pk 'approve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="eb-n">Note (required to reject)</label><input class="form-control" id="eb-n" name="note" maxlength="200"></div>
+      <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'scheme_batch_decide' b.pk 'reject' %}">Reject</button><button class="org-btn is-primary" type="submit">Approve &amp; accrue</button></div></form></section>
+  {% elif b.status == 'submitted' %}<section class="org-card" style="margin-top:16px"><p class="acc-muted">Waiting for a user who neither calculated nor prepared it.</p></section>{% endif %}
+</div>
+{% endblock %}

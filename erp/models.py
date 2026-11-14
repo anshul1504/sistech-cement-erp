@@ -751,7 +751,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -991,11 +991,13 @@ class Settlement(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='settlements')
     receipt = models.ForeignKey(Receipt, null=True, blank=True, on_delete=models.CASCADE, related_name='settlements')
     credit_note = models.ForeignKey(CreditNote, null=True, blank=True, on_delete=models.CASCADE, related_name='settlements')
+    scheme_credit = models.ForeignKey('SchemeSettlement', null=True, blank=True, on_delete=models.CASCADE, related_name='settlements')
     amount = models.DecimalField(max_digits=16, decimal_places=2, validators=POSITIVE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.CheckConstraint(condition=models.Q(receipt__isnull=False) | models.Q(credit_note__isnull=False), name='settlement_has_source')]
+        constraints = [models.CheckConstraint(condition=models.Q(receipt__isnull=False) | models.Q(credit_note__isnull=False) | models.Q(scheme_credit__isnull=False),
+                                              name='settlement_has_source_v2')]
 
 
 # ---------- Logistics: vehicles, drivers, dispatch & weighbridge (Step 3) ----------
@@ -2504,3 +2506,65 @@ class SupplyContract(models.Model):
     def is_current(self, on=None):
         on = on or timezone.localdate()
         return self.status == 'approved' and self.valid_from <= on and (self.valid_to is None or self.valid_to >= on)
+
+
+# ---------- Scheme entitlements and settlement (Step 8b stage 2, FR-INC-005…010) ----------
+
+class SchemeEntitlementBatch(models.Model):
+    """Turns one retained full-period calculation into dealer entitlements after independent approval; approval accrues them."""
+    evaluation = models.OneToOneField(SchemeEvaluation, on_delete=models.PROTECT, related_name='batch')
+    version = models.ForeignKey(SchemeVersion, on_delete=models.PROTECT, related_name='batches')
+    status = models.CharField(max_length=9, default='submitted', choices=[('submitted', 'Waiting approval'), ('approved', 'Approved & accrued'), ('rejected', 'Rejected')])
+    total = models.DecimalField(max_digits=16, decimal_places=2)
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_schemeentitlementbatch', 'Approve scheme entitlements (accrual)')]
+
+    def __str__(self): return f'ENT-{self.pk:05d}'
+
+
+class SchemeEntitlement(models.Model):
+    """What one dealer earned under one scheme version. Amount = this calculation − amounts already approved for the same
+    dealer and version, so a later recalculation (e.g. after returns) adds only the difference, never a second earning."""
+    batch = models.ForeignKey(SchemeEntitlementBatch, on_delete=models.CASCADE, related_name='entitlements')
+    version = models.ForeignKey(SchemeVersion, on_delete=models.PROTECT, related_name='entitlements')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='scheme_entitlements')
+    eligible = models.DecimalField('Eligible sales (₹)', max_digits=16, decimal_places=2)
+    rate = models.DecimalField(max_digits=5, decimal_places=2)
+    calculated = models.DecimalField(max_digits=16, decimal_places=2)
+    prior = models.DecimalField('Already approved', max_digits=16, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    settlement = models.ForeignKey('SchemeSettlement', null=True, blank=True, on_delete=models.SET_NULL, related_name='entitlements')
+
+    class Meta:
+        ordering = ['partner__name']
+
+
+class SchemeSettlement(models.Model):
+    """Pays a dealer's accrued scheme entitlements: as a credit to the dealer account (reduces outstanding) or by bank transfer."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='scheme_settlements')
+    mode = models.CharField(max_length=6, choices=[('ledger', 'Credit to dealer account'), ('bank', 'Bank transfer')], default='ledger')
+    bank = models.ForeignKey('Account', null=True, blank=True, on_delete=models.PROTECT, related_name='+', limit_choices_to={'is_bank': True})
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    date = models.DateField(default=timezone.localdate)
+    reference = models.CharField('UTR / reference', max_length=40, blank=True)
+    status = models.CharField(max_length=9, default='proposed', choices=[('proposed', 'Waiting approval'), ('posted', 'Posted'), ('cancelled', 'Cancelled')])
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_schemesettlement', 'Approve scheme payouts')]
+
+    def __str__(self): return self.number

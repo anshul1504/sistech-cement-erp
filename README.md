@@ -205,6 +205,14 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Sourcing advisor**: for a product, quantity and dealer (or district), ranks plants on landed cost = supply rate + contracted freight per unit, with free stock and this month's capacity use.
 - **Partner scorecard**: this month's receipts vs commitment, quality acceptance, on-time receipts, open PO quantity and receipts above contract rate (last three months).
 
+## Scheme entitlements & payouts (Step 8b stage 2)
+
+- From a retained calculation covering the **whole scheme period**, prepare dealer entitlements (Schemes & incentives → Entitlements & payouts). Sources are re-checked: if invoices, returns or receipts changed after the calculation, calculate again.
+- **Earn once**: each batch records only the difference from what is already approved for that dealer and scheme version, so a recalculation after returns produces a recovery, never a second earning.
+- A user who neither calculated nor prepared the batch approves it; approval accrues Dr *Scheme discounts & dealer incentives* (contra revenue) / Cr *Scheme incentives payable* per dealer.
+- **Payouts** take a dealer's open entitlements net of recoveries: as a credit to the dealer account (reduces outstanding and settles invoices like a credit note) or by bank transfer with UTR; a different user approves; cancelling frees the entitlements.
+- **Dealer scheme statement**: earned, recovered, paid, pending approval and balance per scheme version.
+
 ## Implemented workflows
 
 - Responsive internal web ERP with local Poppins/Bootstrap, Sistech blue/yellow branding and The Webfix credit.

@@ -32,7 +32,7 @@
       <div class="ord-tr" role="row">
         <span data-label="Date">{{ r.date|date:'d M Y' }}</span>
         <span data-label="Type"><span class="doc-badge{% if r.kind == 'Receipt' %} is-ok{% elif r.kind == 'Cheque bounced' %} is-danger{% elif r.kind == 'Credit note' %} is-warning{% endif %}">{{ r.kind }}</span></span>
-        <span data-label="Reference">{% if r.kind == 'Invoice' %}<a href="{% url 'invoice_detail' r.obj.pk %}">{{ r.ref }}</a>{% elif r.kind == 'Credit note' %}<a href="{% url 'credit_note_detail' r.obj.pk %}">{{ r.ref }}</a>{% else %}<a href="{% url 'receipt_detail' r.obj.pk %}">{{ r.ref }}</a>{% endif %}</span>
+        <span data-label="Reference">{% if r.kind == 'Invoice' %}<a href="{% url 'invoice_detail' r.obj.pk %}">{{ r.ref }}</a>{% elif r.kind == 'Credit note' %}<a href="{% url 'credit_note_detail' r.obj.pk %}">{{ r.ref }}</a>{% elif r.kind == 'Scheme credit' %}<a href="{% url 'scheme_statement' r.obj.partner_id %}">{{ r.ref }}</a>{% else %}<a href="{% url 'receipt_detail' r.obj.pk %}">{{ r.ref }}</a>{% endif %}</span>
         <span data-label="Details">{{ r.note|default:'—' }}</span>
         <span data-label="Debit">{% if r.debit %}₹{{ r.debit|indian:2 }}{% endif %}</span>
         <span data-label="Credit">{% if r.credit %}₹{{ r.credit|indian:2 }}{% endif %}</span>

@@ -91,8 +91,10 @@ with source drill-down. See [Dealer CRM](CRM.md) for upgrade grants, definitions
 current-source eligibility previews and retained invoice/return/settlement evidence with drift checks and exports.
 See [Scheme rules and calculations](SCHEMES.md). No accrual, entitlement approval or payout is posted yet.
 
-Next: reviewed accrual/entitlement and independent payout batches with unique earning allocation, posting and reversals;
-then complaints/returns with CAPA. Territory hierarchy, unified project pipeline and dealer portal remain pending.
+✅ Step 8b stage 2: full-period entitlements with earn-once difference logic, independent approval with accrual posting,
+ledger-credit or bank payouts with maker-checker, dealer scheme statement.
+
+Next: Star Dealer / Star Engineer / Star Mason annual recognition (district → state → national), quotations, complaints/returns with CAPA. Territory hierarchy, unified project pipeline and dealer portal remain pending.
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.

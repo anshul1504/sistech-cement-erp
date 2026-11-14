@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.15.0'
+ASSET_VERSION = '0.15.1'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -31,7 +31,7 @@ NAV_GROUPS = [
         _item('crm_leads', 'Dealer CRM', 'crm', 'view_crmlead', match=('crm_lead_new', 'crm_lead_edit', 'crm_lead_detail', 'crm_applications', 'crm_application_detail', 'crm_application_edit', 'crm_performance', 'crm_policy', 'crm_review_detail', 'crm_performance_detail')),
         _item('influencers', 'Masons & contractors', 'hardhat', 'view_influencer',
               match=('influencer_districts', 'influencer_dealers', 'influencers_new', 'influencer_import', 'influencer_detail', 'influencers_edit')),
-        _item('schemes', 'Schemes & incentives', 'gift', 'view_incentivescheme', match=('scheme_new', 'scheme_edit', 'scheme_detail', 'scheme_evaluation', 'scheme_check_sources')),
+        _item('schemes', 'Schemes & incentives', 'gift', 'view_incentivescheme', match=('scheme_new', 'scheme_edit', 'scheme_detail', 'scheme_evaluation', 'scheme_check_sources', 'scheme_payouts', 'scheme_batch', 'scheme_statement')),
     ]),
     ('Procurement', [
         _item('mfg_partners', 'Manufacturing partners', 'factory', 'view_supplycontract', match=('contract_new', 'contract_decide', 'sourcing_advisor')),

@@ -269,3 +269,13 @@ urlpatterns += [
     path('purchase/partners/rate/<int:pk>/<str:decision>/', scv.contract_decide, name='contract_decide'),
     path('purchase/partners/advisor/', scv.advisor, name='sourcing_advisor'),
 ]
+from erp import rewards_views as rwv
+urlpatterns += [
+    path('schemes/payouts/', rwv.payouts, name='scheme_payouts'),
+    path('schemes/calculations/<int:evaluation_pk>/entitle/', rwv.batch_new, name='scheme_batch_new'),
+    path('schemes/entitlements/<int:pk>/', rwv.batch_detail, name='scheme_batch'),
+    path('schemes/entitlements/<int:pk>/<str:decision>/', rwv.batch_decide, name='scheme_batch_decide'),
+    path('schemes/payouts/new/<int:partner_pk>/', rwv.payout_new, name='scheme_payout_new'),
+    path('schemes/payouts/<int:pk>/<str:decision>/', rwv.payout_decide, name='scheme_payout_decide'),
+    path('schemes/statement/<int:partner_pk>/', rwv.statement, name='scheme_statement'),
+]
