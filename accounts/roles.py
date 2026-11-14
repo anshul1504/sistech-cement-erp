@@ -69,6 +69,7 @@ MODULES = [
     ('reports', 'Stock reports', {'view': 'view_stockmovement', 'export': 'export_stockmovement'}),
     ('audit', 'Audit trail', {'view': 'view_auditevent'}),
     ('dashboards', 'Management dashboard', {'view': 'view_executive_dashboard'}),
+    ('support', 'Help & support desk', {'approve': 'handle_supportticket'}),
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
@@ -111,6 +112,7 @@ PRESETS = {
 PRESETS['Sales manager'] |= {'approve_sales_order', 'approve_price_exception', 'hold_sales_order'}
 PRESETS['Operations approver'] |= {'approve_price_exception', 'hold_sales_order'}
 PRESETS['Finance controller'] |= {'view_sales_order', 'override_credit_sales_order', 'hold_sales_order'}
+PRESETS['Support desk'] = {'handle_supportticket'}
 
 
 def initialize_roles(update=False):

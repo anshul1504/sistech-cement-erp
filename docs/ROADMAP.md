@@ -114,7 +114,9 @@ comparison with the earlier period, drill-down lists to source documents, notifi
 
 ✅ Step 9b: dealer network, schemes, procurement and audit & risk dashboards; CSV export of drill-downs with audit; KPI definitions (data dictionary) and generation time.
 
-Remaining in Step 9: scheduled PDF/Excel report packs, saved report filters, help & support tickets and in-app assistant.
+✅ Help & support tickets with priority SLA, assignment, internal notes, resolution, rating and reopen.
+
+Remaining in Step 9: scheduled PDF/Excel report packs, saved report filters, in-app assistant (needs an approved AI provider).
 
 ### Step 10 — APIs & Android apps (SRS Phase 4, §6)
 Versioned REST API with token auth and idempotency keys, then employee, dealer and transporter/driver apps.

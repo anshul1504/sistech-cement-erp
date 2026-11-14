@@ -1,0 +1,29 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'tickets' %}">← Help &amp; support</a></div></div>
+  <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-phone"/></svg></span>
+    <div class="org-hero-text"><h1>{{ t.subject }}</h1><p>{{ t.number }} · raised by {{ t.raised_by|who }} on {{ t.created_at|date:'d M Y, H:i' }}{% if t.module %} · {{ t.module }}{% endif %}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ t.badge }}">● {{ t.get_status_display }}</span><span class="org-chip">{{ t.get_priority_display }}</span><span class="org-chip">{{ t.get_category_display }}</span>{% if t.overdue %}<span class="org-chip ins-pill is-danger">Past target time</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Target</small><span class="mst-total" style="font-size:18px">{{ t.due_at|date:'d M, H:i' }}</span><small>Assigned: {{ t.assigned_to|who|default:'not yet' }}</small></div></section>
+  {% if t.resolution %}<ul class="ord-checks"><li class="is-info">Resolution: {{ t.resolution }}</li></ul>{% endif %}
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide"><header class="acc-card-head"><h2>Conversation</h2>{% if t.page_url %}<a href="{{ t.page_url }}">Open the screen</a>{% endif %}</header>
+      <ul class="sup-thread">{% for m in msgs %}<li class="{% if m.internal %}is-internal{% elif m.author_id == t.raised_by_id %}is-user{% else %}is-agent{% endif %}"><div><strong>{{ m.author|who }}</strong>{% if m.internal %} <span class="ins-pill is-warn">Internal note</span>{% endif %}<small>{{ m.created_at|date:'d M Y, H:i' }}</small></div><p>{{ m.body|linebreaksbr }}</p></li>{% endfor %}</ul>
+      {% if t.status != 'closed' %}<form method="post" action="{% url 'ticket_action' t.pk 'reply' %}" class="sup-reply">{% csrf_token %}<textarea class="form-control" name="body" rows="3" required placeholder="{% if agent and not own %}Reply to {{ t.raised_by|who }}…{% else %}Add more detail or reply…{% endif %}" aria-label="Message"></textarea>
+        <div class="ord-inline">{% if agent and not own %}<label class="ord-checkline"><input type="checkbox" name="internal" value="1"> Internal note (not shown to the user)</label>{% endif %}<button class="org-btn is-primary">Send</button></div></form>{% endif %}
+    </section>
+    <section class="org-card org-view"><header class="acc-card-head"><h2>Actions</h2></header>
+      <div class="sup-actions">
+      {% if agent and t.status in 'open progress waiting' %}<form method="post" action="{% url 'ticket_action' t.pk 'assign' %}" class="ord-inline">{% csrf_token %}<select class="form-select" name="agent" aria-label="Assign to">{% for a in agents %}<option value="{{ a.pk }}"{% if t.assigned_to_id == a.pk or not t.assigned_to and a.pk == user.pk %} selected{% endif %}>{{ a|who }}</option>{% endfor %}</select><button class="org-btn is-light">Assign</button></form>
+        <form method="post" action="{% url 'ticket_action' t.pk 'resolve' %}" class="ord-inline">{% csrf_token %}<input class="form-control" name="resolution" required maxlength="300" placeholder="What was done to fix it" aria-label="Resolution"><button class="org-btn is-primary">Resolve</button></form>{% endif %}
+      {% if t.status == 'resolved' and own %}<form method="post" action="{% url 'ticket_action' t.pk 'close' %}" class="ord-inline">{% csrf_token %}<select class="form-select" name="rating" aria-label="Rating"><option value="5">★★★★★ Excellent</option><option value="4">★★★★ Good</option><option value="3">★★★ OK</option><option value="2">★★ Poor</option><option value="1">★ Bad</option></select><button class="org-btn is-primary">Accept &amp; close</button></form>{% endif %}
+      {% if t.status in 'resolved closed' %}<form method="post" action="{% url 'ticket_action' t.pk 'reopen' %}" class="ord-inline">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="What is still wrong?" aria-label="Reopen reason"><button class="org-btn is-light">Reopen</button></form>{% endif %}
+      {% if t.rating %}<p class="acc-muted">Rated {{ t.rating }}/5 by the user.</p>{% endif %}
+      </div>
+      {% if history %}<ul class="mst-order-list" style="margin-top:12px">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor|who }}</small><small>{{ e.created_at|date:'d M, H:i' }}</small></li>{% endfor %}</ul>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

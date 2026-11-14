@@ -1,0 +1,23 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">HELP</div><h1>Help &amp; support</h1><p>{% if agent %}Every user's help requests. Reply, assign and resolve within the target time for each priority (urgent 4 h, high 1 day, normal 3 days, low 5 days).{% else %}Your help requests to the support team. Raise a ticket when something does not work, data needs correcting or you need a new report.{% endif %}</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'ticket_new' %}"><svg><use href="#ic-plus"/></svg>Raise a ticket</a></div></div>
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi" href="?status=active"><span>Open</span><strong>{{ stats.open }}</strong><small>not resolved</small></a>
+    <a role="listitem" class="inf-kpi{% if stats.overdue %} is-danger{% endif %}" href="?status=overdue"><span>Past target time</span><strong>{{ stats.overdue }}</strong><small>open or in progress</small></a>
+    {% if agent %}<a role="listitem" class="inf-kpi{% if stats.unassigned %} is-warn{% endif %}" href="?status=unassigned"><span>Not assigned</span><strong>{{ stats.unassigned }}</strong><small>{{ stats.mine }} assigned to you</small></a>{% else %}<a role="listitem" class="inf-kpi" href="?status=waiting"><span>Waiting for you</span><strong>{{ stats.mine }}</strong><small>replies to read</small></a>{% endif %}
+    <div role="listitem" class="inf-kpi"><span>Resolved on time</span><strong>{% if stats.sla_pct is not None %}{{ stats.sla_pct }}%{% else %}—{% endif %}</strong><small>last 30 days{% if stats.rating %} · rating {{ stats.rating }}/5{% endif %}</small></div>
+  </div>
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Tickets</h2><p>{{ rows|length }} shown</p></div>
+    <form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Number, subject, user or screen" aria-label="Search"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="active"{% if status == 'active' %} selected{% endif %}>Open</option>{% if agent %}<option value="unassigned"{% if status == 'unassigned' %} selected{% endif %}>Not assigned</option><option value="mine"{% if status == 'mine' %} selected{% endif %}>Assigned to me</option>{% endif %}<option value="overdue"{% if status == 'overdue' %} selected{% endif %}>Past target time</option>{% for k, l in statuses %}<option value="{{ k }}"{% if status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}<option value="all"{% if status == 'all' %} selected{% endif %}>All</option></select></form></header>
+    {% if rows %}<ul class="ord-list">{% for t in rows %}<li class="{% if t.overdue %}is-late{% endif %}">
+      <a class="ord-list-main" href="{% url 'ticket_detail' t.pk %}"><strong>{{ t.subject }}</strong><small>{{ t.number }} · {{ t.get_category_display }}{% if t.module %} · {{ t.module }}{% endif %}{% if agent %} · {{ t.raised_by|who }}{% endif %}</small></a>
+      <div class="ord-list-cell"><small>Target</small><span class="{% if t.overdue %}led-late{% endif %}">{{ t.due_at|date:'d M, H:i' }}</span></div>
+      <div class="ord-list-cell"><small>Priority</small>{{ t.get_priority_display|truncatewords:1 }}</div>
+      <div class="ord-list-cell"><small>Assigned</small>{{ t.assigned_to|who|default:'—' }}</div>
+      <div class="ord-list-cell"><span class="org-chip ord-status is-{{ t.badge }}">● {{ t.get_status_display }}</span></div></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-phone"/></svg><strong>No tickets here</strong><span>Raise a ticket whenever you need help.</span></div>{% endif %}</section>
+</div>
+{% endblock %}

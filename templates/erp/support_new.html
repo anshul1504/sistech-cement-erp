@@ -1,0 +1,18 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'tickets' %}">← Help &amp; support</a></div><h1>Raise a support ticket</h1><p>Tell us what happened, what you expected and the document number (order, invoice, truck…). The support team replies within the target time for the priority.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="org-card" style="padding:24px">{% csrf_token %}<input type="hidden" name="page_url" value="{{ page_url }}">
+    <div class="org-grid">
+      <div class="org-field is-wide"><label class="form-label" for="t-subject">Subject</label><input id="t-subject" class="form-control" name="subject" maxlength="150" required value="{{ post.subject }}" placeholder="e.g. Cannot approve sales order SO-0045"></div>
+      <div class="org-field"><label class="form-label" for="t-cat">What do you need?</label><select id="t-cat" class="form-select" name="category">{% for k, l in categories %}<option value="{{ k }}"{% if post.category == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="t-pri">Priority</label><select id="t-pri" class="form-select" name="priority">{% for k, l in priorities %}<option value="{{ k }}"{% if post.priority == k or not post.priority and k == 'normal' %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="t-mod">Screen / module</label><input id="t-mod" class="form-control" name="module" maxlength="80" value="{{ module }}" placeholder="e.g. Sales orders"></div>
+      <div class="org-field is-wide"><label class="form-label" for="t-desc">Description</label><textarea id="t-desc" class="form-control" name="description" rows="6" required placeholder="Steps you followed, the message you saw, and what you expected.">{{ post.description }}</textarea></div>
+    </div>
+    <div class="org-actions" style="position:static;box-shadow:none;margin-top:18px"><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'tickets' %}">Cancel</a><button class="org-btn is-primary" type="submit">Raise ticket</button></div></div>
+  </form>
+</div>
+{% endblock %}

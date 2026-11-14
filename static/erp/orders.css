@@ -469,3 +469,15 @@ a.ord-tr:hover { background: #fafbfd; }
 .ord-more:empty { display: none; }
 .ord-decide p { margin: 0; font-size: 13px; }
 .ord-decide-form { display: grid; gap: 10px; }
+
+/* Help & support */
+.sup-thread { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+.sup-thread li { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--o-line); background: #fff; min-width: 0; }
+.sup-thread li.is-agent { background: #f4f7fc; border-color: #d6e0ef; }
+.sup-thread li.is-internal { background: #fffbeb; border-color: #f0dc9b; }
+.sup-thread li > div { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 13px; }
+.sup-thread li small { color: var(--o-ink-3); font-size: 12px; }
+.sup-thread p { margin: 6px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.sup-reply { display: grid; gap: 8px; }
+.sup-actions { display: grid; gap: 10px; }
+.sup-actions .ord-inline .form-control, .sup-actions .ord-inline .form-select { flex: 1 1 160px; min-width: 0; }

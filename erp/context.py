@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.17.2'
+ASSET_VERSION = '0.17.3'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -85,6 +85,7 @@ NAV_GROUPS = [
               match=('member_new', 'member_detail', 'member_edit', 'member_set_password')),
         _item('roles', 'Roles & permissions', 'shield', superuser=True,
               match=('role_new', 'role_detail', 'role_edit', 'role_duplicate')),
+        _item('tickets', 'Help & support', 'phone', match=('ticket_new', 'ticket_detail')),
         _item('organization', 'Organisation setup', 'settings', 'view_organization', match=('organization_edit', 'organization_documents', 'organization_document', 'organization_document_new', 'organization_document_edit')),
         _item('system_settings', 'System settings', 'sliders', superuser=True),
         _item('profile', 'My account', 'user', match=('password_change', 'password_change_done', 'profile_edit', 'account_security', 'account_activity', 'account_contacts', 'contact_new', 'contact_edit')),

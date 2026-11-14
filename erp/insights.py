@@ -618,6 +618,11 @@ def my_queue(user, sites=None):
             add(label, DealerApplication.objects.filter(status=state, site__in=sites).exclude(created_by=user), reverse('crm_applications'), 'Onboarding')
     if has('view_crmlead'):
         add('CRM follow-ups due', CRMLead.objects.filter(owner=user, next_follow_up__lte=today).exclude(stage__in=['won', 'lost']), reverse('crm_leads'), 'Today or overdue')
+    from .models import SupportTicket
+    if has('handle_supportticket'):
+        add('Support tickets not assigned', SupportTicket.objects.filter(assigned_to__isnull=True, status__in=['open', 'progress']), reverse('tickets') + '?status=unassigned', 'Help requests from users', 'danger')
+        add('Support tickets assigned to you', SupportTicket.objects.filter(assigned_to=user, status__in=['open', 'progress']), reverse('tickets') + '?status=mine', 'Reply or resolve')
+    add('Support answers waiting for you', SupportTicket.objects.filter(raised_by=user, status__in=['waiting', 'resolved']), reverse('tickets'), 'Reply, accept or reopen')
     if fin and has('approve_supplierinvoice'):
         add('Supplier invoice exceptions', SupplierInvoice.objects.filter(status='exception'), reverse('supplier_invoices'), 'Three-way match differences', 'danger')
     if fin and has('approve_supplierpayment'):

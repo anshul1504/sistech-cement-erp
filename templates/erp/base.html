@@ -142,6 +142,7 @@
             <div class="hd-user-card"><span class="hd-avatar is-lg">{% if user_photo_url %}<img src="{{ user_photo_url }}" alt="">{% else %}{{ user.get_full_name|default:user.username|first|upper }}{% endif %}</span><div><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user.email|default:'No email set' }}</small><span class="hd-role">{{ user_role_label }}</span></div></div>
             <a class="hd-menu-item" href="{% url 'profile' %}"><svg><use href="#ic-user"/></svg>My account</a>
             <a class="hd-menu-item" href="{% url 'password_change' %}"><svg><use href="#ic-key"/></svg>Change password</a>
+            <a class="hd-menu-item" href="{% url 'ticket_new' %}?from={{ request.path|urlencode }}"><svg><use href="#ic-phone"/></svg>Get help / report a problem</a>
             {% if user.is_superuser %}<a class="hd-menu-item" href="{% url 'access_control' %}"><svg><use href="#ic-crm"/></svg>Users</a><a class="hd-menu-item" href="{% url 'system_settings' %}"><svg><use href="#ic-sliders"/></svg>System settings</a>{% endif %}
             <div class="hd-menu-sep"></div>
             <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="hd-menu-item is-danger" type="submit"><svg><use href="#ic-logout"/></svg>Sign out</button></form>

@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -2828,3 +2828,57 @@ class CapaAction(models.Model):
     @property
     def overdue(self):
         return self.status in ('open', 'reopened') and self.due_on < timezone.localdate()
+
+
+# ---------- Help & support tickets ----------
+
+TICKET_CATEGORIES = [('problem', 'Something is not working'), ('howto', 'How do I…?'), ('access', 'Access / password / role'),
+                     ('data', 'Wrong data — needs correction'), ('feature', 'New feature or report'), ('other', 'Other')]
+TICKET_PRIORITIES = [('low', 'Low'), ('normal', 'Normal'), ('high', 'High — work is slowed'), ('urgent', 'Urgent — work is stopped')]
+TICKET_SLA_HOURS = {'urgent': 4, 'high': 24, 'normal': 72, 'low': 120}
+TICKET_STATUSES = [('open', 'Open'), ('progress', 'In progress'), ('waiting', 'Waiting for your reply'), ('resolved', 'Resolved'), ('closed', 'Closed')]
+
+
+class SupportTicket(models.Model):
+    """Help request from any ERP user to the support team: priority-based SLA, assignment, conversation, resolution and rating."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    subject = models.CharField(max_length=150)
+    category = models.CharField(max_length=8, choices=TICKET_CATEGORIES, default='problem')
+    priority = models.CharField(max_length=6, choices=TICKET_PRIORITIES, default='normal')
+    module = models.CharField('Screen / module', max_length=80, blank=True)
+    page_url = models.CharField(max_length=300, blank=True, editable=False)
+    status = models.CharField(max_length=8, choices=TICKET_STATUSES, default='open')
+    raised_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    due_at = models.DateTimeField(editable=False)
+    first_response_at = models.DateTimeField(null=True, blank=True, editable=False)
+    resolved_at = models.DateTimeField(null=True, blank=True, editable=False)
+    resolution = models.CharField(max_length=300, blank=True, editable=False)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        permissions = [('handle_supportticket', 'Answer, assign and resolve support tickets of all users')]
+
+    def __str__(self): return self.number
+
+    @property
+    def overdue(self):
+        return self.status in ('open', 'progress') and self.due_at < timezone.now()
+
+    @property
+    def badge(self):
+        return {'open': 'submitted', 'progress': 'approved', 'waiting': 'draft', 'resolved': 'completed', 'closed': 'completed'}[self.status]
+
+
+class TicketMessage(models.Model):
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name='messages')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    body = models.TextField()
+    internal = models.BooleanField('Internal note (support team only)', default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']

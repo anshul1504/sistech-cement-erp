@@ -249,6 +249,13 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Fulfilment** per line: ordered, truck planned, dispatched, invoiced, delivered, balance; stage Draft → Approval pending →
   Approved → Dispatch planned / Part dispatched → Dispatched → Invoiced → Delivered (or Closed).
 
+## Help & support tickets
+- Any user raises a ticket from **Help & support** in the sidebar or *Get help / report a problem* in the account menu (the
+  screen they were on is attached). Priority sets the target time: urgent 4 h, high 1 day, normal 3 days, low 5 days.
+- The support desk (role **Support desk** / permission *Help & support desk → Approve*) sees all tickets, assigns them,
+  replies or adds internal notes, and resolves with a resolution note. The user accepts and rates (1–5) or reopens within
+  7 days. Unassigned / assigned tickets and answers waiting for the user appear in the My work bell and daily email.
+
 ## Dashboards, My work & reminders (Step 9a)
 - **Home** (`/`) is role-based: the work waiting for you (only approvals you may give, never your own documents), headline
   numbers from each dashboard you may open, and *My sales* (orders you created, against your monthly target) for sales staff.

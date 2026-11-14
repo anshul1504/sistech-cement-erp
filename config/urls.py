@@ -4,6 +4,7 @@ from django.urls import path, include
 from erp import views as v
 from erp import order_views as ov
 from erp import insight_views as iv
+from erp import support_views as spv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -18,6 +19,10 @@ urlpatterns = [
     path('dashboards/definitions/', iv.definitions, name='insight_definitions'),
     path('dashboards/<slug:area>/', iv.dashboard_area, name='insight_area'),
     path('my-work/', iv.my_work, name='my_work'),
+    path('support/', spv.tickets, name='tickets'),
+    path('support/new/', spv.ticket_new, name='ticket_new'),
+    path('support/<int:pk>/', spv.ticket_detail, name='ticket_detail'),
+    path('support/<int:pk>/<slug:action>/', spv.ticket_action, name='ticket_action'),
     path('sales/', ov.order_list, {'kind': 'Sale'}, name='sales'),
     path('purchases/', ov.order_list, {'kind': 'Purchase'}, name='purchases'),
     path('orders/new/<str:kind>/', ov.order_new, name='order_new'),
