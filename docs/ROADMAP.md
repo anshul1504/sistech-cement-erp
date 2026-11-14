@@ -19,6 +19,14 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 
 ## Build sequence
 
+### Step 1d — Masons & contractors (influencer network) — requested by Sistech
+1. Influencer master: type (mason/mistri, contractor, engineer, architect, builder), name, mobile, district/tehsil/village,
+   linked **dealer(s)**, specialisation, experience, typical monthly cement/TMT volume, KYC, active status.
+2. **District-wise** view: count of masons/contractors per district, linked dealers, coverage gaps.
+3. **Dealer-wise** view: which masons/contractors buy through each dealer; dealer detail page shows them.
+4. Activity: meets/visits, site referrals and projects (feeds Step 8 loyalty/schemes and lead pipeline).
+5. Duplicate check by mobile number; import from Excel/CSV.
+
 ### Step 2 — Order-to-cash core (SRS Phase 1, §4.1, §5.2, §5.9, §5.11)
 1. Number series per document type and financial year; financial periods (open/closed).
 2. Price lists: product × plant × territory × dealer class, quantity slab, effective dates; price snapshot on orders.
