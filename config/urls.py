@@ -233,3 +233,21 @@ urlpatterns += [
     path('accounts-ledger/year-end/<int:pk>/', clv.year_detail, name='year_detail'),
     path('accounts-ledger/year-end/<int:pk>/<str:action>/', clv.year_action, name='year_action'),
 ]
+
+from erp import crm_views as cv
+urlpatterns += [
+    path('crm/', cv.leads, name='crm_leads'),
+    path('crm/new/', cv.lead_form, name='crm_lead_new'),
+    path('crm/leads/<int:pk>/', cv.lead_detail, name='crm_lead_detail'),
+    path('crm/leads/<int:pk>/edit/', cv.lead_form, name='crm_lead_edit'),
+    path('crm/leads/<int:pk>/<str:action>/', cv.lead_action, name='crm_lead_action'),
+    path('crm/onboarding/', cv.applications, name='crm_applications'),
+    path('crm/onboarding/<int:pk>/', cv.application_detail, name='crm_application_detail'),
+    path('crm/onboarding/<int:pk>/edit/', cv.application_edit, name='crm_application_edit'),
+    path('crm/onboarding/<int:pk>/<str:action>/', cv.application_action, name='crm_application_action'),
+    path('crm/documents/<int:pk>/', cv.document_file, name='crm_document_file'),
+    path('crm/performance/', cv.performance, name='crm_performance'),
+    path('crm/policy/', cv.policy, name='crm_policy'),
+    path('crm/reviews/<int:pk>/', cv.review_detail, name='crm_review_detail'),
+    path('crm/performance/<int:site_pk>/<int:owner_pk>/', cv.performance_detail, name='crm_performance_detail'),
+]

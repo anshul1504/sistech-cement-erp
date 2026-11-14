@@ -3,6 +3,14 @@ from django.contrib.auth.models import Group, Permission
 
 ACTIONS = [('view', 'View'), ('create', 'Create'), ('edit', 'Edit'), ('submit', 'Submit'), ('approve', 'Approve'), ('post', 'Post'), ('cancel', 'Cancel'), ('export', 'Export')]
 MODULES = [
+    ('crm', 'Dealer CRM', {'view': 'view_crmlead', 'create': 'add_crmlead', 'edit': 'change_crmlead', 'export': 'export_crmlead'}),
+    ('crm_team', 'CRM team & ownership', {'view': 'view_team_crm', 'edit': 'assign_crmlead'}),
+    ('crm_activity', 'CRM follow-ups', {'create': 'add_crmactivity'}),
+    ('dealer_onboarding', 'Dealer onboarding', {'view': 'view_dealerapplication', 'create': 'add_dealerapplication', 'edit': 'change_dealerapplication', 'submit': 'submit_dealerapplication', 'approve': 'approve_dealerapplication'}),
+    ('dealer_kyc', 'Dealer KYC evidence', {'view': 'view_dealerdocument', 'approve': 'review_dealerkyc'}),
+    ('dealer_credit', 'Dealer credit review', {'approve': 'review_dealercredit'}),
+    ('crm_targets', 'Sales targets & performance', {'view': 'view_crmperformance', 'edit': 'manage_salestarget'}),
+    ('crm_policy', 'Dealer onboarding policy', {'edit': 'manage_crmpolicy'}),
     ('sales', 'Sales orders', {a: f'{a}_sales_order' for a in ['view', 'create', 'submit', 'approve', 'post', 'cancel']}),
     ('purchase_requests', 'Purchase requests', {'view': 'view_purchaserequest', 'create': 'add_purchaserequest', 'edit': 'change_purchaserequest', 'approve': 'approve_purchaserequest'}),
     ('rfq', 'RFQs & quotes', {'view': 'view_rfq', 'create': 'add_rfq', 'approve': 'award_rfq'}),
@@ -50,11 +58,12 @@ MODULES = [
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
-ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance'}
+ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm'}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'approve_stockcount', 'approve_stocktransfer', 'decide_damagereport', 'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
-    'Sales executive': {'view_pricerule', 'view_sales_order', 'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'view_influencer', 'add_influencer', 'change_influencer', 'view_partner', 'view_product', 'view_site'},
+    'Sales executive': {'view_crmlead', 'add_crmlead', 'change_crmlead', 'add_crmactivity', 'view_dealerapplication', 'add_dealerapplication', 'change_dealerapplication', 'submit_dealerapplication', 'view_dealerdocument', 'view_crmperformance', 'view_pricerule', 'view_sales_order', 'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'view_influencer', 'add_influencer', 'change_influencer', 'view_partner', 'view_product', 'view_site'},
+    'Sales manager': {'view_crmlead', 'view_team_crm', 'assign_crmlead', 'add_crmlead', 'change_crmlead', 'add_crmactivity', 'export_crmlead', 'view_dealerapplication', 'view_dealerdocument', 'review_dealerkyc', 'approve_dealerapplication', 'view_crmperformance', 'manage_salestarget', 'view_partner', 'view_site', 'view_product', 'view_invoice', 'view_sales_order'},
     'Purchase officer': {'view_purchase_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'view_purchaserequest', 'add_purchaserequest',
                          'change_purchaserequest', 'view_rfq', 'add_rfq', 'award_rfq', 'view_stockbalance', 'view_partner', 'view_product', 'view_site'},
     'Purchase head': {'view_debitnote', 'add_debitnote', 'view_supplierinvoice', 'view_purchase_order', 'approve_purchase_order', 'approve_high_value_purchase', 'cancel_purchase_order', 'view_purchaserequest', 'approve_purchaserequest',
@@ -63,7 +72,7 @@ PRESETS = {
                    'add_fixedasset', 'view_journalentry', 'add_journalentry', 'view_financials', 'view_account', 'view_invoice', 'view_receipt', 'add_receipt', 'view_creditnote',
                    'view_supplierinvoice', 'add_supplierinvoice', 'view_debitnote', 'view_partner', 'view_site', 'view_product', 'view_stockbalance'},
     'Accounts payable': {'view_supplierinvoice', 'add_supplierinvoice', 'view_debitnote', 'add_debitnote', 'view_goodsreceipt', 'view_purchase_order', 'view_partner', 'view_site', 'view_product'},
-    'Finance controller': {'view_financialyearclose', 'approve_yearclose', 'access_company_finance', 'view_supplierpayment', 'approve_supplierpayment', 'release_supplierpayment', 'view_bankstatementline', 'view_fixedasset',
+    'Finance controller': {'view_crmlead', 'view_team_crm', 'view_dealerapplication', 'view_dealerdocument', 'review_dealercredit', 'view_crmperformance', 'view_financialyearclose', 'approve_yearclose', 'access_company_finance', 'view_supplierpayment', 'approve_supplierpayment', 'release_supplierpayment', 'view_bankstatementline', 'view_fixedasset',
                            'depreciate_fixedasset', 'view_journalentry', 'approve_journalentry', 'view_financials', 'close_period', 'view_account', 'add_account',
                            'view_supplierinvoice', 'approve_supplierinvoice', 'view_debitnote', 'view_goodsreceipt', 'view_purchase_order', 'view_receipt', 'view_invoice',
                            'view_partner', 'view_site', 'view_product'},
@@ -80,7 +89,7 @@ PRESETS = {
     'Loading supervisor': {'view_dispatch', 'load_dispatch', 'view_vehicle'},
     'Logistics manager': {'view_freightrate', 'add_freightrate', 'change_freightrate', 'view_freightbill', 'approve_freightbill', 'view_dispatch', 'add_dispatch', 'approve_weight_exception', 'pod_dispatch', 'view_vehicle', 'add_vehicle', 'change_vehicle',
                           'view_sales_order', 'view_partner', 'view_product', 'view_site'},
-    'Internal auditor': ALL_VIEWS | {'access_company_finance', 'export_invoice', 'export_influencer', 'export_stockmovement'},
+    'Internal auditor': ALL_VIEWS | {'view_team_crm', 'export_crmlead', 'access_company_finance', 'export_invoice', 'export_influencer', 'export_stockmovement'},
 }
 
 

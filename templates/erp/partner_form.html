@@ -6,6 +6,7 @@
     <div><div class="eyebrow"><a href="{% if partner %}{% url 'partner_detail' partner.pk %}{% else %}{% url 'partners' %}{% endif %}">← {% if partner %}{{ partner.name }}{% else %}Dealers &amp; suppliers{% endif %}</a></div>
       <h1>{{ title }}</h1><p>GSTIN is checked against the PAN and state. Leave PAN empty to take it from the GSTIN.</p></div>
   </div>
+  <div class="org-alert"><span>{% if partner.is_customer %}Customer identity, credit and bank changes require a reviewed CRM amendment. Link the existing customer from a CRM lead, then prepare an amendment.{% else %}New customers are activated through Dealer CRM after KYC and finance review. This form creates suppliers and transporters.{% endif %} {% if perms.erp.view_crmlead %}<a href="{% url 'crm_leads' %}">Open Dealer CRM</a>{% endif %}</span></div>
   <form method="post" class="doc-form" novalidate data-partner-form>
     {% csrf_token %}
     {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}

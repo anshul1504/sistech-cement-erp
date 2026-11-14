@@ -62,4 +62,4 @@ Migrations `0027` and `0028` add nullable replay/valuation fields. Existing data
 - Signed bank-statement completeness, physical counts and tax reviews are human evidence; external bank/GST/weighbridge/GPS calls, hardware tests, backup restore drills, monitoring and deployment/security acceptance remain rollout work.
 - Browser retry keys currently protect receipt and credit-note forms. Reference/state/unique-source checks guard the other tested transactions; universal API/mobile idempotency is still part of the planned API phase.
 
-Next development module: Dealer CRM/onboarding, after reviewing this stabilized developer baseline. Production use remains subject to the rollout gates above.
+Dealer CRM/onboarding has subsequently been implemented and verified; see [CRM milestone](CRM.md). The next module is versioned schemes/incentives. Production use remains subject to the rollout gates above.

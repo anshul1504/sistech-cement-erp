@@ -1,0 +1,11 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_crm_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page crm-page"><div class="org-head"><div><div class="eyebrow"><a href="{% url back %}">← Dealer CRM</a></div><h1>{{ title }}</h1><p>{{ description }}</p></div></div>
+  <form method="post" class="org-card crm-card crm-form" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="org-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="org-grid">{% for field in form %}<div class="org-field{% if field.name == 'notes' or field.name == 'required_documents' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label><div{% if field.name == 'required_documents' %} class="crm-checklist"{% endif %}>{{ field }}</div>{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for error in field.errors %}<div class="org-error">{{ error }}</div>{% endfor %}</div>{% endfor %}</div>
+    <div class="crm-form-actions"><a class="org-btn is-light" href="{% url back %}">Cancel</a><button class="org-btn is-primary" type="submit">{{ submit }}</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -31,18 +31,16 @@ class PartnerTests(TestCase):
     def post(self, url, **data):
         return self.client.post(url, {**BASE, **data})
 
-    def test_create_dealer_pan_from_gstin_and_detail(self):
-        r = self.post(reverse('partners_new'), kind='Distributor', code='dst-bpl', name='Bhopal Distributors', state='23', gstin='23abcde1234f1z5',
-                      credit_limit='500000', payment_terms_days='30', phone='+91 98765 43210')
-        p = Partner.objects.get(code='DST-BPL')
+    def test_create_vendor_pan_from_gstin_and_detail(self):
+        r = self.post(reverse('partners_new'), kind='Supplier', code='sup-bpl', name='Bhopal Supplier', state='23', gstin='23abcde1234f1z5',
+                      payment_terms_days='30', phone='+91 98765 43210')
+        p = Partner.objects.get(code='SUP-BPL')
         self.assertRedirects(r, reverse('partner_detail', args=[p.pk]))
         self.assertEqual((p.pan, p.gstin), ('ABCDE1234F', '23ABCDE1234F1Z5'))
-        page = self.client.get(reverse('partner_detail', args=[p.pk]))
-        self.assertEqual(page.context['credit']['limit'], Decimal('500000'))
-        self.assertContains(page, '5,00,000')
+        self.assertContains(self.client.get(reverse('partner_detail', args=[p.pk])), 'Bhopal Supplier')
 
     def test_validation(self):
-        r = self.post(reverse('partners_new'), kind='Dealer', code='D1', name='D', state='27', gstin='23ABCDE1234F1Z5', pan='ZZZZZ9999Z',
+        r = self.post(reverse('partners_new'), kind='Supplier', code='D1', name='D', state='27', gstin='23ABCDE1234F1Z5', pan='ZZZZZ9999Z',
                       pincode='99', bank_ifsc='bad', phone='12')
         for msg in ['must match the PAN', 'state code is 27', '6-digit PIN', 'valid 11-character IFSC', 'valid phone number']:
             self.assertContains(r, msg)

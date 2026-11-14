@@ -8,11 +8,13 @@ from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils.http import content_disposition_header
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from accounts.roles import order_permission
 from .forms import PartnerForm, PartnerDocumentForm
+from .crm_forms import PROTECTED_CUSTOMER_FIELDS
 from .models import Partner, PartnerDocument, Order, AuditEvent, Influencer, PARTNER_KINDS, CUSTOMER_KINDS
 from .services import audit, permitted
 
@@ -32,8 +34,16 @@ def credit_position(partner):
             'state': 'danger' if late or (limit and total >= limit) or (not limit and total > 0) else 'warn' if used >= 80 else 'ok'}
 
 
+def _can_read_documents(user, partner):
+    if not partner.approved_application_id:
+        return user.has_perm('erp.view_partner')
+    from .crm import lead_scope
+    from .models import DealerApplication
+    return user.has_perm('erp.view_dealerdocument') and lead_scope(DealerApplication.objects.all(), user, 'lead').filter(pk=partner.approved_application_id).exists()
+
+
 def is_used(partner):
-    return Order.objects.filter(partner=partner).exists()
+    return Order.objects.filter(partner=partner).exists() or partner.crm_leads.exists() or partner.dealer_applications.exists()
 
 
 @login_required
@@ -68,7 +78,7 @@ def partner_detail(request, pk):
     summary = {s: 0 for s in ['Draft', 'Submitted', 'Approved', 'Completed', 'Cancelled']}
     value = Decimal('0')
     for o in orders:
-        summary[o.status] += 1
+        summary[o.status] = summary.get(o.status, 0) + 1
         if o.status != 'Cancelled':
             value += o.total
     network = None
@@ -82,7 +92,7 @@ def partner_detail(request, pk):
         'title': partner.name, 'network': network, 'partner': partner, 'icon': KIND_ICONS.get(partner.kind, 'handshake'),
         'credit': credit_position(partner) if partner.is_customer else None,
         'orders': orders[:8] if can_orders else [], 'can_orders': can_orders, 'summary': summary, 'order_value': value,
-        'documents': partner.documents.defer('file'), 'used': is_used(partner),
+        'documents': partner.documents.defer('file') if _can_read_documents(request.user, partner) else [], 'can_documents': request.user.has_perm('erp.change_partner') and not partner.approved_application_id, 'used': is_used(partner),
         'can_change': request.user.has_perm('erp.change_partner'),
         'can_create_order': order_permission(request.user, kind, 'create'), 'order_kind': kind,
         'history': AuditEvent.objects.filter(reference__in=[str(partner), f'partner:{partner.pk}']).select_related('actor').order_by('-created_at')[:6]})
@@ -94,6 +104,14 @@ def partner_form(request, pk=None):
     partner = get_object_or_404(Partner, pk=pk) if pk else None
     initial = {'kind': request.GET.get('kind')} if not pk and request.GET.get('kind') in dict(PARTNER_KINDS) else None
     form = PartnerForm(request.POST or None, instance=partner, initial=initial)
+    if not partner:
+        form.fields['kind'].choices = [('', 'Select vendor type'), ('Supplier', 'Supplier'), ('Transporter', 'Transporter')]
+    elif partner.is_customer:
+        for name in PROTECTED_CUSTOMER_FIELDS + ['active']:
+            form.fields[name].disabled = True
+            form.fields[name].help_text = 'Use a reviewed CRM amendment to change approved customer details.' if name != 'active' else 'Use the audited status action on the customer page.'
+    else:
+        form.fields['kind'].choices = [('Supplier', 'Supplier'), ('Transporter', 'Transporter')]
     if partner and is_used(partner):
         form.fields['kind'].disabled = True  # type decides which orders use it; lock once used
     if request.method == 'POST' and form.is_valid():
@@ -140,6 +158,9 @@ def partner_delete(request, pk):
 def partner_document_new(request, pk):
     permitted(request.user, 'change_partner')
     partner = get_object_or_404(Partner, pk=pk)
+    if partner.approved_application_id:
+        messages.error(request, 'KYC changes for an onboarded customer require a reviewed CRM amendment. Retained evidence is available in Dealer CRM.')
+        return redirect('partner_detail', pk=partner.pk)
     form = PartnerDocumentForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
         doc = form.save(commit=False)
@@ -155,9 +176,12 @@ def partner_document_new(request, pk):
 @xframe_options_sameorigin
 def partner_document_file(request, pk, doc_pk):
     permitted(request.user, 'view_partner')
-    doc = get_object_or_404(PartnerDocument, pk=doc_pk, partner_id=pk)
+    doc = get_object_or_404(PartnerDocument.objects.select_related('partner'), pk=doc_pk, partner_id=pk)
+    if not _can_read_documents(request.user, doc.partner):
+        raise PermissionDenied
+    AuditEvent.objects.create(actor=request.user, action='Partner KYC downloaded', reference=f'partner:{pk}', detail=f'{doc.get_doc_type_display()} · {doc.file_name}')
     response = HttpResponse(bytes(doc.file), content_type=doc.content_type)
-    response['Content-Disposition'] = f'{"attachment" if request.GET.get("download") else "inline"}; filename="{doc.file_name}"'
+    response['Content-Disposition'] = content_disposition_header(bool(request.GET.get('download')), doc.file_name)
     response['X-Content-Type-Options'] = 'nosniff'
     response['Cache-Control'] = 'private, no-store'
     return response
@@ -168,6 +192,9 @@ def partner_document_file(request, pk, doc_pk):
 def partner_document_delete(request, pk, doc_pk):
     permitted(request.user, 'change_partner')
     doc = get_object_or_404(PartnerDocument.objects.defer('file'), pk=doc_pk, partner_id=pk)
+    if doc.partner.approved_application_id:
+        messages.error(request, 'Approved evidence is retained. Replace or withdraw it in a CRM amendment.')
+        return redirect('partner_detail', pk=pk)
     label = doc.get_doc_type_display()
     AuditEvent.objects.create(actor=request.user, action='Partner document deleted', reference=f'partner:{pk}', detail=f'{label} · {doc.file_name}')
     doc.delete()

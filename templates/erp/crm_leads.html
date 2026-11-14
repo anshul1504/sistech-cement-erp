@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_crm_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page crm-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · SISTECH</div><h1>Dealer CRM</h1><p>Own the next conversation, review new dealers and grow the Sistech network.</p></div>{% if can_add %}<a class="org-btn is-primary" href="{% url 'crm_lead_new' %}">+ New lead</a>{% endif %}</div>
+  {% include 'erp/_crm_tabs.html' with tab='leads' %}
+  <div class="inf-kpis"><a class="inf-kpi" href="{% url 'crm_leads' %}"><span>Open prospects</span><strong>{{ open_count }}</strong><small>At your permitted sites</small></a><a class="inf-kpi is-warn" href="?due=overdue"><span>Overdue follow-ups</span><strong>{{ overdue }}</strong><small>Open leads needing attention</small></a><div class="inf-kpi"><span>Converted leads</span><strong>{{ converted }}</strong><small>Approved or existing customers</small></div><div class="inf-kpi"><span>Estimated opportunity</span><strong>{{ opportunity|rupees }}</strong><small>Open pipeline estimate</small></div></div>
+  <nav class="crm-stage-strip" aria-label="Pipeline stages">{% for item in stages %}<a href="?stage={{ item.key }}" class="crm-stage{% if stage == item.key %} is-active{% endif %}"{% if stage == item.key %} aria-current="page"{% endif %}><span>{{ item.label }}</span><strong>{{ item.count }}</strong></a>{% endfor %}</nav>
+  <section class="org-card crm-card"><header class="crm-card-head"><div><h2>Prospects &amp; follow-ups</h2><p>{{ page.paginator.count }} matching records</p></div>{% if can_export %}<a class="org-btn is-light is-sm" href="?{{ request.GET.urlencode }}&amp;export=csv">Export CSV</a>{% endif %}</header>
+    <form method="get" class="crm-filters" aria-label="Filter CRM pipeline">
+      <div><label for="crm-search">Search</label><input class="form-control" id="crm-search" type="search" name="q" value="{{ q }}" placeholder="Business, mobile or district"></div>
+      <div><label for="crm-site">Site</label><select class="form-select" id="crm-site" name="site"><option value="">All permitted sites</option>{% for s in sites %}<option value="{{ s.pk }}"{% if site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select></div>
+      <div><label for="crm-owner">Owner</label><select class="form-select" id="crm-owner" name="owner"><option value="">All visible owners</option>{% for u in owners %}<option value="{{ u.pk }}"{% if owner == u.pk|stringformat:'s' %} selected{% endif %}>{{ u|who }}</option>{% endfor %}</select></div>
+      <div><label for="crm-stage">Stage</label><select class="form-select" id="crm-stage" name="stage"><option value="">All stages</option>{% for item in stages %}<option value="{{ item.key }}"{% if stage == item.key %} selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+      <div><label for="crm-due">Follow-up</label><select class="form-select" id="crm-due" name="due"><option value="">Any date</option><option value="today"{% if due == 'today' %} selected{% endif %}>Due today</option><option value="overdue"{% if due == 'overdue' %} selected{% endif %}>Overdue</option></select></div><button class="org-btn is-primary" type="submit">Apply filters</button>
+    </form>
+    <ul class="crm-list">{% for lead in page %}<li><a class="crm-lead-row" href="{% url 'crm_lead_detail' lead.pk %}"><span class="crm-main"><small>{{ lead.number }} · {{ lead.site.code }}</small><strong>{{ lead.business_name }}</strong><span>{{ lead.contact_name|default:'Contact pending' }} · {{ lead.mobile }}</span></span><span><small>Owner</small>{{ lead.owner|who }}</span><span><small>Area</small>{{ lead.district|default:'—' }}{% if lead.territory %}<small>{{ lead.territory }}</small>{% endif %}</span><span><small>Next follow-up</small>{{ lead.next_follow_up|date:'d M Y'|default:'Not scheduled' }}</span><span class="crm-badge is-{{ lead.stage }}">{{ lead.get_stage_display }}</span></a></li>{% empty %}<li class="doc-empty"><svg><use href="#ic-crm"/></svg><strong>No leads match these filters</strong><span>Create a prospect or adjust the selected filters.</span></li>{% endfor %}</ul>
+    {% include 'erp/_crm_pagination.html' %}
+  </section>
+</div>
+{% endblock %}

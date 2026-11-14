@@ -169,6 +169,7 @@ class Partner(models.Model):
     bank_account_number = models.CharField('Account number', max_length=18, blank=True)
     bank_ifsc = models.CharField('IFSC', max_length=11, blank=True)
     notes = models.TextField(blank=True)
+    approved_application = models.ForeignKey('DealerApplication', null=True, blank=True, on_delete=models.PROTECT, related_name='+', editable=False)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self): return self.name
@@ -2240,3 +2241,154 @@ class FinancialYearCloseHistory(models.Model):
 
     class Meta:
         ordering = ['-created_at', '-pk']
+
+
+# ---------- Dealer CRM and onboarding ----------
+
+def default_dealer_kyc():
+    return ['pan_card', 'dealership_agreement']
+
+
+class CRMPolicy(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    required_documents = models.JSONField(default=default_dealer_kyc)
+    require_gstin = models.BooleanField(default=False)
+    revision = models.PositiveIntegerField(default=1)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        permissions = [('manage_crmpolicy', 'Configure dealer onboarding policy')]
+
+
+LEAD_STAGES = [('new', 'New'), ('contacted', 'Contacted'), ('qualified', 'Qualified'), ('proposal', 'Proposal / review'), ('won', 'Converted'), ('lost', 'Lost')]
+LEAD_SOURCES = [('direct', 'Direct enquiry'), ('referral', 'Referral'), ('visit', 'Field visit'), ('campaign', 'Campaign'), ('influencer', 'Mason / contractor referral'), ('other', 'Other')]
+
+
+class CRMLead(models.Model):
+    number = models.CharField(max_length=25, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='crm_leads')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='crm_leads')
+    business_name = models.CharField(max_length=120)
+    contact_name = models.CharField(max_length=100, blank=True)
+    mobile = models.CharField(max_length=10)
+    email = models.EmailField(blank=True)
+    kind = models.CharField(max_length=15, choices=[(k, k) for k in CUSTOMER_KINDS], default='Dealer')
+    source = models.CharField(max_length=15, choices=LEAD_SOURCES, default='direct')
+    district = models.CharField(max_length=80, blank=True)
+    territory = models.CharField(max_length=100, blank=True)
+    stage = models.CharField(max_length=12, choices=LEAD_STAGES, default='new')
+    next_follow_up = models.DateField(null=True, blank=True)
+    estimated_value = models.DecimalField(max_digits=16, decimal_places=2, default=0, validators=MONEY)
+    notes = models.TextField(blank=True)
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='crm_leads')
+    closed_reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-pk']
+        constraints = [models.UniqueConstraint(fields=['site', 'mobile'], name='unique_lead_mobile_per_site')]
+        permissions = [('view_team_crm', 'View CRM team records at assigned sites'), ('assign_crmlead', 'Reassign CRM lead owners'), ('export_crmlead', 'Export scoped CRM pipeline')]
+
+    def __str__(self): return self.number
+
+
+class CRMActivity(models.Model):
+    lead = models.ForeignKey(CRMLead, on_delete=models.PROTECT, related_name='activities')
+    kind = models.CharField(max_length=12, choices=[('call', 'Call'), ('visit', 'Visit'), ('meeting', 'Meeting'), ('email', 'Email'), ('note', 'Note')])
+    happened_on = models.DateField(default=timezone.localdate)
+    outcome = models.CharField(max_length=150)
+    note = models.TextField(blank=True)
+    next_follow_up = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-happened_on', '-created_at']
+
+
+APPLICATION_STATES = [('draft', 'Draft'), ('submitted', 'KYC review'), ('changes', 'Changes requested'), ('kyc', 'Finance review'), ('credit', 'Final approval'), ('approved', 'Approved'), ('rejected', 'Rejected')]
+
+
+class DealerApplication(models.Model):
+    number = models.CharField(max_length=25, unique=True, editable=False)
+    lead = models.ForeignKey(CRMLead, on_delete=models.PROTECT, related_name='applications')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='dealer_applications')
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='dealer_applications')
+    profile = models.JSONField(default=dict)
+    base_partner_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
+    status = models.CharField(max_length=12, choices=APPLICATION_STATES, default='draft')
+    revision = models.PositiveIntegerField(default=0)
+    submission_snapshot = models.JSONField(default=dict, editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    kyc_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    credit_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    approved_credit = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    approved_terms_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-pk']
+        permissions = [('submit_dealerapplication', 'Submit dealer onboarding / amendment'), ('review_dealerkyc', 'Review dealer KYC evidence'),
+                       ('review_dealercredit', 'Review dealer credit and terms'), ('approve_dealerapplication', 'Activate dealer / approve amendment')]
+        constraints = [models.UniqueConstraint(fields=['lead'], condition=models.Q(status__in=['draft', 'submitted', 'changes', 'kyc', 'credit']), name='one_open_dealer_application')]
+
+    def __str__(self): return self.number
+
+
+class DealerDocument(models.Model):
+    application = models.ForeignKey(DealerApplication, on_delete=models.PROTECT, related_name='documents')
+    doc_type = models.CharField(max_length=30, choices=PARTNER_DOCUMENT_TYPES)
+    version = models.PositiveIntegerField()
+    is_current = models.BooleanField(default=True)
+    number = models.CharField(max_length=60, blank=True)
+    valid_until = models.DateField(null=True, blank=True)
+    file = models.BinaryField(editable=False)
+    file_name = models.CharField(max_length=150)
+    content_type = models.CharField(max_length=40)
+    size = models.PositiveIntegerField()
+    digest = models.CharField(max_length=64, editable=False)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['doc_type', '-version']
+        constraints = [models.UniqueConstraint(fields=['application', 'doc_type', 'version'], name='unique_dealer_document_version'),
+                       models.UniqueConstraint(fields=['application', 'doc_type'], condition=models.Q(is_current=True), name='one_current_dealer_document')]
+
+
+class DealerReview(models.Model):
+    application = models.ForeignKey(DealerApplication, on_delete=models.PROTECT, related_name='reviews')
+    revision = models.PositiveIntegerField()
+    action = models.CharField(max_length=30)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    note = models.TextField()
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+
+
+class SalesTarget(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='sales_targets')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    month = models.DateField()
+    sales_amount = models.DecimalField('Net taxable sales target', max_digits=16, decimal_places=2, validators=MONEY)
+    new_dealers = models.PositiveIntegerField(default=0)
+    note = models.CharField(max_length=300, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-month', 'site__code', 'owner__username']
+        constraints = [models.UniqueConstraint(fields=['site', 'owner', 'month'], name='unique_monthly_sales_target')]
+        permissions = [('manage_salestarget', 'Set salesperson monthly targets'), ('view_crmperformance', 'View scoped sales performance')]

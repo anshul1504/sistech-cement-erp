@@ -1,0 +1,1 @@
+{% load erp_format %}<dl class="crm-details">{% for row in profile_rows %}<div><dt>{{ row.label }}</dt><dd>{% if row.money %}{{ row.value|default:'0'|rupees:2 }}{% else %}{{ row.value|default:'—' }}{% endif %}</dd></div>{% endfor %}</dl>

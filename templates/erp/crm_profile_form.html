@@ -1,0 +1,9 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_crm_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page crm-page"><div class="org-head"><div><div class="eyebrow"><a href="{% url 'crm_application_detail' app.pk %}">← {{ app.number }}</a></div><h1>{{ title }}</h1><p>These proposed fields are reviewed before creating or updating the customer master.</p></div></div>
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}{% if form.errors %}<div class="org-alert" role="alert">Please correct the highlighted fields. {{ form.non_field_errors }}</div>{% endif %}<div class="mst-form-grid">
+  {% for title, note, fields in form.sections %}<section class="org-card crm-card"><header><h2>{{ title }}</h2><p>{{ note }}</p></header><div class="org-grid">{% for field in fields %}<div class="org-field{% if field.name in 'name address shipping_address notes' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for error in field.errors %}<div class="org-error">{{ error }}</div>{% endfor %}</div>{% endfor %}</div></section>{% endfor %}</div>
+  <div class="org-actions"><span>Profile changes and review evidence are retained.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'crm_application_detail' app.pk %}">Cancel</a><button class="org-btn is-primary" type="submit">Save proposed profile</button></div></div></form>
+</div>
+{% endblock %}

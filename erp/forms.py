@@ -215,7 +215,8 @@ class PartnerForm(StyledForm):
         self.fields['kind'].choices = [('', 'Select type'), ('Customers', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Dealer', 'Distributor', 'Retailer', 'Institutional')]),
                                        ('Vendors', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Supplier', 'Transporter')])]
         self.fields['state'].choices = [('', 'Select state')] + list(self.fields['state'].choices)[1:]
-        self.fields['code'].widget.attrs.update(placeholder='e.g. DLR-BPL-001', style='text-transform:uppercase')
+        if 'code' in self.fields:
+            self.fields['code'].widget.attrs.update(placeholder='e.g. DLR-BPL-001', style='text-transform:uppercase')
         for name in ['gstin', 'pan', 'bank_ifsc']:
             self.fields[name].widget.attrs.update(style='text-transform:uppercase', autocomplete='off')
         for name in ['phone', 'alt_phone']:

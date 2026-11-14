@@ -21,6 +21,7 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 | Receivables (Step 2c) | Receipts with FIFO settlement and advances, s.269ST cash limit, cheque bounce, GST credit notes with stock return, customer ledger, ageing, overdue-aware credit control |
 | Gate, weighbridge & dispatch (Step 3a) | Vehicles/drivers with document validity, truck flow with immutable weighments, tolerance/overload exceptions, invoice per truck, stock at configured event, POD, slip & gate pass |
 | Freight (Step 3b) | Lane rate cards, contracted freight frozen at gate-out, transporter bill check with caps, recovery and maker-checker |
+| Dealer CRM / Step 8a | Own/team site-scoped leads and follow-ups, versioned evidence, KYC/finance/final approval, customer amendments, monthly targets and source performance |
 | Web shell | Responsive app shell, toasts, Indian number formats, My account, Administration, System settings |
 
 ## Verification milestone before CRM
@@ -79,8 +80,12 @@ Month close now retains independent review evidence, cutoff balances and bank co
 Remaining: external evidence verification, statutory filing/connectors, budgets, PostgreSQL concurrency validation and finance UAT.
 
 ### Step 8 — Dealer network, schemes & service (§5.1, §5.3, §5.12)
-Leads and project pipeline, dealer onboarding approval, territories/targets, schemes and commissions with
-versioned rules and payout batches, complaints/returns with CAPA.
+✅ Step 8a: dealer leads, visit/call follow-ups, own/team/site scope, retained KYC evidence versions and policy,
+independent onboarding/credit/final activation, existing-customer amendments, monthly targets and performance
+with source drill-down. See [Dealer CRM](CRM.md) for upgrade grants, definitions and limits.
+
+Next: versioned schemes/incentive rules, reproducible eligibility/accrual, independent payout batches and reversals;
+then complaints/returns with CAPA. Territory hierarchy, unified project pipeline and dealer portal remain pending.
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.
