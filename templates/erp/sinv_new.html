@@ -1,0 +1,51 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'supplier_invoices' %}">← Supplier invoices</a></div><h1>Enter supplier invoice</h1><p>{{ supplier.name }}{% if supplier.gstin %} · GSTIN {{ supplier.gstin }}{% endif %}. Type exactly what is printed on the invoice. The system compares it with the PO rate and the quantity accepted at GRN.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate data-sinv>{% csrf_token %}
+    <section class="org-card"><header><h2>Invoice</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="si-n">Invoice no. <span class="required">*</span></label><input class="form-control" id="si-n" name="invoice_number" maxlength="40" value="{{ post.invoice_number }}"></div>
+      <div class="org-field"><label class="form-label" for="si-d">Invoice date <span class="required">*</span></label><input class="form-control" id="si-d" type="date" name="invoice_date" max="{{ today }}" value="{{ post.invoice_date }}"></div>
+      <div class="org-field"><label class="form-label" for="si-g">GSTIN on invoice</label><input class="form-control" id="si-g" name="supplier_gstin" maxlength="15" value="{{ post.supplier_gstin|default:supplier.gstin }}" style="text-transform:uppercase"></div>
+      <div class="org-field"><label class="form-label" for="si-t">Taxable value (₹) <span class="required">*</span></label><input class="form-control" id="si-t" type="number" step="0.01" min="0" name="billed_taxable" value="{{ post.billed_taxable }}"><div class="form-text" data-calc="taxable"></div></div>
+      <div class="org-field"><label class="form-label" for="si-x">GST (₹) <span class="required">*</span></label><input class="form-control" id="si-x" type="number" step="0.01" min="0" name="billed_tax" value="{{ post.billed_tax }}"><div class="form-text" data-calc="tax"></div></div>
+      <div class="org-field"><label class="form-label" for="si-tt">Invoice total (₹) <span class="required">*</span></label><input class="form-control" id="si-tt" type="number" step="0.01" min="0" name="billed_total" value="{{ post.billed_total }}"><div class="form-text" data-calc="total"></div></div>
+      <div class="org-field is-wide"><label class="form-label" for="si-no">Notes</label><input class="form-control" id="si-no" name="notes" maxlength="200" value="{{ post.notes }}"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Items billed</h2><p>Accepted at GRN and not yet billed. Leave quantity empty for items not on this invoice.</p></header>
+      {% if lines %}<div class="ord-lines">
+        <div class="ord-line sinv-line ord-line-head" aria-hidden="true"><span>Receipt</span><span>Billed qty</span><span>Billed rate (₹)</span><span>GST %</span><span>Value</span></div>
+        {% for l in lines %}<div class="ord-line sinv-line" data-sinv-line>
+          <div class="ord-cell ord-product" data-label="Receipt"><strong>{{ l.product.name }}</strong><small>{{ l.grn.number }} · {{ l.grn.posted_at|date:'d M' }} · {{ l.grn.order.number }} · open {{ l.open|qty }} {{ l.product.unit }} · PO ₹{{ l.po_line.rate|indian:2 }} + {{ l.po_line.gst_rate|qty }}%</small></div>
+          <div class="ord-cell" data-label="Billed qty"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{{ l.f.qty }}" placeholder="{{ l.open|floatformat:'-3' }}" data-k="qty"><span data-unit>{{ l.product.unit }}</span></div></div>
+          <div class="ord-cell" data-label="Billed rate (₹)"><input class="form-control" type="number" step="0.01" min="0" name="rate_{{ l.pk }}" value="{{ l.f.rate }}" data-k="rate"></div>
+          <div class="ord-cell" data-label="GST %"><input class="form-control" type="number" step="0.01" min="0" max="28" name="gst_{{ l.pk }}" value="{{ l.f.gst|floatformat:'-2' }}" data-k="gst"></div>
+          <div class="ord-cell ord-amt" data-label="Value" data-v>₹0.00</div>
+        </div>{% endfor %}</div>
+      {% else %}<p class="acc-muted">Nothing received from {{ supplier.name }} is waiting to be billed.</p>{% endif %}
+    </section>
+    <div class="org-actions"><span>Matched invoices become payable. Others go to the exception queue.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'supplier_invoices' %}">Cancel</a><button class="org-btn is-primary" type="submit"{% if not lines %} disabled{% endif %}>Match &amp; save</button></div></div>
+  </form>
+</div>
+<script>
+(() => {
+  // Shows what the lines add up to, so a typing mistake is visible before saving.
+  const f = document.querySelector('[data-sinv]'); if (!f) return;
+  const inr = n => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const calc = () => {
+    let t = 0, x = 0;
+    f.querySelectorAll('[data-sinv-line]').forEach(r => {
+      const g = k => parseFloat(r.querySelector(`[data-k="${k}"]`).value) || 0;
+      const v = Math.round(g('qty') * g('rate') * 100) / 100;
+      r.querySelector('[data-v]').textContent = inr(v); t += v; x += Math.round(v * g('gst')) / 100;
+    });
+    f.querySelector('[data-calc="taxable"]').textContent = 'Lines: ' + inr(t);
+    f.querySelector('[data-calc="tax"]').textContent = 'Lines: ' + inr(x);
+    f.querySelector('[data-calc="total"]').textContent = 'Lines: ' + inr(t + x);
+  };
+  f.addEventListener('input', calc); calc();
+})();
+</script>
+{% endblock %}

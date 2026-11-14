@@ -348,7 +348,7 @@ class StockMovement(Document):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=14, decimal_places=3)
     source = models.CharField(max_length=100, unique=True)
-    kind = models.CharField(max_length=20, choices=[('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output'), ('Return', 'Sales return')])
+    kind = models.CharField(max_length=20, choices=[('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output'), ('Return', 'Sales return'), ('PurchaseReturn', 'Return to supplier')])
     class Meta(Document.Meta):
         permissions = [('post_opening', 'Post opening stock'), ('export_stockmovement', 'Export stock ledger')]
 
@@ -1441,3 +1441,109 @@ class GRNLine(models.Model):
     def usable(self):
         """Quantity Sistech keeps (and pays for): accepted now + accepted after quality release."""
         return self.accepted + self.qc_accepted
+
+
+# ---------- Supplier invoice, three-way match and debit notes (Step 4c, FR-PUR-008…010) ----------
+
+SINV_STATUSES = [('matched', 'Matched'), ('exception', 'Exception — needs decision'), ('approved', 'Approved'), ('rejected', 'Rejected')]
+
+
+class SupplierInvoice(models.Model):
+    """Supplier's tax invoice, matched line by line against PO rate and accepted GRN quantity (three-way match)."""
+    number = models.CharField(max_length=24, unique=True, editable=False)
+    supplier = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='supplier_invoices')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='supplier_invoices')
+    invoice_number = models.CharField("Supplier's invoice no.", max_length=40)
+    invoice_key = models.CharField(max_length=40, editable=False, db_index=True)
+    invoice_date = models.DateField()
+    supplier_gstin = models.CharField('GSTIN on invoice', max_length=15, blank=True)
+    billed_taxable = models.DecimalField('Taxable value on invoice', max_digits=16, decimal_places=2, validators=MONEY)
+    billed_tax = models.DecimalField('GST on invoice', max_digits=16, decimal_places=2, validators=MONEY)
+    billed_total = models.DecimalField('Invoice total', max_digits=16, decimal_places=2, validators=MONEY)
+    matched_taxable = models.DecimalField(max_digits=16, decimal_places=2, default=0, editable=False)
+    matched_tax = models.DecimalField(max_digits=16, decimal_places=2, default=0, editable=False)
+    payable = models.DecimalField(max_digits=16, decimal_places=2, default=0, editable=False)
+    due_date = models.DateField(null=True, blank=True, editable=False)
+    status = models.CharField(max_length=10, choices=SINV_STATUSES, editable=False)
+    issues = models.JSONField(default=list, blank=True, editable=False)
+    decision = models.CharField(max_length=10, blank=True, editable=False, choices=[('billed', 'Pay as billed'), ('matched', 'Pay matched value'), ('reject', 'Rejected')])
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_supplierinvoice', 'Decide supplier-invoice match exceptions')]
+
+    def __str__(self): return f'{self.supplier} · {self.invoice_number}'
+
+    @property
+    def badge(self):
+        return {'matched': 'completed', 'approved': 'completed', 'exception': 'submitted'}.get(self.status, 'cancelled')
+
+    @property
+    def difference(self):
+        return self.billed_total - (self.matched_taxable + self.matched_tax)
+
+
+class SupplierInvoiceLine(models.Model):
+    invoice = models.ForeignKey(SupplierInvoice, on_delete=models.CASCADE, related_name='lines')
+    grn_line = models.ForeignKey(GRNLine, on_delete=models.PROTECT, related_name='invoice_lines')
+    quantity = models.DecimalField('Billed qty', max_digits=14, decimal_places=3, validators=POSITIVE)
+    rate = models.DecimalField('Billed rate', max_digits=14, decimal_places=2, validators=MONEY)
+    gst_rate = models.DecimalField('Billed GST %', max_digits=5, decimal_places=2)
+    po_rate = models.DecimalField(max_digits=14, decimal_places=2, editable=False)
+    po_gst_rate = models.DecimalField(max_digits=5, decimal_places=2, editable=False)
+    open_qty = models.DecimalField('Accepted, not yet billed', max_digits=14, decimal_places=3, editable=False)
+    matched_qty = models.DecimalField(max_digits=14, decimal_places=3, editable=False)
+    matched_rate = models.DecimalField(max_digits=14, decimal_places=2, editable=False)
+    issue = models.CharField(max_length=200, blank=True, editable=False)
+
+    @property
+    def billed_value(self):
+        return (self.quantity * self.rate).quantize(Decimal('0.01'))
+
+    @property
+    def matched_value(self):
+        return (self.matched_qty * self.matched_rate).quantize(Decimal('0.01'))
+
+
+DEBIT_REASONS = [('return', 'Material returned to supplier'), ('rejected', 'Rejected / damaged material billed'), ('short', 'Short receipt billed'),
+                 ('rate', 'Rate / quantity difference on invoice'), ('quality', 'Quality claim'), ('other', 'Other')]
+
+
+class DebitNote(models.Model):
+    """Claim on a supplier. Linked to the GRN (and supplier invoice when it settles an over-billing). A 'return' takes stock out."""
+    number = models.CharField(max_length=24, unique=True, editable=False)
+    supplier = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='debit_notes')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='debit_notes')
+    date = models.DateField(default=timezone.localdate)
+    grn = models.ForeignKey(GoodsReceipt, null=True, blank=True, on_delete=models.PROTECT, related_name='debit_notes')
+    supplier_invoice = models.ForeignKey(SupplierInvoice, null=True, blank=True, on_delete=models.PROTECT, related_name='debit_notes')
+    reason = models.CharField(max_length=10, choices=DEBIT_REASONS)
+    remarks = models.CharField(max_length=200)
+    vehicle_number = models.CharField('Return vehicle no.', max_length=15, blank=True)
+    taxable = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    tax = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self): return self.number
+
+
+class DebitNoteLine(models.Model):
+    note = models.ForeignKey(DebitNote, on_delete=models.CASCADE, related_name='lines')
+    grn_line = models.ForeignKey(GRNLine, null=True, blank=True, on_delete=models.PROTECT, related_name='debit_lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    from_stock = models.BooleanField(default=False, help_text='Accepted material sent back — stock reduces.')
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    rate = models.DecimalField(max_digits=14, decimal_places=2, validators=MONEY)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    amount = models.DecimalField('Taxable amount', max_digits=16, decimal_places=2)

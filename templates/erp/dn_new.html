@@ -1,0 +1,22 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'grn_detail' grn.pk %}">← {{ grn.number }}</a></div><h1>Debit note</h1><p>{{ grn.supplier.name }} · {{ grn.order.number }}. Valued at the PO rate + GST. <b>Return to supplier</b> takes accepted stock out; it is valued only for quantity already billed (the rest is simply not billable any more).</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Reason</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="dn-r">Reason <span class="required">*</span></label><select class="form-select" id="dn-r" name="reason">{% for k, l in reasons %}{% if k != 'rate' %}<option value="{{ k }}"{% if post.reason == k %} selected{% endif %}>{{ l }}</option>{% endif %}{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="dn-v">Return vehicle no. (for returns)</label><input class="form-control" id="dn-v" name="vehicle" maxlength="15" value="{{ post.vehicle }}" style="text-transform:uppercase"></div>
+      <div class="org-field is-wide"><label class="form-label" for="dn-m">Details <span class="required">*</span></label><input class="form-control" id="dn-m" name="remarks" maxlength="200" value="{{ post.remarks }}" placeholder="e.g. Lab report LR-131: SO₃ 34% against 40% spec"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Items</h2></header><div class="ord-lines">{% for l in lines %}
+      <div class="ord-line dp-line">
+        <div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>Accepted {{ l.usable|qty }} · returnable {{ l.returnable|qty }} · billed {{ l.billed|qty }} · rejected / damaged {{ l.rejected|plus:l.damaged|plus:l.qc_rejected|qty }} {{ l.product.unit }} · PO ₹{{ l.po_line.rate|indian:2 }}</small></div>
+        <div class="ord-cell" data-label="Quantity"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{{ l.qty_in }}"><span data-unit>{{ l.product.unit }}</span></div></div>
+        <div class="ord-cell"></div><div class="ord-cell"></div>
+      </div>{% endfor %}</div></section>
+    <div class="org-actions"><span>Recorded with your name; returns reduce stock at {{ grn.site.code }}.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'grn_detail' grn.pk %}">Cancel</a><button class="org-btn is-primary" type="submit">Raise debit note</button></div></div>
+  </form>
+</div>
+{% endblock %}

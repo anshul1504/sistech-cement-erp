@@ -252,3 +252,14 @@ a.ord-tr:hover { background: #fafbfd; }
 @media (max-width: 1199.98px) { .grn-line { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grn-line .ord-product, .grn-line .grn-reason { grid-column: 1 / -1; } .grn-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 767.98px) { .grn-line { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grn-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ord-product > small { display: block; color: var(--o-ink-3); font-size: 12px; }
+
+/* Supplier invoices (Step 4c) */
+.sinv-line { grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr) minmax(0, 1fr) 90px minmax(0, 1fr); align-items: center; }
+.sinv-table .ord-tr { grid-template-columns: minmax(0, 2.2fr) repeat(6, minmax(0, 1fr)); }
+.sinv-table .ord-th > span, .ap-table .ord-th > span { white-space: normal; }
+.ap-table .ord-tr { grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1199.98px) { .sinv-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 991.98px) { .sinv-line { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) { .sinv-table .ord-tr, .ap-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1199.98px) { .sinv-list li > .mst-cell:nth-child(2) { display: block; } .sinv-list li > .mst-cell:nth-child(3) { display: none; } }
+@media (max-width: 767.98px) { .sinv-list li > .mst-cell:nth-child(2) { display: block; text-align: right; } .sinv-list li > .mst-cell:nth-child(4) { display: none; } }

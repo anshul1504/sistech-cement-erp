@@ -1,0 +1,19 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE · PAYABLES</div><h1>Debit notes</h1><p>Claims on suppliers: material sent back, rejected or short material that was billed, and invoice differences. Raise a return or claim from the goods receipt.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'supplier_invoices' %}">Supplier invoices</a></div></div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Debit notes</h2><p>{{ notes|length }} shown</p></div><form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Number, supplier or GRN" aria-label="Search"></form></header>
+    {% if notes %}<ul class="mst-list prc-list pr-list sinv-list">{% for d in notes %}
+      <li><a class="mst-main" href="{% url 'dn_detail' d.pk %}"><span class="mst-icon is-supplier"><svg><use href="#ic-receipt"/></svg></span><span><strong>{{ d.number }}</strong><small>{{ d.supplier.name }} · {{ d.date|date:'d M Y' }}</small></span></a>
+        <div class="mst-cell"><small>Against</small>{% if d.grn %}{{ d.grn.number }}{% elif d.supplier_invoice %}Inv {{ d.supplier_invoice.invoice_number }}{% endif %}</div>
+        <div class="mst-cell"><span class="prc-rate">₹{{ d.total|indian:2 }}</span></div>
+        <div class="mst-cell"><span class="doc-badge{% if d.reason == 'return' %} is-warning{% endif %}">{{ d.get_reason_display }}</span></div>
+        <div class="mst-cell"><small>By</small>{{ d.created_by.get_full_name|default:d.created_by.username }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'dn_detail' d.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-receipt"/></svg><strong>No debit notes</strong><span>Raise one from a posted goods receipt.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

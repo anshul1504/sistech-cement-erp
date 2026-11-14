@@ -140,6 +140,15 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 - **GRN**: per item received = accepted + rejected + damaged + quality hold; short / excess against the challan is worked out. Received MT/KG must match the weighbridge net within the plant tolerance (a single weight item is pre-filled from net). Accepted + hold cannot exceed PO quantity + its over-receipt tolerance — the excess is rejected. Rejected/damaged need a reason; a challan variance beyond tolerance needs a reason. Only accepted quantity enters stock (once, unique source per line). The PO moves to *Part received* / *Completed*; part-received POs can be short-closed but not cancelled. The printable **GRN** values accepted quantity at the PO rate.
 - **Quality hold** (FR-PUR-007): held quantity stays out of stock until a quality user — not the GRN poster — accepts and/or rejects it with the lab result. The one-step "receive & post" for purchases is retired; all purchases go through GRN. Roles: *Gate security* (gate-in), *Weighbridge operator*, *Warehouse operator* (post GRN), *Quality manager* (release).
 
+## Supplier invoices, three-way match & debit notes (Step 4c)
+
+- **Supplier invoices** (Finance → Supplier invoices): enter the supplier's invoice number, date, GSTIN, taxable value, GST and total, and the billed quantity / rate / GST % against received GRN lines (one plant per invoice). Live totals help catch typing mistakes.
+- **Three-way match** per line: billed quantity ≤ accepted GRN quantity not yet billed (+ invoice quantity tolerance), billed rate ≤ PO rate (+ rate tolerance), GST % = PO GST %. The header must add up to the lines (₹1 round-off) and the GSTIN must be the supplier's. Tolerances are in Organisation setup → Purchase controls (default 0%). Clean invoices are **Matched** and payable with a due date from the PO credit days; others go to the **exception queue**.
+- **Duplicate check**: same supplier + invoice number (ignoring case, spaces and punctuation), or same supplier + GSTIN + date + amount, is refused.
+- **Exception decision** by a different user (*Finance controller*), with a reason: pay as billed, pay the matched value (the difference becomes a **debit note** automatically), or reject (the quantity becomes billable again).
+- **Debit notes** from a posted GRN: *return to supplier* takes accepted stock out (stock movement "Return to supplier") and is valued only for quantity already billed, so nothing is claimed twice; other reasons are value claims. Printable debit note.
+- **Supplier balances**: approved invoices − debit notes, with past-due amounts. Payments are part of Finance (Step 7). Roles: *Accounts payable*, *Finance controller*.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
@@ -163,7 +172,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Legal entities, GST registrations, financial periods, territory/dealer isolation and MFA remain. |
 | CRM and dealer network | Dealer/supplier master with GST, credit terms and KYC documents. Leads, KYC approval workflow, territory hierarchy, visits and project pipeline remain. |
 | Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, stock reservations/ATP and order revisions remain. |
-| Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier-invoice three-way match and debit notes (4c) in progress. Budget check remains. |
+| Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier invoices with three-way match, duplicate check, exception queue and debit notes / returns. Budget check and supplier payments (Step 7) remain. |
 | Inventory | Quantity ledger and opening stock. Lots, reservations, locations, transfers, returns, valuation and reversals remain. |
 | Production and quality | Output tracking and quality release only. BOM versions, material consumption, test specifications, COA, energy and actual costing remain. |
 | Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |

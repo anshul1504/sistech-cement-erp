@@ -49,10 +49,10 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 4. ✅ Trips, POD, freight rate cards and freight bill check.
 5. ✅ Inbound flow for purchases: gate → weighment → unload → GRN — built with Step 4 (GRN).
 
-### Step 4 — Procure-to-pay (SRS Phase 1–3, §4.2, §5.4)
+### Step 4 — Procure-to-pay (SRS Phase 1–3, §4.2, §5.4) ✅
 1. ✅ Purchase requests (manual + reorder level), RFQ and comparison, PO approval by value.
 2. ✅ GRN with accepted / rejected / short / quality-hold quantities; incoming inspection.
-3. Supplier invoice with PO–GRN–invoice three-way match and duplicate check; supplier returns / debit notes.
+3. ✅ Supplier invoice with PO–GRN–invoice three-way match and duplicate check; supplier returns / debit notes.
 
 ### Step 5 — Inventory depth (§5.5)
 Stock states (available, reserved, quality hold, damaged, in transit), lot/batch, inter-site transfers with

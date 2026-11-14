@@ -1,0 +1,42 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'supplier_invoices' %}">← Supplier invoices</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-supplier"><svg><use href="#ic-purchase"/></svg></span>
+    <div class="org-hero-text"><h1>{{ inv.supplier.name }}</h1><p>Invoice {{ inv.invoice_number }} · {{ inv.invoice_date|date:'d M Y' }} · {{ inv.site.code }} · ref {{ inv.number }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ inv.badge }}">● {{ inv.get_status_display }}</span>{% if inv.decision %}<span class="org-chip">{{ inv.get_decision_display }}</span>{% endif %}<span class="org-chip">Due {{ inv.due_date|date:'d M Y' }}</span>{% if inv.supplier_gstin %}<span class="org-chip is-mono">{{ inv.supplier_gstin }}</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Payable</small><span class="mst-total">{% if inv.status == 'exception' %}—{% else %}₹{{ inv.payable|indian:2 }}{% endif %}</span><small>Billed ₹{{ inv.billed_total|indian:2 }}</small></div>
+  </section>
+  {% if inv.issues %}<ul class="ord-checks">{% for i in inv.issues %}<li class="is-{% if inv.status == 'exception' %}danger{% else %}warn{% endif %}">{{ i }}</li>{% endfor %}</ul>{% elif inv.status == 'matched' %}<ul class="ord-checks"><li class="is-info">Matched with purchase order and goods receipt — no differences.</li></ul>{% endif %}
+  {% if inv.decision_note %}<ul class="ord-checks"><li class="is-info">{{ inv.get_decision_display }} by {{ inv.decided_by.get_full_name|default:inv.decided_by.username }}: {{ inv.decision_note }}</li></ul>{% endif %}
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Three-way match</h2><span class="acc-muted">Invoice vs PO vs GRN</span></header>
+      <div class="ord-table sinv-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Item</span><span>Billed</span><span>Accepted, unbilled</span><span>Rate billed / PO</span><span>GST billed / PO</span><span>Billed value</span><span>Matched value</span></div>
+        {% for l in lines %}<div class="ord-tr" role="row">
+          <span class="ord-name"><strong>{{ l.grn_line.product.name }}</strong><small><a href="{% url 'grn_detail' l.grn_line.grn_id %}">{{ l.grn_line.grn.number }}</a> · {{ l.grn_line.grn.order.number }}</small>{% if l.issue %}<em class="ord-flag">{{ l.issue }}</em>{% endif %}</span>
+          <span data-label="Billed" class="{% if l.quantity > l.matched_qty %}led-late{% endif %}">{{ l.quantity|qty }} {{ l.grn_line.product.unit }}</span>
+          <span data-label="Accepted, unbilled">{{ l.open_qty|qty }}</span>
+          <span data-label="Rate billed / PO" class="{% if l.rate > l.matched_rate %}led-late{% endif %}">₹{{ l.rate|indian:2 }}<small>PO ₹{{ l.po_rate|indian:2 }}</small></span>
+          <span data-label="GST billed / PO" class="{% if l.gst_rate != l.po_gst_rate %}led-late{% endif %}">{{ l.gst_rate|qty }}%<small>PO {{ l.po_gst_rate|qty }}%</small></span>
+          <span data-label="Billed value">₹{{ l.billed_value|indian:2 }}</span>
+          <span data-label="Matched value"><strong>₹{{ l.matched_value|indian:2 }}</strong></span>
+        </div>{% endfor %}
+      </div>
+      <div class="ord-summary"><span></span><div class="ord-totals is-static">
+        <div><span>Billed taxable</span><strong>₹{{ inv.billed_taxable|indian:2 }}</strong></div><div><span>Billed GST</span><strong>₹{{ inv.billed_tax|indian:2 }}</strong></div>
+        <div><span>Invoice total</span><strong>₹{{ inv.billed_total|indian:2 }}</strong></div><div><span>Matched (PO × GRN)</span><strong>₹{{ matched_total|indian:2 }}</strong></div>
+        <div class="is-grand"><span>Difference</span><strong>₹{{ inv.difference|indian:2 }}</strong></div></div></div>
+    </section>
+    {% if can_decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Decision</h2><span class="acc-muted">You did not enter this invoice.</span></header>
+      <form method="post" action="{% url 'sinv_decide' inv.pk 'matched' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="sd-n">Reason <span class="required">*</span></label><input class="form-control" id="sd-n" name="note" maxlength="200" required placeholder="e.g. Rate revision not agreed — pay PO rate"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'sinv_decide' inv.pk 'reject' %}">Reject</button><button class="org-btn is-light" type="submit" formaction="{% url 'sinv_decide' inv.pk 'billed' %}">Pay as billed</button><button class="org-btn is-primary" type="submit">Pay matched value + debit note</button></div></form></section>
+    {% elif inv.status == 'exception' %}<section class="org-card org-view acc-wide ord-items"><p class="acc-muted">Waiting for a finance controller other than the person who entered it.</p></section>{% endif %}
+    {% for d in debits %}<section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Debit note</h2><a href="{% url 'dn_detail' d.pk %}">{{ d.number }}</a></header><p class="acc-note">₹{{ d.total|indian:2 }} · {{ d.remarks }}</p></section>{% endfor %}
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}</section>
+  </div>
+</div>
+{% endblock %}

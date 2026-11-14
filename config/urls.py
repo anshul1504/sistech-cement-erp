@@ -161,3 +161,13 @@ urlpatterns += [
     path('purchase/receipts/<int:pk>/photo/', ibv.grn_photo, name='grn_photo'),
     path('purchase/receipts/<int:pk>/do/<str:action>/', ibv.grn_action, name='grn_action'),
 ]
+from erp import payables_views as apv
+urlpatterns += [
+    path('payables/invoices/', apv.supplier_invoices, name='supplier_invoices'),
+    path('payables/invoices/new/<int:supplier_pk>/', apv.sinv_new, name='sinv_new'),
+    path('payables/invoices/<int:pk>/', apv.sinv_detail, name='sinv_detail'),
+    path('payables/invoices/<int:pk>/decide/<str:decision>/', apv.sinv_decide, name='sinv_decide'),
+    path('payables/debit-notes/', apv.debit_notes, name='debit_notes'),
+    path('payables/debit-notes/new/<int:grn_pk>/', apv.dn_new, name='dn_new'),
+    path('payables/debit-notes/<int:pk>/', apv.dn_detail, name='dn_detail'),
+]

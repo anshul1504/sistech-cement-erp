@@ -1,0 +1,24 @@
+{% extends 'erp/base.html' %}{% load erp_format static %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  <div class="ord-workflow inv-noprint"><div><a href="{% url 'debit_notes' %}">← Debit notes</a></div><div class="ord-buttons"><button class="org-btn is-primary" type="button" onclick="window.print()">Print</button></div></div>
+  <article class="inv-sheet lg-slip">
+    <header class="inv-top">
+      <div class="inv-brand">{% if org_logo_url %}<img src="{{ org_logo_url }}" alt="">{% endif %}<div><h2>{{ org.legal_name }}</h2><p>{{ dn.site.name }} · {{ dn.site.full_address }}</p>{% if dn.site.gstin %}<p><b>GSTIN</b> {{ dn.site.gstin }}</p>{% endif %}</div></div>
+      <div class="inv-title"><span>{{ dn.get_reason_display }}</span><h1>Debit note</h1>
+        <dl><div><dt>Number</dt><dd>{{ dn.number }}</dd></div><div><dt>Date</dt><dd>{{ dn.date|date:'d-m-Y' }}</dd></div>{% if dn.grn %}<div><dt>GRN</dt><dd>{{ dn.grn.number }}</dd></div><div><dt>Challan</dt><dd>{{ dn.grn.challan_number }}</dd></div>{% endif %}{% if dn.supplier_invoice %}<div><dt>Invoice</dt><dd>{{ dn.supplier_invoice.invoice_number }}</dd></div>{% endif %}</dl></div>
+    </header>
+    <section class="inv-parties">
+      <div><h3>Supplier</h3><strong>{{ dn.supplier.name }}</strong><p>{{ dn.supplier.full_address|default:'—' }}</p><p><b>GSTIN</b> {{ dn.supplier.gstin|default:'Unregistered' }}</p></div>
+      <div><h3>Details</h3><p>{{ dn.remarks }}</p>{% if dn.vehicle_number %}<p><b>Return vehicle</b> {{ dn.vehicle_number }}</p>{% endif %}</div>
+    </section>
+    <table class="inv-lines"><thead><tr><th>Item</th><th class="num">Quantity</th><th class="num">Rate</th><th class="num">GST %</th><th class="num">Taxable</th></tr></thead>
+      <tbody>{% for l in lines %}<tr><td>{{ l.product.name }}{% if l.from_stock %} <small>(returned from stock)</small>{% endif %}</td><td class="num">{{ l.quantity|qty }} {{ l.product.unit }}</td><td class="num">₹{{ l.rate|indian:2 }}</td><td class="num">{{ l.gst_rate|qty }}</td><td class="num">₹{{ l.amount|indian:2 }}</td></tr>{% endfor %}</tbody></table>
+    <section class="inv-bottom"><div class="inv-words">{% if dn.reason == 'return' %}<p>Material returned from stock. Value is claimed only for quantity already billed by the supplier.</p>{% endif %}</div>
+      <dl class="inv-totals"><div><dt>Taxable</dt><dd>₹{{ dn.taxable|indian:2 }}</dd></div><div><dt>GST</dt><dd>₹{{ dn.tax|indian:2 }}</dd></div><div class="is-grand"><dt>Total</dt><dd>₹{{ dn.total|indian:2 }}</dd></div></dl></section>
+    <footer class="inv-foot"><div class="inv-sign" style="text-align:left"><span></span><p>Prepared by {{ dn.created_by.get_full_name|default:dn.created_by.username }}</p></div><div class="inv-sign"><span></span><p>Authorised signatory</p></div></footer>
+    <p class="inv-credit">Sistech ERP · Design &amp; developed by The Webfix</p>
+  </article>
+</div>
+{% endblock %}
