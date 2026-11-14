@@ -28,6 +28,7 @@ NAV_GROUPS = [
         _item('sales', 'Sales orders', 'sales', 'view_sales_order'),
         _soon('Quotations', 'quote'),
         _soon('Dealer CRM', 'crm'),
+        _soon('Masons & contractors', 'user'),
         _soon('Schemes & claims', 'gift'),
     ]),
     ('Procurement', [
