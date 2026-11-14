@@ -53,6 +53,9 @@ class Site(models.Model):
                                                help_text='Allowed difference between weighbridge net and loaded quantity before supervisor approval.')
     scale_id = models.CharField('Weighbridge scale ID', max_length=30, blank=True, help_text='Printed on weighment slips. Calibration is tracked under assets later.')
     loading_bays = models.CharField('Loading bays', max_length=120, blank=True, help_text='Comma separated, e.g. Bay 1, Bay 2, Bulk 1.')
+    operated_by = models.ForeignKey('Partner', null=True, blank=True, on_delete=models.PROTECT, related_name='operated_sites',
+                                    limit_choices_to={'manufacturing_partner': True}, verbose_name='Operated by (manufacturing partner)',
+                                    help_text='Leave empty for a Sistech-owned location.')
     notes = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -168,6 +171,8 @@ class Partner(models.Model):
     bank_name = models.CharField(max_length=100, blank=True)
     bank_account_number = models.CharField('Account number', max_length=18, blank=True)
     bank_ifsc = models.CharField('IFSC', max_length=11, blank=True)
+    manufacturing_partner = models.BooleanField('Manufacturing partner', default=False,
+                                                help_text='Makes SISTECH-brand cement or TMT under a supply agreement (supplier type only).')
     notes = models.TextField(blank=True)
     approved_application = models.ForeignKey('DealerApplication', null=True, blank=True, on_delete=models.PROTECT, related_name='+', editable=False)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -2467,3 +2472,35 @@ class SchemeEvaluation(models.Model):
         permissions = [('export_schemeevaluation', 'Export incentive calculation previews')]
 
     def __str__(self): return f'CALC-{self.pk:06d}'
+
+
+# ---------- Manufacturing partners: supply contracts (asset-light model) ----------
+
+class SupplyContract(models.Model):
+    """Agreed rate for a SISTECH product made at a partner plant. Approved by a different user; used on POs to that plant
+    and to choose the cheapest source for a dealer order (contract rate + freight to the dealer's district)."""
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='supply_contracts', limit_choices_to={'manufacturing_partner': True})
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='supply_contracts', verbose_name='Partner plant')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='supply_contracts')
+    rate = models.DecimalField('Rate (₹ per unit, before GST)', max_digits=14, decimal_places=2, validators=POSITIVE)
+    monthly_quantity = models.DecimalField('Monthly commitment', max_digits=14, decimal_places=3, default=0, validators=MONEY,
+                                           help_text="Quantity per month in the product's unit the partner commits to supply. 0 = no commitment.")
+    valid_from = models.DateField(default=timezone.localdate)
+    valid_to = models.DateField(null=True, blank=True)
+    reference = models.CharField('Agreement ref.', max_length=60, blank=True)
+    status = models.CharField(max_length=9, default='draft', choices=[('draft', 'Waiting approval'), ('approved', 'Approved'), ('ended', 'Ended'), ('rejected', 'Rejected')])
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['site__code', 'product__name', '-valid_from']
+        permissions = [('approve_supplycontract', 'Approve manufacturing partner rate contracts')]
+
+    def __str__(self): return f'{self.partner} · {self.product.code} @ ₹{self.rate}'
+
+    def is_current(self, on=None):
+        on = on or timezone.localdate()
+        return self.status == 'approved' and self.valid_from <= on and (self.valid_to is None or self.valid_to >= on)

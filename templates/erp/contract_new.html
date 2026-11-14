@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'mfg_partners' %}">← Manufacturing partners</a></div><h1>New supply rate</h1><p>The rate the partner charges Sistech for a product made at its plant, before GST. When approved it ends the previous rate the day before this one starts.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Rate</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="sc-s">Partner plant <span class="required">*</span></label><select class="form-select" id="sc-s" name="site"><option value="">Choose</option>{% for s in sites %}<option value="{{ s.pk }}"{% if chosen_site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.operated_by.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="sc-p">Product <span class="required">*</span></label><select class="form-select" id="sc-p" name="product"><option value="">Choose</option>{% for p in products %}<option value="{{ p.pk }}"{% if post.product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }} ({{ p.unit }})</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="sc-r">Rate (₹ per unit, before GST) <span class="required">*</span></label><input class="form-control" id="sc-r" type="number" step="0.01" min="0" name="rate" value="{{ post.rate }}"></div>
+      <div class="org-field"><label class="form-label" for="sc-q">Monthly commitment</label><input class="form-control" id="sc-q" type="number" step="any" min="0" name="monthly_quantity" value="{{ post.monthly_quantity|default:'0' }}"></div>
+      <div class="org-field"><label class="form-label" for="sc-f">Valid from <span class="required">*</span></label><input class="form-control" id="sc-f" type="date" name="valid_from" value="{{ post.valid_from|default:today }}"></div>
+      <div class="org-field"><label class="form-label" for="sc-t">Valid to</label><input class="form-control" id="sc-t" type="date" name="valid_to" value="{{ post.valid_to }}"></div>
+      <div class="org-field"><label class="form-label" for="sc-ref">Agreement ref.</label><input class="form-control" id="sc-ref" name="reference" maxlength="60" value="{{ post.reference }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="sc-n">Notes</label><input class="form-control" id="sc-n" name="notes" maxlength="200" value="{{ post.notes }}" placeholder="e.g. Ex-works, packing in SISTECH bags supplied by partner"></div>
+    </div></section>
+    <div class="org-actions"><span>A different user approves the rate.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'mfg_partners' %}">Cancel</a><button class="org-btn is-primary" type="submit">Send for approval</button></div></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PROCUREMENT</div><h1>Manufacturing partners</h1><p>SISTECH cement and TMT are made at partner plants under supply agreements. Approved rates drive purchase orders to each plant; the scorecard tracks commitment, quality and delivery over the last three months.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'sourcing_advisor' %}">Sourcing advisor</a>{% if can_add %}<a class="org-btn is-primary" href="{% url 'contract_new' %}"><svg><use href="#ic-plus"/></svg>New supply rate</a>{% endif %}</div></div>
+  <div class="inf-kpis is-three" role="list">
+    <div role="listitem" class="inf-kpi"><span>Partners</span><strong>{{ rows|length }}</strong><small>Cement and TMT</small></div>
+    <div role="listitem" class="inf-kpi"><span>Partner capacity</span><strong>{{ total_capacity|indian }} MT</strong><small>Per year, installed</small></div>
+    <div role="listitem" class="inf-kpi{% if pending %} is-warn{% endif %}"><span>Rates waiting approval</span><strong>{{ pending|length }}</strong><small>Maker-checker</small></div></div>
+  {% if pending %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>Rates waiting approval</h2></header>
+    <ul class="mst-order-list">{% for c in pending %}<li><span><strong>{{ c.product.name }} · ₹{{ c.rate|indian:2 }}</strong><small>{{ c.site.code }} · {{ c.partner.name }} · from {{ c.valid_from|date:'d M Y' }}{% if c.monthly_quantity %} · {{ c.monthly_quantity|qty }} / month{% endif %} · by {{ c.created_by|who }}</small></span><span></span>
+      {% if can_decide and c.created_by_id != request.user.pk %}<form method="post" action="{% url 'contract_decide' c.pk 'approve' %}" class="mc-decide">{% csrf_token %}<input class="form-control" name="note" maxlength="200" placeholder="Note (needed to reject)"><button class="org-btn is-light is-danger is-sm" type="submit" formaction="{% url 'contract_decide' c.pk 'reject' %}">Reject</button><button class="org-btn is-primary is-sm" type="submit">Approve</button></form>{% else %}<span class="doc-badge is-warning">Waiting</span>{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+  {% for r in rows %}<section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>{{ r.partner.name }}</h2><span class="acc-muted">{{ r.partner.city }}{% if r.partner.state %}, {{ r.partner.get_state_display }}{% endif %} · {{ r.capacity|indian }} MT/yr</span></header>
+    {% for s in r.sites %}<div class="mp-site">
+      <div class="mp-head"><strong>{{ s.site.code }} · {{ s.site.name }}</strong><small>{{ s.site.get_facility_type_display|default:s.site.kind }} · {{ s.site.capacity_tpa|default:0|indian }} MT/yr</small>{% if can_add %}<a class="org-btn is-light is-sm" href="{% url 'contract_new' %}?site={{ s.site.pk }}">Add rate</a>{% endif %}</div>
+      <dl class="mp-facts"><div><dt>This month received</dt><dd>{{ s.month_received|qty }}{% if s.month_committed %} of {{ s.month_committed|qty }} committed{% endif %}</dd></div>
+        <div><dt>Quality acceptance</dt><dd>{% if s.acceptance is not None %}<span class="{% if s.acceptance < 98 %}led-late{% endif %}">{{ s.acceptance }}%</span>{% else %}—{% endif %}</dd></div>
+        <div><dt>On-time receipts</dt><dd>{% if s.on_time is not None %}{{ s.on_time }}% of {{ s.receipts }}{% else %}—{% endif %}</dd></div>
+        <div><dt>Open PO quantity</dt><dd>{{ s.open_po|qty }}</dd></div>
+        <div><dt>Above-contract receipts</dt><dd>{% if s.over_rate %}<span class="led-late">{{ s.over_rate }}</span>{% else %}0{% endif %}</dd></div></dl>
+      {% if s.contracts %}<ul class="mst-order-list">{% for c in s.contracts %}<li><span><strong>{{ c.product.name }}</strong><small>{% if c.reference %}{{ c.reference }} · {% endif %}from {{ c.valid_from|date:'d M Y' }}{% if c.valid_to %} to {{ c.valid_to|date:'d M Y' }}{% endif %}{% if c.monthly_quantity %} · {{ c.monthly_quantity|qty }} / month{% endif %}</small></span><span></span><strong>₹{{ c.rate|indian:2 }}</strong></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No approved rate yet.</p>{% endif %}</div>
+    {% empty %}<p class="acc-muted">No plant is linked to this partner. Set "Operated by" on the plant in Plants &amp; depots.</p>{% endfor %}
+  </section>{% empty %}<section class="org-card"><div class="doc-empty"><svg><use href="#ic-factory"/></svg><strong>No manufacturing partners</strong><span>Mark a supplier as a manufacturing partner, then link its plants. Or run "python manage.py seed_sistech".</span></div></section>{% endfor %}
+</div>
+{% endblock %}

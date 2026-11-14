@@ -1,0 +1,19 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'mfg_partners' %}">← Manufacturing partners</a></div><h1>Sourcing advisor</h1><p>Which partner plant should supply this order? Ranked on landed cost = supply rate + contracted freight to the dealer's district, with free stock and this month's capacity use.</p></div></div>
+  <section class="org-card" style="margin-bottom:16px"><form method="get" class="doc-filter acc-filter">
+    <select class="form-select" name="product" aria-label="Product" required><option value="">Product</option>{% for p in products %}<option value="{{ p.pk }}"{% if product.pk == p.pk %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select>
+    <input class="form-control" type="number" step="any" min="0" name="qty" value="{{ qty|floatformat:'-3' }}" placeholder="Quantity" aria-label="Quantity">
+    <select class="form-select" name="dealer" aria-label="Dealer"><option value="">Dealer (or type district)</option>{% for d in dealers %}<option value="{{ d.pk }}"{% if dealer.pk == d.pk %} selected{% endif %}>{{ d.name }} · {{ d.district }}</option>{% endfor %}</select>
+    <input class="form-control" name="district" value="{% if not dealer %}{{ district }}{% endif %}" placeholder="District" aria-label="District"><button class="org-btn is-primary" type="submit">Compare plants</button></form></section>
+  {% if opts is not None %}<section class="org-card"><header><h2>{{ product.name }}{% if qty %} · {{ qty|qty }} {{ product.unit }}{% endif %} → {{ district }}</h2></header>
+    {% if opts %}<div class="cmp-grid">{% for o in opts %}<article class="cmp-card{% if o.best %} is-best{% endif %}" style="cursor:default">
+      <div class="cmp-head"><span><strong>{{ o.site.code }} · {{ o.site.name }}</strong><small>{{ o.site.operated_by.name|default:'Sistech' }} · {{ o.site.district }}</small></span><span></span><span class="cmp-rank">{% if o.best %}Best{% elif o.landed is None %}No lane{% else %}#{{ forloop.counter }}{% endif %}</span></div>
+      <div class="cmp-total"><small>Landed per {{ product.unit|lower }}</small><strong>{% if o.landed is not None %}₹{{ o.landed|indian:2 }}{% else %}—{% endif %}</strong><small>Rate ₹{{ o.rate|indian:2 }}{% if o.contract %} (contract){% else %} (stock cost){% endif %} · freight {% if o.freight is not None %}₹{{ o.freight|indian:2 }}{% else %}not contracted{% endif %}</small></div>
+      <dl class="cmp-facts"><div><dt>Free stock</dt><dd class="{% if not o.covers %}led-late{% endif %}">{{ o.stock|qty }}</dd></div><div><dt>Month received</dt><dd>{{ o.received|qty }}{% if o.committed %} / {{ o.committed|qty }}{% endif %}</dd></div><div><dt>Capacity used</dt><dd>{% if o.used_pct is not None %}{{ o.used_pct }}%{% else %}—{% endif %}</dd></div></dl>
+    </article>{% endfor %}</div>
+    {% else %}<p class="acc-muted">No plant has an approved rate or stock for this product.</p>{% endif %}</section>{% endif %}
+</div>
+{% endblock %}

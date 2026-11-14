@@ -14,7 +14,7 @@ class StyledForm(forms.ModelForm):
 class SiteForm(StyledForm):
     """Plants, depots and warehouses. GSTIN is checked against the state and the company PAN."""
     SECTIONS = [
-        ('Basics', 'What this location is and what it does.', ['kind', 'facility_type', 'code', 'name', 'active']),
+        ('Basics', 'What this location is and what it does.', ['kind', 'facility_type', 'code', 'name', 'operated_by', 'active']),
         ('Address', 'Where goods are produced, stored or dispatched from.', ['address', 'city', 'district', 'state', 'pincode']),
         ('Registration & contact', 'State GST registration and the people to reach.', ['gstin', 'manager', 'phone', 'email']),
         ('Dispatch settings', 'How trucks leave this location.', ['uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays']),
@@ -23,7 +23,7 @@ class SiteForm(StyledForm):
 
     class Meta:
         model = Site
-        fields = ['kind', 'facility_type', 'code', 'name', 'active', 'address', 'city', 'district', 'state', 'pincode',
+        fields = ['kind', 'facility_type', 'code', 'name', 'operated_by', 'active', 'address', 'city', 'district', 'state', 'pincode',
                   'gstin', 'manager', 'phone', 'email', 'uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays', 'capacity_tpa', 'notes']
         widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
 
@@ -37,6 +37,8 @@ class SiteForm(StyledForm):
         self.fields['manager'].queryset = User.objects.filter(is_active=True).order_by('first_name', 'username')
         self.fields['manager'].label_from_instance = lambda u: f'{u.get_full_name() or u.username} (@{u.username})'
         self.fields['manager'].empty_label = 'Not assigned'
+        self.fields['operated_by'].queryset = Partner.objects.filter(manufacturing_partner=True).order_by('name')
+        self.fields['operated_by'].empty_label = 'Sistech (own location)'
         self.fields['kind'].choices = [('', 'Select type')] + list(self.fields['kind'].choices)[1:]
         self.fields['facility_type'].choices = [('', 'Select facility')] + list(self.fields['facility_type'].choices)[1:]
         self.fields['state'].choices = [('', 'Select state')] + list(self.fields['state'].choices)[1:]
@@ -188,7 +190,7 @@ class ProductForm(StyledForm):
 class PartnerForm(StyledForm):
     """Dealers, distributors, retailers, institutional buyers, suppliers and transporters."""
     SECTIONS = [
-        ('Basics', 'Who this partner is and where they operate.', ['kind', 'code', 'name', 'territory', 'active']),
+        ('Basics', 'Who this partner is and where they operate.', ['kind', 'code', 'name', 'territory', 'manufacturing_partner', 'active']),
         ('Contact', 'The person and numbers to reach.', ['contact_person', 'phone', 'alt_phone', 'email']),
         ('Tax & address', 'GST registration and billing / delivery addresses.', ['gstin', 'pan', 'address', 'city', 'district', 'state', 'pincode', 'shipping_address']),
         ('Commercial terms', 'Credit and payment terms used when approving sales orders.', ['credit_limit', 'payment_terms_days', 'security_deposit']),
@@ -205,7 +207,7 @@ class PartnerForm(StyledForm):
 
     class Meta:
         model = Partner
-        fields = ['kind', 'code', 'name', 'territory', 'active', 'contact_person', 'phone', 'alt_phone', 'email', 'gstin', 'pan', 'address',
+        fields = ['kind', 'code', 'name', 'territory', 'manufacturing_partner', 'active', 'contact_person', 'phone', 'alt_phone', 'email', 'gstin', 'pan', 'address',
                   'city', 'district', 'state', 'pincode', 'shipping_address', 'credit_limit', 'payment_terms_days', 'security_deposit',
                   'bank_name', 'bank_account_number', 'bank_ifsc', 'notes']
         widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'shipping_address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
@@ -230,6 +232,12 @@ class PartnerForm(StyledForm):
 
     def clean_code(self):
         return self.cleaned_data['code'].strip().upper()
+
+    def clean_manufacturing_partner(self):
+        on = self.cleaned_data.get('manufacturing_partner')
+        if on and self.data.get('kind', self.instance.kind) != 'Supplier':
+            raise forms.ValidationError('Only a supplier can be a manufacturing partner.')
+        return on
 
     def clean(self):
         data = super().clean()

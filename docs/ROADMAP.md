@@ -79,6 +79,9 @@ AR/inventory/AP control reconciliation and permissioned bank matching. See [Fina
 Month close now retains independent review evidence, cutoff balances and bank confirmations; year close posts/reverses retained earnings with independent approval.
 Remaining: external evidence verification, statutory filing/connectors, budgets, PostgreSQL concurrency validation and finance UAT.
 
+### Step 7½ — Manufacturing partners (asset-light model from sistech.co.in) ✅
+Partner plants, approved supply rates driving POs, sourcing advisor on landed cost, partner scorecard; `seed_sistech` loads the public profile.
+
 ### Step 8 — Dealer network, schemes & service (§5.1, §5.3, §5.12)
 ✅ Step 8a: dealer leads, visit/call follow-ups, own/team/site scope, retained KYC evidence versions and policy,
 independent onboarding/credit/final activation, existing-customer amendments, monthly targets and performance

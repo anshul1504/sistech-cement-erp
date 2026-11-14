@@ -196,6 +196,15 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 
 See [Finance operations and limitations](docs/FINANCE.md) for setup, reconciliation and verification. Finance and business owners must validate the chart/posting map and sign UAT before operational use.
 
+## Manufacturing partners & sourcing (asset-light model)
+
+SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhiraj Cement and Central Cement Industries (Simga, Chhattisgarh), Rajat Cement and Pioneer Industries (Dhar, Madhya Pradesh), Himalaya Height Cement (Kaimur, Bihar) and Raigarh Ispat for TMT. `python manage.py seed_sistech` loads the head-office profile (Apollo Premier, Vijay Nagar, Indore), these partners and their plants with published capacities, and the SISTECH range (OPC 53 / PPC / PSC 50 kg bags, TMT Fe 550D 8–32 mm) — filling blanks only. Grades, bag sizes, GST rates and plant GSTINs must be confirmed by Sistech.
+
+- A supplier can be marked **manufacturing partner** and set as the operator of a plant (Plants & depots → Operated by).
+- **Supply rates** (Procurement → Manufacturing partners): rate per product per partner plant, monthly commitment, agreement reference and validity; a different user approves, and the new rate ends the previous one. POs to a partner plant take the contract rate when no rate is typed, are refused above it, and must be raised on the plant's operator.
+- **Sourcing advisor**: for a product, quantity and dealer (or district), ranks plants on landed cost = supply rate + contracted freight per unit, with free stock and this month's capacity use.
+- **Partner scorecard**: this month's receipts vs commitment, quality acceptance, on-time receipts, open PO quantity and receipts above contract rate (last three months).
+
 ## Implemented workflows
 
 - Responsive internal web ERP with local Poppins/Bootstrap, Sistech blue/yellow branding and The Webfix credit.

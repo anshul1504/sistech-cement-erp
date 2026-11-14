@@ -147,7 +147,11 @@ def _purchase_checks(order):
         if line.rate <= 0:
             problems.append(f'{line.product.name}: enter the agreed rate.')
     from .procurement import check_po_against_requests
+    from .sourcing import contract_problems
     problems += check_po_against_requests(order)
+    problems += contract_problems(order)
+    if order.site.operated_by_id and order.partner_id != order.site.operated_by_id:
+        problems.append(f'{order.site.code} is operated by {order.site.operated_by.name} — raise the PO on that partner.')
     if problems:
         raise ValidationError(problems)
 

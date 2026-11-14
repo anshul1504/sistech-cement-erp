@@ -262,3 +262,10 @@ urlpatterns += [
     path('schemes/calculations/<int:pk>/', sv.evaluation, name='scheme_evaluation'),
     path('schemes/calculations/<int:pk>/check/', sv.check_sources, name='scheme_check_sources'),
 ]
+from erp import sourcing_views as scv
+urlpatterns += [
+    path('purchase/partners/', scv.partners, name='mfg_partners'),
+    path('purchase/partners/rate/new/', scv.contract_new, name='contract_new'),
+    path('purchase/partners/rate/<int:pk>/<str:decision>/', scv.contract_decide, name='contract_decide'),
+    path('purchase/partners/advisor/', scv.advisor, name='sourcing_advisor'),
+]

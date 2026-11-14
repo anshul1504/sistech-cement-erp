@@ -39,11 +39,16 @@ def apply_pricing(order, line_forms):
         line.gst_rate, line.hsn = product.gst_rate or 0, product.hsn
         rule = price_for(product, order.site, order.partner, f.cleaned_data['quantity']) if order.kind == 'Sale' else None
         line.price_rule, line.list_rate = rule, (rule.rate if rule else None)
+        contract = None
+        if order.kind == 'Purchase' and order.site_id:
+            from .sourcing import current
+            contract = current(order.site, product)
+            line.list_rate = contract.rate if contract else None
         if f.cleaned_data.get('rate') in (None, ''):
-            if rule:
-                line.rate = rule.rate
+            if rule or contract:
+                line.rate = (rule or contract).rate
             else:
-                f.add_error('rate', 'No list price for this product — enter a rate.')
+                f.add_error('rate', 'No list price for this product — enter a rate.' if order.kind == 'Sale' else 'No supply contract rate here — enter the agreed rate.')
                 errors.append(product)
         if product.gst_rate is None:
             f.add_error('product', f'{product.name} has no GST rate. Set it in Products first.')
