@@ -46,10 +46,9 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Sistech ERP <no-reply@example.test>')
 EMAIL_OTP_ENABLED = os.environ.get('EMAIL_OTP_ENABLED', '1') == '1'
-# Username + password signs in directly; email + password requires the email OTP step.
-# Set EMAIL_OTP_SKIP_FOR_USERNAME=0 to require OTP for every sign-in (recommended for production).
-# Defaults: on for local development, off (OTP for everyone) when DEBUG=0.
-EMAIL_OTP_SKIP_FOR_USERNAME = os.environ.get('EMAIL_OTP_SKIP_FOR_USERNAME', '1' if DEBUG else '0') == '1'
+# OTP is required for username and email sign-ins, including admin, by default.
+# An explicit local-development override can enable password-only username login.
+EMAIL_OTP_SKIP_FOR_USERNAME = os.environ.get('EMAIL_OTP_SKIP_FOR_USERNAME', '0') == '1'
 EMAIL_OTP_TTL_SECONDS = 300
 EMAIL_OTP_MAX_ATTEMPTS = 5
 EMAIL_OTP_RESEND_SECONDS = 60

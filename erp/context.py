@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.9.7'
+ASSET_VERSION = '0.10.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -63,7 +63,10 @@ NAV_GROUPS = [
         _item('outstanding', 'Outstanding & ageing', 'chart', 'view_receipt', match=('partner_ledger',)),
         _item('supplier_invoices', 'Supplier invoices', 'purchase', 'view_supplierinvoice', match=('sinv_new', 'sinv_detail')),
         _item('debit_notes', 'Debit notes', 'receipt', 'view_debitnote', match=('dn_new', 'dn_detail')),
-        _soon('Accounts & ledgers', 'book'),
+        _item('journals', 'Accounts & ledgers', 'book', 'view_journalentry',
+              match=('voucher_new', 'journal_detail', 'trial_balance', 'profit_loss', 'balance_sheet', 'account_ledger', 'chart', 'periods', 'bank_rec', 'gst_summary',
+                     'fixed_assets', 'cash_flow')),
+        _item('payments', 'Payments', 'book', 'view_supplierpayment', match=('payment_new', 'payment_detail')),
     ]),
     ('Masters', [
         _item('products', 'Products & materials', 'package', 'view_product', match=('products_new', 'products_edit', 'product_detail', 'product_duplicate')),
@@ -87,6 +90,8 @@ NAV_GROUPS = [
 
 
 def _can_see(user, item):
+    if item['route'] in ('journals', 'payments') and not user.has_perm('erp.access_company_finance'):
+        return False
     if item['soon']:
         return True
     if item['superuser']:
@@ -164,6 +169,8 @@ def navigation(request):
         quick_create.append(('Product', reverse('products_new'), 'package'))
     if user.has_perm('erp.add_vehicle'):
         quick_create.append(('Vehicle', reverse('vehicle_new'), 'truck'))
+    if user.has_perm('erp.add_journalentry') and user.has_perm('erp.access_company_finance'):
+        quick_create.append(('Journal voucher', reverse('voucher_new'), 'book'))
     if user.has_perm('erp.add_receipt'):
         quick_create.append(('Receipt', reverse('receipt_new'), 'book'))
     if user.has_perm('erp.add_pricerule'):

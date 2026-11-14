@@ -1,0 +1,13 @@
+<nav class="org-tabs mst-cat-tabs" aria-label="Accounts">
+  {% if perms.erp.view_journalentry %}<a class="org-tab{% if tab == 'journals' %} is-active{% endif %}" href="{% url 'journals' %}">Journals</a>{% endif %}
+  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'tb' %} is-active{% endif %}" href="{% url 'trial_balance' %}">Trial balance</a>
+  <a class="org-tab{% if tab == 'pl' %} is-active{% endif %}" href="{% url 'profit_loss' %}">Profit &amp; loss</a>
+  <a class="org-tab{% if tab == 'bs' %} is-active{% endif %}" href="{% url 'balance_sheet' %}">Balance sheet</a>
+  <a class="org-tab{% if tab == 'cf' %} is-active{% endif %}" href="{% url 'cash_flow' %}">Cash flow</a>{% endif %}
+  {% if perms.erp.view_account %}<a class="org-tab{% if tab == 'chart' %} is-active{% endif %}" href="{% url 'chart' %}">Chart of accounts</a>{% endif %}
+  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'periods' %} is-active{% endif %}" href="{% url 'periods' %}">Periods &amp; close</a>{% endif %}
+  {% if perms.erp.view_supplierpayment %}<a class="org-tab{% if tab == 'payments' %} is-active{% endif %}" href="{% url 'payments' %}">Payments</a>{% endif %}
+  {% if perms.erp.view_bankstatementline %}<a class="org-tab{% if tab == 'bank' %} is-active{% endif %}" href="{% url 'bank_rec' %}">Bank reconciliation</a>{% endif %}
+  {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'gst' %} is-active{% endif %}" href="{% url 'gst_summary' %}">GST summary</a>{% endif %}
+  {% if perms.erp.view_fixedasset %}<a class="org-tab{% if tab == 'assets' %} is-active{% endif %}" href="{% url 'fixed_assets' %}">Fixed assets</a>{% endif %}
+</nav>

@@ -1,0 +1,28 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>GST summary</h1><p>Outward supplies (for GSTR-1), inward supplies and the net tax position (for GSTR-3B) for {{ month|date:'F Y' }}. Reconcile with the GST portal (GSTR-2B) before filing; filing itself is done on the portal.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="?month={{ month|date:'Y-m' }}{% if site %}&amp;site={{ site.pk }}{% endif %}&amp;export=hsn">↓ HSN summary</a></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='gst' %}
+  <section class="org-card" style="margin-bottom:16px"><form method="get" class="doc-filter acc-filter"><input class="form-control" type="month" name="month" value="{{ month|date:'Y-m' }}" aria-label="Month"><select class="form-select" name="site" aria-label="GST registration (plant)"><option value="">All registrations</option>{% for s in sites %}<option value="{{ s.pk }}"{% if site.pk == s.pk %} selected{% endif %}>{{ s.code }}{% if s.gstin %} · {{ s.gstin }}{% endif %}</option>{% endfor %}</select><button class="org-btn is-light" type="submit">Show</button></form></section>
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Output tax</span><strong>₹{{ g.output_tax|indian:2 }}</strong><small>After credit notes</small></div>
+    <div role="listitem" class="inf-kpi"><span>Input tax (books)</span><strong>₹{{ g.input_tax|indian:2 }}</strong><small>After debit notes · check GSTR-2B</small></div>
+    <div role="listitem" class="inf-kpi{% if g.net > 0 %} is-warn{% else %} is-ok{% endif %}"><span>{% if g.net >= 0 %}Net payable{% else %}Excess credit{% endif %}</span><strong>{{ g.net|rupees:2 }}</strong><small>Before cash ledger set-off</small></div></div>
+  <div class="acc-grid">
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Outward supplies</h2></header><dl>
+      <div><dt>Invoices</dt><dd>{{ g.invoices }} ({{ g.b2b_count }} B2B)</dd></div><div><dt>Taxable value</dt><dd>₹{{ g.outward.taxable|indian:2 }}</dd></div>
+      <div><dt>B2B taxable</dt><dd>₹{{ g.b2b_taxable|indian:2 }}</dd></div><div><dt>B2C taxable</dt><dd>₹{{ g.b2c_taxable|indian:2 }}</dd></div>
+      <div><dt>CGST / SGST</dt><dd>₹{{ g.outward.cgst|indian:2 }} / ₹{{ g.outward.sgst|indian:2 }}</dd></div><div><dt>IGST</dt><dd>₹{{ g.outward.igst|indian:2 }}</dd></div>
+      <div><dt>Credit notes</dt><dd>{{ g.credit_count }} · ₹{{ g.credit.taxable|indian:2 }} taxable</dd></div></dl></section>
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Inward supplies</h2></header><dl>
+      <div><dt>Supplier invoices taxable</dt><dd>₹{{ g.inward.taxable|indian:2 }}</dd></div><div><dt>Input GST</dt><dd>₹{{ g.inward.tax|indian:2 }}</dd></div>
+      <div><dt>Debit notes taxable</dt><dd>₹{{ g.debit.taxable|indian:2 }}</dd></div><div><dt>GST reversed</dt><dd>₹{{ g.debit.tax|indian:2 }}</dd></div></dl></section>
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>HSN-wise outward</h2></header>
+      {% if g.hsn %}<div class="ord-table hsn-table" role="table"><div class="ord-tr ord-th" role="row"><span>HSN</span><span>Quantity</span><span>Rate</span><span>Taxable</span><span>Tax</span></div>
+        {% for code, v in g.hsn %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ code }}</strong></span><span data-label="Quantity">{{ v.qty|qty }} {{ v.unit }}</span><span data-label="Rate">{{ v.rate|qty }}%</span><span data-label="Taxable">₹{{ v.taxable|indian:2 }}</span><span data-label="Tax">₹{{ v.tax|indian:2 }}</span></div>{% endfor %}</div>
+      {% else %}<p class="acc-muted">No invoices this month.</p>{% endif %}</section>
+  </div>
+</div>
+{% endblock %}

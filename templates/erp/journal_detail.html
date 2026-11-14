@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'journals' %}">← Accounts &amp; ledgers</a></div></div>
+  <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-book"/></svg></span>
+    <div class="org-hero-text"><h1>{{ je.number }}</h1><p>{{ je.narration }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{% if je.status == 'posted' %}completed{% elif je.status == 'draft' %}submitted{% else %}cancelled{% endif %}">● {{ je.get_status_display }}</span><span class="org-chip">{{ je.get_kind_display }}</span><span class="org-chip">{{ je.date|date:'d M Y' }}</span>{% if je.site %}<span class="org-chip">{{ je.site.code }}</span>{% endif %}{% if je.source %}<span class="org-chip is-mono">{{ je.source }}</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Amount</small><span class="mst-total">₹{{ je.total|indian:2 }}</span><small>By {{ je.created_by.get_full_name|default:je.created_by.username }}{% if je.approved_by and je.kind == 'manual' %} · approved by {{ je.approved_by.get_full_name|default:je.approved_by.username }}{% endif %}</small></div></section>
+  {% if je.reversal_of %}<ul class="ord-checks"><li class="is-info">Reverses <a href="{% url 'journal_detail' je.reversal_of.pk %}">{{ je.reversal_of.number }}</a>.</li></ul>{% endif %}
+  {% if reversed_by %}<ul class="ord-checks"><li class="is-warn">Reversed by <a href="{% url 'journal_detail' reversed_by.pk %}">{{ reversed_by.number }}</a>.</li></ul>{% endif %}
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Lines</h2></header>
+      <div class="ord-table jl-table" role="table"><div class="ord-tr ord-th" role="row"><span>Account</span><span>Party</span><span>Debit</span><span>Credit</span></div>
+        {% for l in lines %}<div class="ord-tr" role="row"><span class="ord-name"><strong><a href="{% url 'account_ledger' l.account.pk %}">{{ l.account.code }} · {{ l.account.name }}</a></strong>{% if l.narration %}<small>{{ l.narration }}</small>{% endif %}</span>
+          <span data-label="Party">{{ l.partner.name|default:'—' }}</span><span data-label="Debit">{% if l.debit %}₹{{ l.debit|indian:2 }}{% endif %}</span><span data-label="Credit">{% if l.credit %}₹{{ l.credit|indian:2 }}{% endif %}</span></div>{% endfor %}
+        <div class="ord-tr is-total" role="row"><span class="ord-name"><strong>Total</strong></span><span></span><span><strong>₹{{ je.total|indian:2 }}</strong></span><span><strong>₹{{ je.total|indian:2 }}</strong></span></div></div></section>
+    {% if can_decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Approve voucher</h2><span class="acc-muted">You did not draft it.</span></header>
+      <form method="post" action="{% url 'journal_action' je.pk 'approve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="jv-n">Note</label><input class="form-control" id="jv-n" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'journal_action' je.pk 'reject' %}">Reject</button><button class="org-btn is-primary" type="submit">Approve &amp; post</button></div></form></section>{% endif %}
+    {% if can_reverse %}<section class="org-card org-view acc-wide ord-items"><details class="pr-cancel" style="border:0;margin:0;padding:0"><summary>Reverse this voucher</summary>
+      <form method="post" action="{% url 'journal_action' je.pk 'reverse' %}">{% csrf_token %}<div class="org-grid"><div class="org-field"><label class="form-label" for="rv-d">Reversal date</label><input class="form-control" id="rv-d" type="date" name="date"></div>
+        <div class="org-field is-wide"><label class="form-label" for="rv-r">Reason</label><input class="form-control" id="rv-r" name="reason" maxlength="150" required></div></div><button class="org-btn is-light is-danger is-sm" type="submit">Post reversal</button></form></details></section>{% endif %}
+  </div>
+</div>
+{% endblock %}

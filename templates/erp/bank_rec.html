@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Bank reconciliation</h1><p>Import the bank statement (CSV: date, description, reference, withdrawal, deposit, balance). Rows are matched to ledger entries on amount, date and UTR; the rest wait here.</p></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='bank' %}
+  <section class="org-card" style="margin-bottom:16px"><form method="get" class="doc-filter acc-filter"><select class="form-select" name="bank" aria-label="Bank">{% for b in banks %}<option value="{{ b.pk }}"{% if bank.pk == b.pk %} selected{% endif %}>{{ b.code }} · {{ b.name }}</option>{% endfor %}</select><input class="form-control" type="date" name="to" value="{{ end|date:'Y-m-d' }}" aria-label="As on"><button class="org-btn is-light" type="submit">Show</button></form>
+    {% if can_import and bank %}<form method="post" enctype="multipart/form-data" class="doc-filter acc-filter" style="margin-top:12px">{% csrf_token %}<input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="action" value="import"><input class="form-control" type="file" name="statement" accept=".csv,text/csv" required><button class="org-btn is-primary" type="submit">Import statement</button></form>{% endif %}</section>
+  {% if rec %}<div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Balance as per books</span><strong>{{ rec.book|rupees }}</strong><small>{{ end|date:'d M Y' }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Balance as per bank</span><strong>{% if rec.statement is not None %}{{ rec.statement|rupees }}{% else %}—{% endif %}</strong><small>{% if rec.statement_date %}Statement {{ rec.statement_date|date:'d M' }}{% else %}Import a statement{% endif %}</small></div>
+    <div role="listitem" class="inf-kpi{% if rec.unpresented %} is-warn{% endif %}"><span>In books, not in bank</span><strong>{{ rec.unpresented|length }}</strong><small>{{ rec.adj|rupees }}</small></div>
+    <div role="listitem" class="inf-kpi{% if rec.unmatched %} is-danger{% endif %}"><span>In bank, not in books</span><strong>{{ rec.unmatched|length }}</strong><small>{{ rec.stmt_only|rupees }}</small></div></div>
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Statement rows to match</h2>{% if can_match and rec.unmatched %}<form method="post">{% csrf_token %}<input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="action" value="auto"><button class="org-btn is-light is-sm" type="submit">Auto-match</button></form>{% endif %}</header>
+      {% if rec.unmatched %}<ul class="mst-order-list">{% for s in rec.unmatched %}<li class="br-row"><span><strong>{{ s.amount|rupees:2 }} · {{ s.date|date:'d M Y' }}</strong><small>{{ s.description }}{% if s.reference %} · {{ s.reference }}{% endif %}</small></span>
+        {% if can_match %}<form method="post" class="br-match">{% csrf_token %}<input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="action" value="match"><input type="hidden" name="row" value="{{ s.pk }}">
+          <select class="form-select" name="line" aria-label="Ledger entry">{% for c in s.cands %}<option value="{{ c.pk }}">{{ c.entry.number }} · {{ c.entry.date|date:'d M' }} · {{ c.entry.narration|truncatechars:50 }}</option>{% empty %}<option value="">No ledger entry with this amount — post a voucher</option>{% endfor %}</select>{% if s.cands %}<button class="org-btn is-primary is-sm" type="submit">Match</button>{% endif %}</form>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">Every imported row is matched.</p>{% endif %}</section>
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>In books, not yet in bank</h2></header>
+      {% if rec.unpresented %}<ul class="mst-order-list">{% for l in rec.unpresented|slice:':30' %}<li><a href="{% url 'journal_detail' l.entry_id %}"><strong>{{ l.debit|default:l.credit|rupees:2 }} {% if l.debit %}in{% else %}out{% endif %}</strong><small>{{ l.entry.number }} · {{ l.entry.date|date:'d M' }} · {{ l.entry.narration|truncatechars:60 }}</small></a><span></span><span></span></li>{% endfor %}</ul>{% else %}<p class="acc-muted">None.</p>{% endif %}</section>
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>Recently matched</h2></header>
+      {% if recent %}<ul class="mst-order-list">{% for s in recent %}<li><span><strong>{{ s.amount|rupees:2 }} · {{ s.date|date:'d M' }}</strong><small>{{ s.matched_line.entry.number }} · {{ s.description|truncatechars:40 }}</small></span><span></span>{% if can_match %}<form method="post">{% csrf_token %}<input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="action" value="match"><input type="hidden" name="row" value="{{ s.pk }}"><button class="org-btn is-light is-sm" type="submit">Unmatch</button></form>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="acc-muted">Nothing matched yet.</p>{% endif %}</section>
+  </div>{% endif %}
+</div>
+{% endblock %}

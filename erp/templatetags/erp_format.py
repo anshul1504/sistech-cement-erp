@@ -97,3 +97,11 @@ def rupees(value, decimals=0):
         return value
     text = indian(abs(number), decimals)
     return ('−₹' if number < 0 else '₹') + text
+
+
+@register.filter
+def who(user):
+    """Display name for an optional user: full name, else username, else '—'."""
+    if not user:
+        return '—'
+    return user.get_full_name() or user.username

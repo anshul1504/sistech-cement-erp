@@ -173,6 +173,9 @@ def create_invoice(user, supplier, header, rows, notes=''):
     for gl, qty, rate, gst, po_rate, po_gst, open_qty, mq, mr, issue in results:
         SupplierInvoiceLine.objects.create(invoice=inv, grn_line=gl, quantity=qty, rate=rate, gst_rate=gst, po_rate=po_rate, po_gst_rate=po_gst, open_qty=open_qty,
                                            matched_qty=mq, matched_rate=mr, issue=issue[:200])
+    if inv.status == 'matched':
+        from .gl import post_supplier_invoice
+        post_supplier_invoice(user, inv)
     _log(user, inv.site, 'Supplier invoice entered', inv.number, f'{supplier.name} · {inv.invoice_number} · ₹{inr(inv.billed_total)} · {inv.get_status_display()}')
     return inv
 
@@ -211,6 +214,11 @@ def decide(user, pk, decision, note):
         inv.status, inv.payable = 'approved', inv.billed_total - dn.total
         _log(user, inv.site, 'Debit note raised', dn.number, f'{inv.supplier.name} · ₹{inr(dn.total)} · against {inv.invoice_number}')
     inv.save()
+    if inv.status == 'approved':
+        from .gl import post_supplier_invoice, post_debit_note
+        post_supplier_invoice(user, inv)
+        for dn in inv.debit_notes.all():
+            post_debit_note(user, dn)
     _log(user, inv.site, f'Supplier invoice {inv.get_decision_display().lower()}', inv.number, f'payable ₹{inr(inv.payable)} · {note}')
     return inv
 
@@ -270,6 +278,8 @@ def create_debit_note(user, grn, reason, remarks, quantities, vehicle=''):
             move_stock(user, grn.site, gl.product, -q, f'dn:{dn.pk}:line:{gl.pk}', 'PurchaseReturn', f'{dn.number} → {grn.supplier.name}')
     dn.taxable, dn.tax, dn.total = taxable, tax, money(taxable + tax)
     dn.save(update_fields=['taxable', 'tax', 'total'])
+    from .gl import post_debit_note
+    post_debit_note(user, dn)
     _log(user, grn.site, 'Debit note raised', dn.number, f'{grn.supplier.name} · {dn.get_reason_display()} · ₹{inr(dn.total)} · {grn.number}')
     return dn
 
@@ -284,4 +294,7 @@ def standalone_debits(supplier):
 def balance(supplier):
     inv = SupplierInvoice.objects.filter(supplier=supplier, status__in=['matched', 'approved']).aggregate(p=Sum('payable'))['p'] or ZERO
     dn = standalone_debits(supplier).aggregate(t=Sum('total'))['t'] or ZERO
-    return {'invoices': inv, 'debits': dn, 'balance': inv - dn}
+    from .models import FixedAsset, PaymentAllocation
+    assets = FixedAsset.objects.filter(supplier=supplier, credit_purchase=True).aggregate(t=Sum('cost'))['t'] or ZERO
+    paid = PaymentAllocation.objects.filter(payment__payee=supplier, payment__status='paid', freight_bill__isnull=True).aggregate(t=Sum('amount'))['t'] or ZERO
+    return {'invoices': inv, 'debits': dn, 'assets': assets, 'payments': paid, 'balance': inv + assets - dn - paid}

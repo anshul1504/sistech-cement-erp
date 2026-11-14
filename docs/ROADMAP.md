@@ -64,10 +64,14 @@ bag ↔ MT equivalents, ageing / slow-moving / min-max. Lot/batch balances move 
 2. ✅ Test specifications with limits (cement IS 269/1489/455: fineness, setting time, 3/7/28-day strength; TMT IS 1786: YS, UTS, elongation, bend), out-of-spec hold, release, **COA / mill test certificate**, calibration.
 3. ✅ Batch traceability from raw material to dispatched invoice.
 
-### Step 7 — Finance (SRS Phase 3, §5.10, §9)
+### Step 7 — Finance (SRS Phase 3, §5.10, §9) — core implemented, production controls/UAT pending
 Chart of accounts, double-entry posting engine (invoices, receipts, GRN, payments post automatically), AR/AP ageing,
 payments with maker-checker, bank reconciliation, trial balance, P&L, balance sheet, cash flow, fixed assets,
-period close checklist, GST summaries for reconciliation.
+basic period close checklist, GST summaries for reconciliation.
+
+Implemented with explicit company-wide finance scope, independent approvals, beneficiary snapshots, credit-asset payments,
+AR/inventory/AP control reconciliation and permissioned bank matching. See [Finance operations](FINANCE.md).
+Remaining: historical close completeness, year-end carry-forward, statutory filing/connectors, budgets and finance UAT.
 
 ### Step 8 — Dealer network, schemes & service (§5.1, §5.3, §5.12)
 Leads and project pipeline, dealer onboarding approval, territories/targets, schemes and commissions with

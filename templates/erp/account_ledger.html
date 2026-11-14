@@ -1,0 +1,18 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'trial_balance' %}">← Trial balance</a></div></div>
+  <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-book"/></svg></span>
+    <div class="org-hero-text"><h1>{{ a.code }} · {{ a.name }}</h1><p>{{ a.get_type_display }} · {{ a.group }}{% if a.is_control %} · control account{% endif %}{% if partner %} · {{ partner.name }}{% endif %}</p></div>
+    <div class="org-hero-side"><small>Closing</small><span class="mst-total">{{ led.closing|rupees:2 }}</span><small>Opening {{ led.opening|rupees:2 }}</small></div></section>
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Entries</h2><p>{{ led.rows|length }} · {{ start|date:'d M Y' }} – {{ end|date:'d M Y' }}</p></div>
+    <form method="get" class="doc-filter acc-filter"><input class="form-control" type="date" name="from" value="{{ start|date:'Y-m-d' }}" aria-label="From"><input class="form-control" type="date" name="to" value="{{ end|date:'Y-m-d' }}" aria-label="To">
+      {% if partners %}<select class="form-select" name="partner" aria-label="Party"><option value="">All parties</option>{% for p in partners %}<option value="{{ p.pk }}"{% if partner.pk == p.pk %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select>{% endif %}<button class="org-btn is-light" type="submit">Show</button></form></header>
+    {% if led.rows %}<div class="ord-table led-gl" role="table"><div class="ord-tr ord-th" role="row"><span>Voucher</span><span>Date</span><span>Debit</span><span>Credit</span><span>Balance</span></div>
+      {% for r in led.rows %}<a class="ord-tr" role="row" href="{% url 'journal_detail' r.line.entry_id %}"><span class="ord-name"><strong>{{ r.line.entry.number }}</strong><small>{{ r.line.entry.narration|truncatechars:80 }}{% if r.line.partner %} · {{ r.line.partner.name }}{% endif %}</small></span>
+        <span data-label="Date">{{ r.line.entry.date|date:'d M Y' }}</span><span data-label="Debit">{% if r.line.debit %}₹{{ r.line.debit|indian:2 }}{% endif %}</span><span data-label="Credit">{% if r.line.credit %}₹{{ r.line.credit|indian:2 }}{% endif %}</span><span data-label="Balance"><strong>{{ r.balance|rupees:2 }}</strong></span></a>{% endfor %}</div>
+    {% else %}<p class="acc-muted" style="padding:16px 24px">No entries in this range.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

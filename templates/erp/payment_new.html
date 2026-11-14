@@ -1,0 +1,20 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'payments' %}">← Payments</a></div><h1>Pay {{ payee.name }}</h1><p>{% if payee.bank_account_number %}To {{ payee.bank_name|default:'bank' }} · {{ payee.masked_account }} · {{ payee.bank_ifsc }}{% else %}No bank account on file — NEFT/RTGS will be refused.{% endif %} Tick the bills; leave the amount empty to pay the full balance. Debit notes reduce the payment.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Payment</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="py-b">From bank <span class="required">*</span></label><select class="form-select" id="py-b" name="bank">{% for b in banks %}{% if b.system_key != 'cash' %}<option value="{{ b.pk }}"{% if post.bank == b.pk|stringformat:'s' %} selected{% endif %}>{{ b.code }} · {{ b.name }}</option>{% endif %}{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="py-m">Mode</label><select class="form-select" id="py-m" name="mode">{% for k, l in modes %}<option value="{{ k }}"{% if post.mode == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="py-d">Value date</label><input class="form-control" id="py-d" type="date" name="date" value="{{ post.date|default:today }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="py-n">Note</label><input class="form-control" id="py-n" name="note" maxlength="200" value="{{ post.note }}"></div></div></section>
+    <section class="org-card"><header><h2>Bills</h2><p>Open balance ₹{{ total|indian:2 }}</p></header><div class="ord-lines">{% for i in items %}
+      <div class="ord-line dp-line"><div class="ord-cell ord-product" data-label="Bill"><label class="org-check-label"><input class="form-check-input" type="checkbox" name="pick_{{ i.key }}"{% if i.picked %} checked{% endif %}><span><strong>{% if i.kind == 'sinv' %}Invoice{% elif i.kind == 'frb' %}Freight bill{% else %}Debit note{% endif %} {{ i.ref }}</strong><small>{{ i.date|date:'d M Y' }}{% if i.kind != 'dn' %} · due {{ i.due_date|date:'d M Y' }}{% endif %}</small></span></label></div>
+        <div class="ord-cell" data-label="Balance"><strong class="{% if i.amount < 0 %}led-late{% endif %}">{{ i.amount|rupees:2 }}</strong></div>
+        <div class="ord-cell" data-label="Pay now (₹)"><input class="form-control" type="number" step="0.01" min="0" name="amt_{{ i.key }}" value="{{ i.value }}" placeholder="{{ i.amount|floatformat:2|cut:'-' }}"></div><div class="ord-cell"></div></div>{% empty %}<p class="acc-muted">Nothing open.</p>{% endfor %}</div></section>
+    <div class="org-actions"><span>A different user approves; then the payment is released with its UTR.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'payments' %}">Cancel</a><button class="org-btn is-primary" type="submit">Propose payment</button></div></div>
+  </form>
+</div>
+{% endblock %}

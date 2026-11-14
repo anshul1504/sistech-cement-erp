@@ -1,0 +1,19 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Chart of accounts</h1><p>System accounts are used by automatic postings; control accounts are posted only from their subledger documents. Add expense, income or bank accounts as needed.</p></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='chart' %}
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if can_add %}<section class="org-card" style="margin-bottom:16px"><details class="inf-log" style="border:0;padding:0"><summary><svg><use href="#ic-plus"/></svg>Add account</summary>
+    <form method="post" class="inf-log-form">{% csrf_token %}<div class="org-field"><label class="form-label" for="ac-c">Code</label><input class="form-control" id="ac-c" name="code" maxlength="10" inputmode="numeric" required></div>
+      <div class="org-field"><label class="form-label" for="ac-n">Name</label><input class="form-control" id="ac-n" name="name" maxlength="100" required></div>
+      <div class="org-field"><label class="form-label" for="ac-t">Type</label><select class="form-select" id="ac-t" name="type">{% for k, l in types %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="ac-g">Schedule III group</label><input class="form-control" id="ac-g" name="group" maxlength="60" list="ac-groups" required><datalist id="ac-groups">{% for g in groups %}<option value="{{ g }}">{% endfor %}</datalist></div>
+      <div class="org-field"><label class="org-check-label"><input class="form-check-input" type="checkbox" name="is_bank"><span>Bank / cash account</span></label></div>
+      <div class="inf-log-actions"><button class="org-btn is-primary is-sm" type="submit">Add</button></div></form></details></section>{% endif %}
+  <section class="org-card doc-list-card"><div class="ord-table coa-table" role="table"><div class="ord-tr ord-th" role="row"><span>Account</span><span>Type</span><span>Group</span><span>Balance</span></div>
+    {% for a in accounts %}<a class="ord-tr" role="row" href="{% url 'account_ledger' a.pk %}"><span class="ord-name"><strong>{{ a.code }} · {{ a.name }}</strong><small>{% if a.system_key %}System{% endif %}{% if a.is_control %} · control{% endif %}{% if a.is_bank %} · bank / cash{% endif %}</small></span>
+      <span data-label="Type">{{ a.get_type_display }}</span><span data-label="Group">{{ a.group }}</span><span data-label="Balance">{{ a.balance|rupees:2 }}</span></a>{% endfor %}</div></section>
+</div>
+{% endblock %}

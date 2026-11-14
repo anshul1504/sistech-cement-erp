@@ -1,0 +1,18 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Trial balance</h1><p>Opening, period movement and closing balance of every account. Debit balances are positive. Click an account for its ledger.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="?{{ request.GET.urlencode }}&amp;export=csv">↓ Export CSV</a></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='tb' %}
+  <ul class="ord-checks">{% if tb.debit == tb.credit %}<li class="is-info">Balanced: debits ₹{{ tb.debit|indian:2 }} = credits ₹{{ tb.credit|indian:2 }} for the period.</li>{% else %}<li class="is-danger">Out of balance by {{ tb.diff|rupees:2 }} — contact support.</li>{% endif %}
+    {% for c in checks %}{% if c.diff %}<li class="is-warn">{{ c.name }}: ledger ₹{{ c.gl|indian:2 }} vs subledger ₹{{ c.sub|indian:2 }} — difference {{ c.diff|rupees:2 }}. Run "post_ledger" for older documents.</li>{% endif %}{% endfor %}</ul>
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>{{ start|date:'d M Y' }} – {{ end|date:'d M Y' }}</h2><p>{{ tb.rows|length }} accounts</p></div>{% include 'erp/_acc_filter.html' %}</header>
+    {% if tb.rows %}<div class="ord-table tb-table" role="table"><div class="ord-tr ord-th" role="row"><span>Account</span><span>Opening</span><span>Debit</span><span>Credit</span><span>Closing</span></div>
+      {% for r in tb.rows %}<a class="ord-tr" role="row" href="{% url 'account_ledger' r.account.pk %}?from={{ start|date:'Y-m-d' }}&amp;to={{ end|date:'Y-m-d' }}"><span class="ord-name"><strong>{{ r.account.code }} · {{ r.account.name }}</strong><small>{{ r.account.group }}</small></span>
+        <span data-label="Opening">{{ r.opening|rupees:2 }}</span><span data-label="Debit">₹{{ r.debit|indian:2 }}</span><span data-label="Credit">₹{{ r.credit|indian:2 }}</span><span data-label="Closing"><strong>{{ r.closing|rupees:2 }}</strong></span></a>{% endfor %}
+      <div class="ord-tr is-total" role="row"><span class="ord-name"><strong>Total</strong><small>Closing Dr ₹{{ tb.closing_dr|indian:2 }} · Cr ₹{{ tb.closing_cr|indian:2 }}</small></span><span></span><span><strong>₹{{ tb.debit|indian:2 }}</strong></span><span><strong>₹{{ tb.credit|indian:2 }}</strong></span><span></span></div></div>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-book"/></svg><strong>No postings in this range</strong><span>Run "post_ledger" once to post documents created before the ledger.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

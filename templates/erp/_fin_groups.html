@@ -1,0 +1,2 @@
+{% load erp_format %}{% for g, items, total in groups %}<div class="fs-group"><div class="fs-head"><strong>{{ g }}</strong><strong>{{ total|rupees:2 }}</strong></div>
+  {% for a, amt in items %}<a class="fs-row" href="{% url 'account_ledger' a.pk %}"><span>{{ a.code }} · {{ a.name }}</span><span>{{ amt|rupees:2 }}</span></a>{% endfor %}</div>{% empty %}<p class="acc-muted">Nothing posted.</p>{% endfor %}

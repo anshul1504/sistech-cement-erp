@@ -8,6 +8,13 @@ MODULES = [
     ('rfq', 'RFQs & quotes', {'view': 'view_rfq', 'create': 'add_rfq', 'approve': 'award_rfq'}),
     ('purchase', 'Purchase orders', {a: f'{a}_purchase_order' for a in ['view', 'create', 'submit', 'approve', 'post', 'cancel']}),
     ('purchase_high', 'High-value PO approval', {'approve': 'approve_high_value_purchase'}),
+    ('company_finance', 'Company-wide finance access', {'view': 'access_company_finance'}),
+    ('ledger', 'Journals & vouchers', {'view': 'view_journalentry', 'create': 'add_journalentry', 'approve': 'approve_journalentry'}),
+    ('financials', 'Financial statements', {'view': 'view_financials', 'post': 'close_period'}),
+    ('chart', 'Chart of accounts', {'view': 'view_account', 'create': 'add_account'}),
+    ('payments', 'Supplier payments', {'view': 'view_supplierpayment', 'create': 'add_supplierpayment', 'approve': 'approve_supplierpayment', 'post': 'release_supplierpayment'}),
+    ('bank', 'Bank reconciliation', {'view': 'view_bankstatementline', 'create': 'add_bankstatementline', 'edit': 'change_bankstatementline'}),
+    ('assets', 'Fixed assets', {'view': 'view_fixedasset', 'create': 'add_fixedasset', 'post': 'depreciate_fixedasset'}),
     ('supplier_invoices', 'Supplier invoices', {'view': 'view_supplierinvoice', 'create': 'add_supplierinvoice', 'approve': 'approve_supplierinvoice'}),
     ('debit_notes', 'Debit notes & returns', {'view': 'view_debitnote', 'create': 'add_debitnote'}),
     ('grn', 'Goods receipt (GRN)', {'view': 'view_goodsreceipt', 'create': 'add_goodsreceipt', 'post': 'post_goodsreceipt', 'approve': 'release_goodsreceipt'}),
@@ -41,7 +48,7 @@ MODULES = [
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
-ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p}
+ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance'}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'approve_stockcount', 'approve_stocktransfer', 'decide_damagereport', 'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
@@ -50,8 +57,13 @@ PRESETS = {
                          'change_purchaserequest', 'view_rfq', 'add_rfq', 'award_rfq', 'view_stockbalance', 'view_partner', 'view_product', 'view_site'},
     'Purchase head': {'view_debitnote', 'add_debitnote', 'view_supplierinvoice', 'view_purchase_order', 'approve_purchase_order', 'approve_high_value_purchase', 'cancel_purchase_order', 'view_purchaserequest', 'approve_purchaserequest',
                       'view_rfq', 'award_rfq', 'view_stockbalance', 'view_partner', 'view_product', 'view_site'},
+    'Accountant': {'access_company_finance', 'view_supplierpayment', 'add_supplierpayment', 'view_bankstatementline', 'add_bankstatementline', 'change_bankstatementline', 'view_fixedasset',
+                   'add_fixedasset', 'view_journalentry', 'add_journalentry', 'view_financials', 'view_account', 'view_invoice', 'view_receipt', 'add_receipt', 'view_creditnote',
+                   'view_supplierinvoice', 'add_supplierinvoice', 'view_debitnote', 'view_partner', 'view_site', 'view_product', 'view_stockbalance'},
     'Accounts payable': {'view_supplierinvoice', 'add_supplierinvoice', 'view_debitnote', 'add_debitnote', 'view_goodsreceipt', 'view_purchase_order', 'view_partner', 'view_site', 'view_product'},
-    'Finance controller': {'view_supplierinvoice', 'approve_supplierinvoice', 'view_debitnote', 'view_goodsreceipt', 'view_purchase_order', 'view_receipt', 'view_invoice',
+    'Finance controller': {'access_company_finance', 'view_supplierpayment', 'approve_supplierpayment', 'release_supplierpayment', 'view_bankstatementline', 'view_fixedasset',
+                           'depreciate_fixedasset', 'view_journalentry', 'approve_journalentry', 'view_financials', 'close_period', 'view_account', 'add_account',
+                           'view_supplierinvoice', 'approve_supplierinvoice', 'view_debitnote', 'view_goodsreceipt', 'view_purchase_order', 'view_receipt', 'view_invoice',
                            'view_partner', 'view_site', 'view_product'},
     'Store requester': {'view_purchaserequest', 'add_purchaserequest', 'change_purchaserequest', 'view_stockbalance', 'view_product', 'view_site'},
     'Warehouse operator': {'view_stockcount', 'add_stockcount', 'view_stocktransfer', 'add_stocktransfer', 'dispatch_stocktransfer', 'receive_stocktransfer', 'view_damagereport', 'add_damagereport', 'view_goodsreceipt', 'post_goodsreceipt', 'view_sales_order', 'post_sales_order', 'view_purchase_order', 'post_purchase_order', 'view_stockbalance', 'view_stockmovement', 'view_product', 'view_site'},
@@ -66,7 +78,7 @@ PRESETS = {
     'Loading supervisor': {'view_dispatch', 'load_dispatch', 'view_vehicle'},
     'Logistics manager': {'view_freightrate', 'add_freightrate', 'change_freightrate', 'view_freightbill', 'approve_freightbill', 'view_dispatch', 'add_dispatch', 'approve_weight_exception', 'pod_dispatch', 'view_vehicle', 'add_vehicle', 'change_vehicle',
                           'view_sales_order', 'view_partner', 'view_product', 'view_site'},
-    'Internal auditor': ALL_VIEWS | {'export_invoice', 'export_influencer', 'export_stockmovement'},
+    'Internal auditor': ALL_VIEWS | {'access_company_finance', 'export_invoice', 'export_influencer', 'export_stockmovement'},
 }
 
 

@@ -200,3 +200,28 @@ urlpatterns += [
     path('quality/', pdv.quality, name='quality'),
     path('quality/equipment/', pdv.equipment_save, name='equipment_save'),
 ]
+from erp import accounts_views as acv
+urlpatterns += [
+    path('accounts-ledger/', acv.journals, name='journals'),
+    path('accounts-ledger/voucher/new/', acv.voucher_new, name='voucher_new'),
+    path('accounts-ledger/journal/<int:pk>/', acv.journal_detail, name='journal_detail'),
+    path('accounts-ledger/journal/<int:pk>/<str:action>/', acv.journal_action, name='journal_action'),
+    path('accounts-ledger/trial-balance/', acv.trial_balance, name='trial_balance'),
+    path('accounts-ledger/profit-loss/', acv.profit_loss, name='profit_loss'),
+    path('accounts-ledger/balance-sheet/', acv.balance_sheet, name='balance_sheet'),
+    path('accounts-ledger/account/<int:pk>/', acv.account_ledger, name='account_ledger'),
+    path('accounts-ledger/chart/', acv.chart, name='chart'),
+    path('accounts-ledger/periods/', acv.periods, name='periods'),
+    path('accounts-ledger/periods/<int:pk>/<str:action>/', acv.period_action, name='period_action'),
+]
+from erp import treasury_views as trv
+urlpatterns += [
+    path('accounts-ledger/payments/', trv.payments, name='payments'),
+    path('accounts-ledger/payments/new/<int:payee_pk>/', trv.payment_new, name='payment_new'),
+    path('accounts-ledger/payments/<int:pk>/', trv.payment_detail, name='payment_detail'),
+    path('accounts-ledger/payments/<int:pk>/<str:action>/', trv.payment_action, name='payment_action'),
+    path('accounts-ledger/bank/', trv.bank_rec, name='bank_rec'),
+    path('accounts-ledger/gst/', trv.gst_summary, name='gst_summary'),
+    path('accounts-ledger/assets/', trv.fixed_assets, name='fixed_assets'),
+    path('accounts-ledger/cash-flow/', trv.cash_flow, name='cash_flow'),
+]

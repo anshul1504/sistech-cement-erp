@@ -1,0 +1,34 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Fixed assets</h1><p>Asset register with straight-line or WDV depreciation. Capitalisation, the monthly depreciation run and disposal (with gain or loss) post to the ledger. Confirm rates and lives with your auditor (Companies Act Schedule II).</p></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='assets' %}
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <div class="inf-kpis is-three" role="list"><div role="listitem" class="inf-kpi"><span>Gross block</span><strong>₹{{ totals.cost|indian }}</strong><small>Assets in use</small></div>
+    <div role="listitem" class="inf-kpi"><span>Net block</span><strong>₹{{ totals.book|indian }}</strong><small>After depreciation</small></div>
+    <div role="listitem" class="inf-kpi"><span>Assets</span><strong>{{ assets|length }}</strong><small>In register</small></div></div>
+  {% if can_dep %}<section class="org-card" style="margin-bottom:16px"><form method="post" class="doc-filter acc-filter">{% csrf_token %}<input type="hidden" name="action" value="depreciate"><label class="form-label" for="dp-m" style="margin:0">Depreciation for</label><input class="form-control" id="dp-m" type="month" name="month" value="{{ month }}" required><button class="org-btn is-primary" type="submit">Run depreciation</button></form></section>{% endif %}
+  {% if can_add %}<section class="org-card" style="margin-bottom:16px"><details class="inf-log" style="border:0;padding:0"><summary><svg><use href="#ic-plus"/></svg>Capitalise an asset</summary>
+    <form method="post" class="inf-log-form">{% csrf_token %}<input type="hidden" name="action" value="add">
+      <div class="org-field"><label class="form-label" for="fa-c">Asset code</label><input class="form-control" id="fa-c" name="code" maxlength="30" required></div>
+      <div class="org-field"><label class="form-label" for="fa-n">Name</label><input class="form-control" id="fa-n" name="name" maxlength="120" required placeholder="e.g. Vertical roller mill gearbox"></div>
+      <div class="org-field"><label class="form-label" for="fa-k">Category</label><select class="form-select" id="fa-k" name="category">{% for k, l in categories %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="fa-s">Plant</label><select class="form-select" id="fa-s" name="site">{% for s in sites %}<option value="{{ s.pk }}">{{ s.code }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="fa-l">Location detail</label><input class="form-control" id="fa-l" name="location" maxlength="100"></div>
+      <div class="org-field"><label class="form-label" for="fa-u">Put to use on</label><input class="form-control" id="fa-u" type="date" name="put_to_use" value="{{ today }}" required></div>
+      <div class="org-field"><label class="form-label" for="fa-co">Cost (₹, excl. GST credit)</label><input class="form-control" id="fa-co" type="number" step="0.01" min="0" name="cost" required></div>
+      <div class="org-field"><label class="form-label" for="fa-sv">Residual value (₹)</label><input class="form-control" id="fa-sv" type="number" step="0.01" min="0" name="salvage" value="0"></div>
+      <div class="org-field"><label class="form-label" for="fa-me">Method</label><select class="form-select" id="fa-me" name="method"><option value="slm">Straight line</option><option value="wdv">Written down value</option></select></div>
+      <div class="org-field"><label class="form-label" for="fa-li">Useful life (years, SLM)</label><input class="form-control" id="fa-li" type="number" step="0.5" min="0" name="life_years" value="15"></div>
+      <div class="org-field"><label class="form-label" for="fa-wr">WDV rate % (WDV)</label><input class="form-control" id="fa-wr" type="number" step="0.01" min="0" name="wdv_rate"></div>
+      <div class="org-field"><label class="form-label" for="fa-f">Paid by</label><select class="form-select" id="fa-f" name="funded"><option value="ap">Supplier credit (payable)</option>{% for b in banks %}<option value="{{ b.pk }}">{{ b.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="fa-su">Supplier</label><select class="form-select" id="fa-su" name="supplier"><option value="">—</option>{% for s in suppliers %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}</select></div>
+      <div class="inf-log-actions"><button class="org-btn is-primary is-sm" type="submit">Capitalise</button></div></form></details></section>{% endif %}
+  <section class="org-card doc-list-card">{% if assets %}<div class="ord-table fa-table" role="table"><div class="ord-tr ord-th" role="row"><span>Asset</span><span>Put to use</span><span>Cost</span><span>Depreciation</span><span>Book value</span><span>Policy</span></div>
+    {% for a in assets %}<div class="ord-tr{% if a.status == 'disposed' %} is-inactive{% endif %}" role="row"><span class="ord-name"><strong>{{ a.code }} · {{ a.name }}</strong><small>{{ a.get_category_display }} · {{ a.site.code }}{% if a.location %} · {{ a.location }}{% endif %}{% if a.status == 'disposed' %} · disposed {{ a.disposed_on|date:'d M Y' }} for ₹{{ a.proceeds|indian }}{% endif %}</small></span>
+      <span data-label="Put to use">{{ a.put_to_use|date:'d M Y' }}</span><span data-label="Cost">₹{{ a.cost|indian }}</span><span data-label="Depreciation">₹{{ a.accumulated|indian }}</span><span data-label="Book value"><strong>₹{{ a.book_value|indian }}</strong></span>
+      <span data-label="Policy">{% if a.method == 'slm' %}SLM {{ a.life_years|qty }} y{% else %}WDV {{ a.wdv_rate|qty }}%{% endif %}{% if can_dep and a.status == 'active' %}<details class="fa-dispose"><summary>Dispose</summary><form method="post">{% csrf_token %}<input type="hidden" name="action" value="dispose"><input type="hidden" name="asset" value="{{ a.pk }}"><input class="form-control" type="date" name="on" value="{{ today }}" required><input class="form-control" type="number" step="0.01" min="0" name="proceeds" placeholder="Sale value ₹"><select class="form-select" name="bank"><option value="">Bank (if sold)</option>{% for b in banks %}<option value="{{ b.pk }}">{{ b.name }}</option>{% endfor %}</select><button class="org-btn is-light is-danger is-sm" type="submit">Dispose</button></form></details>{% endif %}</span></div>{% endfor %}</div>
+  {% else %}<div class="doc-empty"><svg><use href="#ic-building"/></svg><strong>No assets registered</strong><span>Capitalise plant, buildings and vehicles to depreciate them.</span></div>{% endif %}</section>
+</div>
+{% endblock %}

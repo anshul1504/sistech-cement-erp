@@ -1,0 +1,32 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'journals' %}">← Accounts &amp; ledgers</a></div><h1>Journal voucher</h1><p>For accruals, provisions, reclassifications and approved adjustments. Control accounts (receivables, payables, inventory, GST, GRNI) are posted only from their documents. A different user approves before it posts.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate data-jv>{% csrf_token %}
+    <section class="org-card"><header><h2>Voucher</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="jv-d">Date <span class="required">*</span></label><input class="form-control" id="jv-d" type="date" name="date" value="{{ post.date|default:today }}"></div>
+      <div class="org-field"><label class="form-label" for="jv-s">Plant / branch</label><select class="form-select" id="jv-s" name="site"><option value="">Head office</option>{% for s in sites %}<option value="{{ s.pk }}"{% if post.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="jv-n">Narration <span class="required">*</span></label><input class="form-control" id="jv-n" name="narration" maxlength="250" value="{{ post.narration }}" placeholder="e.g. Power bill provision for October"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Lines</h2><p>Totals: <strong data-dr>₹0.00</strong> debit · <strong data-cr>₹0.00</strong> credit <span data-diff></span></p></header><div class="ord-lines">
+      <div class="ord-line jv-line ord-line-head" aria-hidden="true"><span>Account</span><span>Party (optional)</span><span>Debit</span><span>Credit</span><span>Line note</span></div>
+      {% for r in rows %}<div class="ord-line jv-line">
+        <div class="ord-cell ord-product" data-label="Account"><select class="form-select" name="account_{{ forloop.counter0 }}"><option value="">—</option>{% for a in accounts %}<option value="{{ a.pk }}"{% if r.account == a.pk|stringformat:'s' %} selected{% endif %}>{{ a.code }} · {{ a.name }}</option>{% endfor %}</select></div>
+        <div class="ord-cell" data-label="Party"><select class="form-select" name="partner_{{ forloop.counter0 }}"><option value="">—</option>{% for p in partners %}<option value="{{ p.pk }}"{% if r.partner == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="ord-cell" data-label="Debit"><input class="form-control" type="number" step="0.01" min="0" name="debit_{{ forloop.counter0 }}" value="{{ r.debit }}" data-d></div>
+        <div class="ord-cell" data-label="Credit"><input class="form-control" type="number" step="0.01" min="0" name="credit_{{ forloop.counter0 }}" value="{{ r.credit }}" data-c></div>
+        <div class="ord-cell" data-label="Line note"><input class="form-control" name="narr_{{ forloop.counter0 }}" maxlength="150" value="{{ r.narr }}"></div>
+      </div>{% endfor %}</div></section>
+    <div class="org-actions"><span>Debits must equal credits.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'journals' %}">Cancel</a><button class="org-btn is-primary" type="submit">Save for approval</button></div></div>
+  </form>
+</div>
+<script>
+(() => { const f = document.querySelector('[data-jv]'); const inr = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const calc = () => { let d = 0, c = 0; f.querySelectorAll('[data-d]').forEach(i => d += parseFloat(i.value) || 0); f.querySelectorAll('[data-c]').forEach(i => c += parseFloat(i.value) || 0);
+    f.querySelector('[data-dr]').textContent = inr(d); f.querySelector('[data-cr]').textContent = inr(c);
+    const x = Math.round((d - c) * 100) / 100; f.querySelector('[data-diff]').textContent = x ? ` · difference ${inr(Math.abs(x))}` : (d ? ' · balanced ✓' : ''); };
+  f.addEventListener('input', calc); calc(); })();
+</script>
+{% endblock %}

@@ -33,24 +33,30 @@ def supplier_invoices(request):
     base = scope(SupplierInvoice.objects.all(), request.user)
     today = timezone.localdate()
     # Suppliers with received material not yet billed
-    pending = GRNLine.objects.filter(grn__status='posted').values('grn__supplier', 'grn__supplier__name').annotate(n=Count('grn', distinct=True)).order_by('grn__supplier__name')
+    pending = scope(GRNLine.objects.filter(grn__status='posted'), request.user, 'grn__site').values('grn__supplier', 'grn__supplier__name').annotate(n=Count('grn', distinct=True)).order_by('grn__supplier__name')
     to_bill = []
     for row in pending:
         s = Partner(pk=row['grn__supplier'], name=row['grn__supplier__name'])
-        lines = AP.billable_lines(s)
+        lines = [line for line in AP.billable_lines(s) if request.user.is_superuser or line.grn.site.siteaccess_set.filter(user=request.user).exists()]
         if lines:
             to_bill.append({'pk': s.pk, 'name': s.name, 'lines': len(lines), 'value': sum((l.open * l.po_line.rate for l in lines), Decimal('0'))})
     suppliers = []
-    for s in Partner.objects.filter(kind='Supplier', supplier_invoices__isnull=False).distinct().order_by('name'):
+    # Consolidated balances include cross-site receipts/payments and are finance-only.
+    supplier_qs = Partner.objects.filter(kind='Supplier').order_by('name') if request.user.has_perm('erp.access_company_finance') else Partner.objects.none()
+    from .models import PaymentAllocation
+    for s in supplier_qs:
         b = AP.balance(s)
-        due = SupplierInvoice.objects.filter(supplier=s, status__in=['matched', 'approved'], due_date__lt=today).aggregate(p=Sum('payable'))['p'] or 0
+        due = Decimal('0')
+        for invoice in SupplierInvoice.objects.filter(supplier=s, status__in=['matched', 'approved'], due_date__lt=today):
+            paid = PaymentAllocation.objects.filter(supplier_invoice=invoice, payment__status='paid').aggregate(t=Sum('amount'))['t'] or 0
+            due += max(invoice.payable - paid, 0)
         if b['balance'] or due:
             suppliers.append({'s': s, **b, 'overdue': due})
     return render(request, 'erp/supplier_invoices.html', {
         'title': 'Supplier invoices', 'invoices': qs[:200], 'status': status, 'q': q, 'to_bill': to_bill, 'suppliers': suppliers,
         'exceptions': base.filter(status='exception').count(),
         'payable': base.filter(status__in=['matched', 'approved']).aggregate(p=Sum('payable'))['p'] or 0,
-        'debits': DebitNote.objects.exclude(supplier_invoice__decision='matched').aggregate(t=Sum('total'))['t'] or 0,
+        'debits': scope(DebitNote.objects.exclude(supplier_invoice__decision='matched'), request.user).aggregate(t=Sum('total'))['t'] or 0,
         'can_add': request.user.has_perm('erp.add_supplierinvoice'), 'statuses': SupplierInvoice._meta.get_field('status').choices})
 
 

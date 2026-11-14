@@ -224,6 +224,8 @@ def resolve_transfer(user, pk, note):
     loss = sum((l.shortage * (l.unit_cost or 0) for l in t.lines.all()), ZERO)
     t.status, t.resolved_by, t.resolution = 'received', user, note[:200]
     t.save()
+    from .gl import post_transit_loss
+    post_transit_loss(user, t, loss.quantize(Decimal('0.01')))
     _log(user, t.to_site, 'Transfer discrepancy resolved', t.number, f'Transit loss ₹{inr(loss)} · {note}')
     return t
 

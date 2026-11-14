@@ -38,8 +38,11 @@ def move_stock(user, site, product, quantity, source, kind, notes='', status='av
         cost = balance.avg_cost
     balance.quantity += quantity
     balance.save(update_fields=['quantity', 'avg_cost'])
-    return StockMovement.objects.create(site=site, product=product, quantity=quantity, source=source, kind=kind, created_by=user, notes=notes,
-                                        status=status, uom=product.unit, unit_cost=cost, balance_after=balance.quantity)
+    m = StockMovement.objects.create(site=site, product=product, quantity=quantity, source=source, kind=kind, created_by=user, notes=notes,
+                                     status=status, uom=product.unit, unit_cost=cost, balance_after=balance.quantity)
+    from .gl import post_stock
+    post_stock(user, m)
+    return m
 
 
 def transfer_state(user, site, product, quantity, source, kind_out, kind_in, from_status, to_status, notes=''):

@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Payments</h1><p>Pay suppliers and transporters against approved bills. Proposal → approval by a different user → release with UTR. A returned payment reverses its voucher and reopens the bills.</p></div>
+    {% if approved and perms.erp.release_supplierpayment %}<div class="doc-head-actions"><a class="org-btn is-light" href="?export=bank">↓ Bank file ({{ approved }})</a></div>{% endif %}</div>
+  {% include 'erp/_acc_tabs.html' with tab='payments' %}
+  <section class="org-card ord-items" style="margin-bottom:16px"><header class="acc-card-head"><h2>To pay</h2><span class="acc-muted">Approved supplier invoices and freight bills, net of debit notes</span></header>
+    {% if payees %}<ul class="mst-order-list">{% for p in payees %}<li><span><strong>{{ p.payee.name }}</strong><small>{{ p.count }} bill{{ p.count|pluralize }} · ₹{{ p.total|indian:2 }}{% if p.overdue %} · <span class="led-late">₹{{ p.overdue|indian }} past due</span>{% endif %}</small></span><span></span>{% if can_add %}<a class="org-btn is-primary is-sm" href="{% url 'payment_new' p.payee.pk %}">Pay</a>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="acc-muted">Nothing due.</p>{% endif %}</section>
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Payments</h2><p>{{ payments|length }} shown</p></div>
+    <form method="get" class="doc-filter"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option>{% for k, l in statuses %}<option value="{{ k }}"{% if status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></form></header>
+    {% if payments %}<ul class="mst-list prc-list pr-list sinv-list">{% for p in payments %}
+      <li class="{% if p.status == 'cancelled' or p.status == 'failed' %}is-inactive{% endif %}"><a class="mst-main" href="{% url 'payment_detail' p.pk %}"><span class="mst-icon"><svg><use href="#ic-book"/></svg></span><span><strong>{{ p.payee.name }}</strong><small>{{ p.number }} · {{ p.get_mode_display }}{% if p.reference %} · {{ p.reference }}{% endif %}</small></span></a>
+        <div class="mst-cell"><small>Amount</small>₹{{ p.amount|indian:2 }}</div><div class="mst-cell"><small>Date</small>{{ p.date|date:'d M Y' }}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ p.badge }}">● {{ p.get_status_display }}</span></div><div class="mst-cell"><small>From</small>{{ p.bank.name }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'payment_detail' p.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-book"/></svg><strong>No payments yet</strong><span>Pay a supplier from the list above.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

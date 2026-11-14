@@ -94,6 +94,8 @@ def receipt_new(request):
             r = form.save(commit=False)
             r.number, r.created_by = next_number('RCT'), request.user
             r.save()
+            from .gl import post_receipt
+            post_receipt(request.user, r)
             allocate(r.partner)
             AuditEvent.objects.create(actor=request.user, action='Receipt posted', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {r.get_mode_display()}')
         r.refresh_from_db()
@@ -129,6 +131,8 @@ def receipt_bounce(request, pk):
         r.settlements.all().delete()
         r.status, r.bounced_on, r.bounce_reason = 'bounced', timezone.localdate(), reason
         r.save(update_fields=['status', 'bounced_on', 'bounce_reason'])
+        from .gl import reverse_source
+        reverse_source(request.user, f'rct:{r.pk}', reason=f'Cheque bounced: {reason}')
         allocate(r.partner)
         AuditEvent.objects.create(actor=request.user, action='Cheque bounced', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {reason}')
     messages.warning(request, f'{r.number} marked bounced. ₹{inr(r.amount, 2)} is outstanding again for {r.partner.name}.')
@@ -193,6 +197,8 @@ def credit_note_new(request, pk):
                 cn.total = exact.quantize(Decimal('1'))
                 cn.round_off = cn.total - exact
                 cn.save()
+                from .gl import post_credit_note
+                post_credit_note(request.user, cn)
                 # A credit note first reduces its own invoice; anything left settles other invoices or stays as credit.
                 own = min(cn.total, inv.outstanding)
                 if own > 0:

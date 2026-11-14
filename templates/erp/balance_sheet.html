@@ -1,0 +1,14 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Balance sheet</h1><p>As on {{ end|date:'d M Y' }}. Profit to date is shown under equity until the year is closed.</p></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='bs' %}
+  {% if bs.difference %}<ul class="ord-checks"><li class="is-danger">Assets and liabilities differ by {{ bs.difference|rupees:2 }} — contact support.</li></ul>{% endif %}
+  <section class="org-card"><header class="doc-list-head"><div><h2>As on {{ end|date:'d M Y' }}</h2></div>{% include 'erp/_acc_filter.html' with single=True %}</header>
+    <div class="fs-cols"><div><h3 class="cmp-sub">Equity &amp; liabilities</h3>{% include 'erp/_fin_groups.html' with groups=bs.equity %}<div class="fs-group"><div class="fs-head"><strong>Profit / (loss) to date</strong><strong>{{ bs.profit|rupees:2 }}</strong></div></div>{% include 'erp/_fin_groups.html' with groups=bs.liabilities %}
+        <div class="fs-total is-grand"><span>Total</span><strong>{{ bs.total_liabilities|rupees:2 }}</strong></div></div>
+      <div><h3 class="cmp-sub">Assets</h3>{% include 'erp/_fin_groups.html' with groups=bs.assets %}<div class="fs-total is-grand"><span>Total</span><strong>{{ bs.total_assets|rupees:2 }}</strong></div></div></div>
+  </section>
+</div>
+{% endblock %}

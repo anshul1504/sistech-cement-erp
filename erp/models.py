@@ -738,7 +738,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -1931,3 +1931,215 @@ class QualityResult(models.Model):
 
     class Meta:
         ordering = ['spec__sequence', 'tested_at']
+
+
+# ---------- General ledger (Step 7a, FR-FIN-001…017) ----------
+
+ACCOUNT_TYPES = [('asset', 'Asset'), ('liability', 'Liability'), ('equity', 'Equity'), ('income', 'Income'), ('expense', 'Expense')]
+
+
+class Account(models.Model):
+    """Chart of accounts. system_key marks the control / posting accounts the engine uses (e.g. 'ar', 'output_cgst')."""
+    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=100)
+    type = models.CharField(max_length=10, choices=ACCOUNT_TYPES)
+    group = models.CharField('Schedule III group', max_length=60)
+    system_key = models.CharField(max_length=30, unique=True, null=True, blank=True, editable=False)
+    is_control = models.BooleanField('Control account', default=False, help_text='Posted only by the system from subledgers (no manual journals).')
+    is_bank = models.BooleanField('Bank / cash', default=False)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['code']
+        permissions = [('view_financials', 'View trial balance, P&L and balance sheet'),
+                       ('access_company_finance', 'Access company-wide accounting and treasury')]
+
+    def __str__(self): return f'{self.code} · {self.name}'
+
+    @property
+    def debit_nature(self):
+        return self.type in ('asset', 'expense')
+
+
+class FinancialPeriod(models.Model):
+    """Accounting month. Posting into a closed period is refused (FR-FIN-002 / 010)."""
+    start = models.DateField(unique=True)
+    end = models.DateField()
+    status = models.CharField(max_length=6, default='open', choices=[('open', 'Open'), ('closed', 'Closed')])
+    closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-start']
+        permissions = [('close_period', 'Close and reopen accounting periods')]
+
+    def __str__(self): return f'{self.start:%b %Y}'
+
+
+class JournalEntry(models.Model):
+    """Balanced double-entry voucher. System entries are idempotent by source; manual vouchers need approval by a different user."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    date = models.DateField()
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, related_name='journals', verbose_name='Plant / branch')
+    source = models.CharField(max_length=60, unique=True, null=True, blank=True, editable=False, help_text='Document that created it, e.g. inv:12.')
+    kind = models.CharField(max_length=7, choices=[('auto', 'System posting'), ('manual', 'Journal voucher')], default='auto')
+    status = models.CharField(max_length=10, default='posted', choices=[('draft', 'Waiting approval'), ('posted', 'Posted'), ('rejected', 'Rejected')])
+    narration = models.CharField(max_length=250)
+    reversal_of = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='reversed_by')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+
+    class Meta:
+        ordering = ['-date', '-pk']
+        verbose_name_plural = 'journal entries'
+        permissions = [('approve_journalentry', 'Approve journal vouchers')]
+
+    def __str__(self): return self.number
+
+    @property
+    def total(self):
+        return sum((l.debit for l in self.lines.all()), Decimal('0'))
+
+
+class JournalLine(models.Model):
+    entry = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name='lines')
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='lines')
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='journal_lines', help_text='Customer / supplier subledger.')
+    debit = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    credit = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    narration = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ['pk']
+        constraints = [models.CheckConstraint(condition=(models.Q(debit__gt=0, credit=0) | models.Q(credit__gt=0, debit=0)), name='journal_line_one_side')]
+
+
+# ---------- Payments, bank reconciliation, fixed assets (Step 7b/7c, FR-FIN-007/008/012) ----------
+
+PAYMENT_MODES = [('neft', 'NEFT'), ('rtgs', 'RTGS'), ('cheque', 'Cheque'), ('upi', 'UPI / IMPS')]
+PAYMENT_STATUSES = [('proposed', 'Waiting approval'), ('approved', 'Approved — to pay'), ('paid', 'Paid'), ('failed', 'Failed / returned'), ('cancelled', 'Cancelled')]
+
+
+class SupplierPayment(models.Model):
+    """Payment to a supplier or transporter against their approved bills: proposal → approval (different user) → paid with UTR."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    payee = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='payments')
+    bank = models.ForeignKey('Account', on_delete=models.PROTECT, related_name='payments', limit_choices_to={'is_bank': True})
+    date = models.DateField(default=timezone.localdate)
+    mode = models.CharField(max_length=6, choices=PAYMENT_MODES, default='neft')
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    beneficiary_name = models.CharField(max_length=120, blank=True, editable=False)
+    beneficiary_account = models.CharField(max_length=18, blank=True, editable=False)
+    beneficiary_ifsc = models.CharField(max_length=11, blank=True, editable=False)
+    reference = models.CharField('UTR / cheque no.', max_length=40, blank=True)
+    status = models.CharField(max_length=10, choices=PAYMENT_STATUSES, default='proposed')
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    paid_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_supplierpayment', 'Approve supplier payments'), ('release_supplierpayment', 'Record payment release (UTR) and failures')]
+
+    def __str__(self): return self.number
+
+    @property
+    def badge(self):
+        return {'proposed': 'submitted', 'approved': 'approved', 'paid': 'completed'}.get(self.status, 'cancelled')
+
+
+class PaymentAllocation(models.Model):
+    payment = models.ForeignKey(SupplierPayment, on_delete=models.CASCADE, related_name='allocations')
+    supplier_invoice = models.ForeignKey('SupplierInvoice', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
+    freight_bill = models.ForeignKey('FreightBill', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
+    fixed_asset = models.ForeignKey('FixedAsset', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
+    debit_note = models.ForeignKey('DebitNote', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='Negative for a debit note adjusted in the payment.')
+
+    class Meta:
+        constraints = [models.CheckConstraint(
+            condition=(
+                models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=True, amount__gt=0)
+                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False, debit_note__isnull=True, fixed_asset__isnull=True, amount__gt=0)
+                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=False, amount__gt=0)
+                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=False, fixed_asset__isnull=True, amount__lt=0)
+            ), name='payment_allocation_one_source')]
+
+
+class BankStatementLine(models.Model):
+    """Imported bank statement row, matched to a ledger line on the same bank account (FR-FIN-008)."""
+    bank = models.ForeignKey('Account', on_delete=models.PROTECT, related_name='statement_lines', limit_choices_to={'is_bank': True})
+    date = models.DateField()
+    description = models.CharField(max_length=200)
+    reference = models.CharField(max_length=60, blank=True)
+    withdrawal = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    deposit = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    balance = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    matched_line = models.OneToOneField('JournalLine', null=True, blank=True, on_delete=models.SET_NULL, related_name='statement_line')
+    matched_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    matched_at = models.DateTimeField(null=True, blank=True)
+    imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    imported_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-pk']
+        constraints = [models.UniqueConstraint(fields=['bank', 'date', 'description', 'reference', 'withdrawal', 'deposit'], name='unique_statement_row'),
+                       models.CheckConstraint(condition=(models.Q(withdrawal__gt=0, deposit=0) | models.Q(deposit__gt=0, withdrawal=0)), name='statement_one_positive_side')]
+
+    @property
+    def amount(self):
+        return self.deposit - self.withdrawal
+
+
+ASSET_CATEGORIES = [('fa_plant', 'Plant & machinery'), ('fa_building', 'Buildings'), ('fa_vehicle', 'Vehicles'), ('fa_office', 'Furniture & office equipment')]
+
+
+class FixedAsset(models.Model):
+    """Asset register entry with depreciation policy (FR-FIN-012). Monthly depreciation and disposal post to the ledger."""
+    code = models.CharField('Asset code', max_length=30, unique=True)
+    name = models.CharField(max_length=120)
+    category = models.CharField(max_length=12, choices=ASSET_CATEGORIES)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='assets', verbose_name='Location')
+    location = models.CharField('Location detail', max_length=100, blank=True)
+    supplier = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='assets')
+    credit_purchase = models.BooleanField(default=False, editable=False)
+    put_to_use = models.DateField('Put to use on')
+    cost = models.DecimalField(max_digits=16, decimal_places=2, validators=POSITIVE)
+    salvage = models.DecimalField('Residual value', max_digits=16, decimal_places=2, default=0, validators=MONEY)
+    method = models.CharField(max_length=3, choices=[('slm', 'Straight line'), ('wdv', 'Written down value')], default='slm')
+    life_years = models.DecimalField('Useful life (years)', max_digits=5, decimal_places=2, null=True, blank=True)
+    wdv_rate = models.DecimalField('WDV rate % per year', max_digits=5, decimal_places=2, null=True, blank=True)
+    status = models.CharField(max_length=9, default='active', choices=[('active', 'In use'), ('disposed', 'Disposed')])
+    disposed_on = models.DateField(null=True, blank=True)
+    proceeds = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['code']
+        permissions = [('depreciate_fixedasset', 'Run depreciation and dispose assets')]
+
+    def __str__(self): return f'{self.code} · {self.name}'
+
+    @property
+    def accumulated(self):
+        return self.depreciation.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
+
+    @property
+    def book_value(self):
+        return self.cost - self.accumulated
+
+
+class DepreciationEntry(models.Model):
+    asset = models.ForeignKey(FixedAsset, on_delete=models.PROTECT, related_name='depreciation')
+    month = models.DateField(help_text='First day of the month depreciated.')
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    journal = models.ForeignKey('JournalEntry', null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+
+    class Meta:
+        ordering = ['month']
+        constraints = [models.UniqueConstraint(fields=['asset', 'month'], name='one_depreciation_per_month')]

@@ -132,6 +132,9 @@ def decide(user, pk, approve, note):
     bill.save()
     if not approve:
         bill.lines.all().delete()  # trips become billable again on a corrected bill
+    else:
+        from .gl import post_freight_bill
+        post_freight_bill(user, bill)
     AuditEvent.objects.create(actor=user, action='Freight bill approved' if approve else 'Freight bill rejected', reference=f'freight:{bill.pk}',
                               detail=f'{bill.transporter.name} · {bill.bill_number} · payable ₹{bill.payable}' + (f' · {note}' if note else ''))
     return bill
