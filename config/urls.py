@@ -334,3 +334,12 @@ urlpatterns += [
     path('beats/stops/<int:pk>/outcome/',btv.outcome,name='beat_outcome'),
     path('beats/stops/<int:pk>/<str:action>/',btv.stop_action,name='beat_stop_action'),
 ]
+
+from erp import project_views as pjv
+urlpatterns += [
+    path('projects/',pjv.index,name='projects'),
+    path('projects/new/',pjv.project_form,name='project_new'),
+    path('projects/<int:pk>/',pjv.detail,name='project_detail'),
+    path('projects/<int:pk>/edit/',pjv.project_form,name='project_edit'),
+    path('projects/<int:pk>/<str:action>/',pjv.action,name='project_action'),
+]

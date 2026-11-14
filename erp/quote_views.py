@@ -6,6 +6,7 @@ from urllib.parse import quote as urlquote
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import render, redirect, get_object_or_404
@@ -44,6 +45,22 @@ def quotations(request):
 def quotation_form(request, pk=None):
     q = get_object_or_404(scope(Quotation.objects.all(), request.user), pk=pk) if pk else None
     permitted(request.user, 'change_quotation' if q else 'add_quotation')
+    project=None
+    raw_project=request.POST.get('project_id') or request.GET.get('project_id')
+    if raw_project and not q:
+        from . import projects as PJ
+        from .models import SalesProject
+        permitted(request.user,'change_salesproject')
+        if not raw_project.isascii() or not raw_project.isdecimal() or len(raw_project)>18:raise Http404
+        project=get_object_or_404(PJ.scope(SalesProject.objects.select_related('site','owner','partner','lead'),request.user),pk=raw_project)
+        PJ._editor(request.user,project)
+        if project.stage in PJ.CLOSED:
+            messages.error(request,'Reopen the project before preparing another offer.');return redirect('project_detail',pk=project.pk)
+        if not project.partner_id and project.lead_id and project.lead.partner_id:
+            messages.error(request,'Bind the onboarded CRM customer on the project before preparing another quotation.');return redirect('project_detail',pk=project.pk)
+        if not project.partner_id and not project.lead_id:
+            messages.error(request,'Create/link the CRM prospect or approved customer before preparing a quotation.')
+            return redirect('project_detail',pk=project.pk)
     sites = list(_sites(request.user))
     customers = list(Partner.objects.filter(kind__in=CUSTOMER_KINDS, active=True).order_by('name'))
     leads = list(scope(CRMLead.objects.filter(partner__isnull=True).exclude(stage='lost'), request.user).order_by('business_name')[:300])
@@ -55,8 +72,8 @@ def quotation_form(request, pk=None):
         rows = []
     rows += [{'product': P.get(f'product_{i}', ''), 'qty': P.get(f'qty_{i}', ''), 'rate': P.get(f'rate_{i}', '')} for i in range(len(rows), 10)] if request.method != 'POST' else \
         [{'product': P.get(f'product_{i}', ''), 'qty': P.get(f'qty_{i}', ''), 'rate': P.get(f'rate_{i}', '')} for i in range(10)]
-    prefill_partner = request.GET.get('partner', '')
-    prefill_lead = request.GET.get('lead', '')
+    prefill_partner = str(project.partner_id or '') if project else request.GET.get('partner', '')
+    prefill_lead = str(project.lead_id or '') if project and not project.partner_id else '' if project else request.GET.get('lead', '')
     if request.method == 'POST':
         pmap = {str(p.pk): p for p in products}
         try:
@@ -68,7 +85,10 @@ def quotation_form(request, pk=None):
                     'date': date.fromisoformat(P.get('date')), 'valid_until': date.fromisoformat(P.get('valid_until')), 'place_of_supply': P.get('place_of_supply', ''),
                     'freight_terms': P.get('freight_terms', 'for_destination'), 'delivery_terms': P.get('delivery_terms', '')[:150], 'payment_terms': P.get('payment_terms', '')[:150],
                     'notes': P.get('notes', '')[:300]}
-            saved = QT.save(request.user, data, lines, q)
+            with transaction.atomic():
+                saved = QT.save(request.user, data, lines, q)
+                if project:
+                    PJ.link(request.user,project.pk,dict(quotation=saved,order=None,note='Quotation prepared from project '+project.number))
         except (ValueError, InvalidOperation):
             errors.append('Enter dates, quantities and rates correctly.')
         except ValidationError as e:
@@ -78,12 +98,12 @@ def quotation_form(request, pk=None):
             return redirect('quotation_detail', pk=saved.pk)
     today = timezone.localdate()
     defaults = {'date': (q.date if q else today).isoformat(), 'valid_until': (q.valid_until if q else today + timedelta(days=15)).isoformat(),
-                'site': str(q.site_id) if q else '', 'partner': str(q.partner_id or '') if q else prefill_partner, 'lead': str(q.lead_id or '') if q else prefill_lead,
+                'site': str(q.site_id) if q else str(project.site_id) if project else '', 'partner': str(q.partner_id or '') if q else prefill_partner, 'lead': str(q.lead_id or '') if q else prefill_lead,
                 'place_of_supply': q.place_of_supply if q else (Organization.objects.filter(pk=1).values_list('state', flat=True).first() or ''),
                 'freight_terms': q.freight_terms if q else 'for_destination', 'delivery_terms': q.delivery_terms if q else '', 'payment_terms': q.payment_terms if q else '',
                 'notes': q.notes if q else ''}
     vals = {k: P.get(k, v) for k, v in defaults.items()}
-    return render(request, 'erp/quotation_form.html', {'title': f'Edit {q}' if q else 'New quotation', 'q': q, 'sites': sites, 'customers': customers, 'leads': leads,
+    return render(request, 'erp/quotation_form.html', {'title': f'Edit {q}' if q else 'New quotation', 'q': q, 'project': project, 'sites': sites, 'customers': customers, 'leads': leads,
                                                        'products': products, 'rows': rows, 'errors': errors, 'v': vals, 'states': INDIAN_STATES, 'freight_terms': FREIGHT_TERMS})
 
 
@@ -91,6 +111,12 @@ def quotation_form(request, pk=None):
 def quotation_detail(request, pk):
     permitted(request.user, 'view_quotation')
     q = get_object_or_404(scope(Quotation.objects.select_related('site', 'partner', 'lead', 'created_by', 'approved_by', 'order', 'previous'), request.user), pk=pk)
+    project_context=None
+    if request.user.has_perm('erp.view_salesproject'):
+        from .projects import scope as project_scope
+        from .models import ProjectLink
+        source=project_scope(ProjectLink.objects.filter(active=True,quotation=q).select_related('project'),request.user,'project').first()
+        project_context=source.project if source else None
     t = QT.totals(q)
     phone = ''.join(ch for ch in ((q.partner.phone if q.partner_id else q.lead.mobile) or '') if ch.isdigit())[-10:]
     org = Organization.objects.defer('logo', 'icon').filter(pk=1).first() or Organization()
@@ -100,7 +126,7 @@ def quotation_detail(request, pk):
     u = request.user
     st = q.status
     return render(request, 'erp/quotation_detail.html', {
-        'title': str(q), 'q': q, 't': t, 'words': in_words(t['grand_total']), 'company': org, 'expired': st == 'sent' and q.valid_until < timezone.localdate(),
+        'title': str(q), 'q': q, 't': t, 'project_context': project_context, 'words': in_words(t['grand_total']), 'company': org, 'expired': st == 'sent' and q.valid_until < timezone.localdate(),
         'whatsapp': f'https://wa.me/91{phone}?text={urlquote(msg)}' if len(phone) == 10 and st in ('ready', 'sent') else '',
         'history': AuditEvent.objects.filter(reference=q.number).select_related('actor').order_by('-created_at')[:12],
         'can': {'edit': st == 'draft' and u.has_perm('erp.change_quotation'), 'submit': st == 'draft' and u.has_perm('erp.change_quotation'),

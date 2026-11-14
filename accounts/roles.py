@@ -3,6 +3,9 @@ from django.contrib.auth.models import Group, Permission
 
 ACTIONS = [('view', 'View'), ('create', 'Create'), ('edit', 'Edit'), ('submit', 'Submit'), ('approve', 'Approve'), ('post', 'Post'), ('cancel', 'Cancel'), ('export', 'Export')]
 MODULES = [
+    ('projects','Project pipeline',{'view':'view_salesproject','create':'add_salesproject','edit':'change_salesproject','export':'export_salesproject'}),
+    ('project_team','Project ownership & team',{'view':'view_team_projects','edit':'manage_salesproject'}),
+    ('project_activity','Project follow-ups',{'create':'add_projectactivity'}),
     ('territories', 'Sales territories & ownership', {'view':'view_salesterritory','edit':'manage_salesterritory'}),
     ('beats', 'Beat & visit plans', {'view':'view_beatplan','create':'add_beatplan','edit':'change_beatplan','submit':'submit_beatplan','approve':'approve_beatplan','export':'export_beatplan'}),
     ('team_beats', 'Team field coverage', {'view':'view_team_beats'}),
@@ -78,7 +81,7 @@ MODULES = [
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
-ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm', 'view_schemeevaluation', 'view_executive_dashboard', 'view_team_beats'}
+ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm', 'view_schemeevaluation', 'view_executive_dashboard', 'view_team_beats', 'view_team_projects'}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'approve_stockcount', 'approve_stocktransfer', 'decide_damagereport', 'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
@@ -127,6 +130,10 @@ PRESETS['Finance controller'] |= {'view_salesterritory','view_beatplan','view_te
 PRESETS['Accountant'] |= {'view_beatplan','view_team_beats','publish_beatpromise'}
 PRESETS['Internal auditor'] |= {'view_team_beats','export_beatplan'}
 PRESETS['Management'] |= {'view_team_beats'}
+PRESETS['Sales executive'] |= {'view_salesproject','add_salesproject','change_salesproject','add_projectactivity'}
+PRESETS['Sales manager'] |= {'view_salesproject','add_salesproject','change_salesproject','add_projectactivity','view_team_projects','manage_salesproject','export_salesproject'}
+PRESETS['Internal auditor'] |= {'view_team_projects','export_salesproject'}
+PRESETS['Management'] |= {'view_team_projects'}
 PRESETS['Support desk'] = {'handle_supportticket'}
 
 

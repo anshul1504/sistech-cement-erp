@@ -43,7 +43,7 @@ def _can_read_documents(user, partner):
 
 
 def is_used(partner):
-    return Order.objects.filter(partner=partner).exists() or partner.crm_leads.exists() or partner.dealer_applications.exists()
+    return Order.objects.filter(partner=partner).exists() or partner.crm_leads.exists() or partner.dealer_applications.exists() or partner.territory_assignments.exists() or partner.sales_projects.exists()
 
 
 @login_required
@@ -143,7 +143,7 @@ def partner_delete(request, pk):
         raise PermissionDenied
     partner = get_object_or_404(Partner, pk=pk)
     if is_used(partner):
-        messages.error(request, f'{partner.name} has orders, so it cannot be deleted. Deactivate it instead.')
+        messages.error(request, f'{partner.name} has retained business references, so it cannot be deleted. Deactivate it instead.')
         return redirect('partner_detail', pk=partner.pk)
     name = partner.name
     AuditEvent.objects.create(actor=request.user, action='Partner deleted', reference=f'partner:{partner.pk}', detail=partner.code)

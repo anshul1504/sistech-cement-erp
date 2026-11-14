@@ -313,6 +313,9 @@ def activity_delete(request, pk, activity_pk):
     activity = get_object_or_404(InfluencerActivity, pk=activity_pk, influencer_id=pk)
     if not request.user.is_superuser and activity.created_by_id != request.user.pk:
         raise PermissionDenied
+    if hasattr(activity, 'sales_project'):
+        messages.error(request, 'This referral is retained by a project. Keep the source history.')
+        return redirect('influencer_detail', pk=pk)
     log(request.user, 'Influencer activity removed', activity.influencer, f'{activity.get_kind_display()} · {activity.date:%d %b %Y}')
     activity.delete()
     messages.success(request, 'Activity removed.')

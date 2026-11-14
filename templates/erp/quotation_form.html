@@ -4,7 +4,7 @@
 <div class="org-page acc-page adm-page mst-page ord-page">
   <div class="org-head"><div><div class="eyebrow"><a href="{% if q %}{% url 'quotation_detail' q.pk %}{% else %}{% url 'quotations' %}{% endif %}">← {% if q %}{{ q }}{% else %}Quotations{% endif %}</a></div><h1>{{ title }}</h1><p>Leave the rate empty to quote the price-list rate. A lower rate is allowed but needs approval before the quotation is sent.</p></div></div>
   {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
-  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}{% if project %}<input type="hidden" name="project_id" value="{{ project.pk }}"><p class="form-text">Linked project: {{ project.number }}</p>{% endif %}
     <section class="org-card"><header><h2>Customer &amp; terms</h2></header><div class="org-grid">
       <div class="org-field"><label class="form-label" for="qt-c">Customer</label><select class="form-select" id="qt-c" name="partner"><option value="">—</option>{% for c in customers %}<option value="{{ c.pk }}"{% if v.partner == c.pk|stringformat:'s' %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
       <div class="org-field"><label class="form-label" for="qt-l">or CRM prospect</label><select class="form-select" id="qt-l" name="lead"><option value="">—</option>{% for l in leads %}<option value="{{ l.pk }}"{% if v.lead == l.pk|stringformat:'s' %} selected{% endif %}>{{ l.business_name }} · {{ l.district }}</option>{% endfor %}</select></div>

@@ -84,7 +84,7 @@ Changes are audited. Plant-level addresses, GST registrations and factory licenc
 
 **Sales → Dealer CRM** (`/crm/`) now includes an owner/site-scoped pipeline, calls/visits and follow-ups, loss/reopen reasons, KYC evidence versions, independent KYC → finance → activation approvals, requested/approved credit and terms, returned/rejected applications, retained review snapshots and amendments to existing customers. Monthly salesperson/site targets and performance drill down to source invoices, credit notes, current receipt allocations and new dealer activations. Responsive screens share local Poppins and Sistech blue/gold branding.
 
-See [CRM workflow, access and reporting definitions](docs/CRM.md). Migration `0029` preserves existing partners and history. `setup_roles` creates missing presets, including Sales manager; **existing customized Sales executive/Finance controller groups require explicit new CRM grants in the role matrix**. Policy defaults to PAN and agreement evidence, with conditional GST/bank evidence. Reviews are manual. The territory/beat module is now separate; unified project pipeline and broader commission rules remain pending.
+See [CRM workflow, access and reporting definitions](docs/CRM.md). Migration `0029` preserves existing partners and history. `setup_roles` creates missing presets, including Sales manager; **existing customized Sales executive/Finance controller groups require explicit new CRM grants in the role matrix**. Policy defaults to PAN and agreement evidence, with conditional GST/bank evidence. Reviews are manual. The territory/beat module is now separate; the unified project pipeline is implemented separately; broader commission rules remain pending.
 
 ## Schemes & incentives — rule and calculation stage
 
@@ -292,6 +292,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 
 Quantities retain each SKU's base unit and pack weight. Bag/MT equivalents are available, while versioned alternate-UOM transaction entry remains pending. Order details show GST; the separate posted tax invoice is the frozen invoice record.
 
+## Unified project pipeline
+
+**Sales → Project pipeline** (`/projects/`) unifies construction-site/buyer context, one-time influencer referral import, CRM references, activities, next actions and quotation/order attribution. Quoted/negotiation stages require sent/accepted offer evidence; won requires an independently approved matching order. Manager reopening, retained source snapshots and live-evidence warnings preserve the closing trail. Project-context quotation saves link atomically, while converted orders attach explicitly through existing approval controls.
+
+Planning estimates/weights remain separate from actual net invoicing. Owner/site/team permissions, private CSV and My Work follow-ups are included. See [Project workflow and forecast definitions](docs/PROJECT_PIPELINE.md). Migration `0044` was applied locally after backup with recorded source-business counts unchanged. Existing customized groups need the new project grants. No legacy referrals or customer/site mappings were automatically migrated.
+
 ## Territories & beat plans
 
 **Sales → Territories & visits** adds a site-scoped state/district/area hierarchy, dated dealer ownership, daily route drafts and independent approvals, visit/missed outcomes, linked CRM/order/complaint context, next-action tracking and owner/area coverage gaps. Approved route revisions retain customer and assignment snapshots. Reported collection promises need independent finance acceptance into the existing collections desk; no receipt or journal is created.
@@ -311,7 +317,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | SRS area | Current status / remaining work |
 | --- | --- |
 | Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Multiple legal entities/GST registration hierarchy, cross-module territory/dealer portal isolation and sensitive-action step-up authentication remain. Monthly accounting periods are implemented; email OTP is enabled by default. |
-| CRM and dealer network | Owner/site-scoped leads, follow-ups, versioned KYC, independent credit/onboarding approvals, reviewed amendments, monthly targets and source performance implemented. Dated territory hierarchy, dealer ownership and beat planning implemented. Unified project pipeline, CRM contact merging and dealer portal remain. |
+| CRM and dealer network | Owner/site-scoped leads, follow-ups, versioned KYC, independent credit/onboarding approvals, reviewed amendments, monthly targets and source performance implemented. Dated territory hierarchy, dealer ownership and beat planning implemented. Unified project pipeline implemented; CRM contact merging, shared collaboration and dealer portal remain. |
 | Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, derived ATP/backorder validation, holds and order revisions implemented. Firm lot/bin reservations and the dealer portal remain. |
 | Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier invoices with three-way match, duplicate check, exception queue and debit notes / returns. Supplier payments are implemented; budget checks remain. |
 | Inventory | Stock states, weighted-average valuation, stock card, transfers with in-transit and discrepancy, damaged-stock disposition, blind cycle counts with recount and approval, ageing and slow-moving. Production lot traceability is implemented; bin locations and full inventory balances by lot remain. |
@@ -342,6 +348,8 @@ The CRM milestone verification ran 276 tests (272 passed, four opt-in browser te
 The subsequent scheme milestone ran 302 tests (297 passed, five opt-in browser tests skipped), with all five browser tests also passing explicitly. Include `erp.test_schemes_browser` in the browser command above for scheme coverage.
 
 The territory/beat milestone ran 374 tests (367 passed, seven opt-in browser tests skipped), and all seven browser tests passed explicitly. See [Territory verification](docs/TERRITORIES_BEATS.md) for the complete reproducible command.
+
+The project-pipeline milestone ran 399 tests (391 passed, eight browser checks skipped by default), with all eight browser checks passing explicitly. See [Project verification](docs/PROJECT_PIPELINE.md) for the complete command.
 
 Tests exercise authentication, throttling, password recovery and token expiry/single-use, session invalidation, role/permission injection, Sales/Purchase isolation, disabled users, site isolation, maker-checker, stock rollback, credit limits, quality release and HTTP pages.
 

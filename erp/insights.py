@@ -597,7 +597,10 @@ def my_queue(user, sites=None):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
     if has('approve_freightbill'):
         add('Freight bills to check', FreightBill.objects.filter(status='submitted').exclude(created_by=user), reverse('freight_bills'), 'Against contracted freight')
-    from .models import BeatPlan,BeatStop,ReturnRequest
+    from .models import BeatPlan,BeatStop,ReturnRequest,SalesProject
+    if has('view_salesproject'):
+        from .projects import scope as project_scope
+        add('Project follow-ups due',project_scope(SalesProject.objects.filter(next_action_on__lte=today).exclude(stage__in=['won','lost']),user),reverse('projects')+'?due=due','Current and overdue project next actions')
     if has('view_beatplan'):
         if has('approve_beatplan') and has('view_team_beats'):
             add('Beat plans to approve',BeatPlan.objects.filter(site__in=sites,status='submitted').exclude(owner=user).exclude(created_by=user).exclude(submitted_by=user).exclude(contributors=user),reverse('beat_plans')+'?status=submitted','Independent route review')

@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -3087,3 +3087,89 @@ class BeatReview(models.Model):
 
     class Meta:
         ordering = ['-created_at','-pk']
+
+
+# ---------- Unified construction/project opportunity pipeline ----------
+PROJECT_STAGES = [('new','New enquiry'),('qualified','Qualified'),('sampling','Sample / technical review'),('quoted','Quoted'),('negotiation','Negotiation'),('hold','On hold'),('won','Won'),('lost','Lost')]
+PROJECT_WEIGHTS = {'new':10,'qualified':30,'sampling':50,'quoted':65,'negotiation':80,'hold':0,'won':100,'lost':0}
+
+
+class SalesProject(models.Model):
+    number = models.CharField(max_length=25,unique=True,editable=False)
+    site = models.ForeignKey(Site,on_delete=models.PROTECT,related_name='sales_projects')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='sales_projects')
+    name = models.CharField(max_length=150)
+    location = models.CharField(max_length=200)
+    district = models.CharField(max_length=80)
+    contact_name = models.CharField(max_length=100)
+    mobile = models.CharField(max_length=10)
+    prospect_name = models.CharField('Prospect / buyer name',max_length=150,blank=True)
+    partner = models.ForeignKey(Partner,null=True,blank=True,on_delete=models.PROTECT,related_name='sales_projects')
+    lead = models.ForeignKey(CRMLead,null=True,blank=True,on_delete=models.PROTECT,related_name='sales_projects')
+    referral = models.OneToOneField(InfluencerActivity,null=True,blank=True,on_delete=models.PROTECT,related_name='sales_project')
+    source_snapshot = models.JSONField(default=dict,blank=True,editable=False)
+    dedupe_key = models.CharField(max_length=64,editable=False)
+    stage = models.CharField(max_length=12,choices=PROJECT_STAGES,default='new')
+    estimated_value = models.DecimalField('Estimated taxable opportunity (₹)',max_digits=16,decimal_places=2,default=0,validators=MONEY)
+    cement_bags = models.PositiveIntegerField('Expected cement bags',default=0)
+    tmt_mt = models.DecimalField('Expected TMT (MT)',max_digits=14,decimal_places=3,default=0,validators=MONEY)
+    expected_close = models.DateField(null=True,blank=True)
+    next_action_on = models.DateField(null=True,blank=True)
+    notes = models.TextField(blank=True)
+    closed_reason = models.CharField(max_length=500,blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering=['-updated_at','-pk']
+        constraints=[models.UniqueConstraint(fields=['site','dedupe_key'],name='unique_site_project_identity')]
+        permissions=[('view_team_projects','View assigned-site team projects'),('manage_salesproject','Assign and reopen sales projects'),('export_salesproject','Export scoped project pipeline')]
+
+    def __str__(self):return self.number
+
+    @property
+    def buyer_name(self):return self.partner.name if self.partner_id else self.prospect_name
+
+
+class ProjectActivity(models.Model):
+    project = models.ForeignKey(SalesProject,on_delete=models.PROTECT,related_name='activities')
+    kind = models.CharField(max_length=12,choices=[('call','Call'),('visit','Site visit'),('sample','Sample / technical review'),('note','Note')])
+    on = models.DateField(default=timezone.localdate)
+    note = models.TextField()
+    next_action_on = models.DateField(null=True,blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:ordering=['-on','-pk']
+
+
+class ProjectLink(models.Model):
+    project = models.ForeignKey(SalesProject,on_delete=models.PROTECT,related_name='links')
+    quotation = models.ForeignKey(Quotation,null=True,blank=True,on_delete=models.PROTECT,related_name='project_links')
+    order = models.ForeignKey(Order,null=True,blank=True,on_delete=models.PROTECT,related_name='project_links')
+    active = models.BooleanField(default=True)
+    snapshot = models.JSONField(default=dict,editable=False)
+    note = models.CharField(max_length=300)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    unlinked_by = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.PROTECT,related_name='+')
+    unlinked_at = models.DateTimeField(null=True,blank=True)
+    unlink_note = models.CharField(max_length=300,blank=True)
+
+    class Meta:
+        ordering=['-created_at','-pk']
+        constraints=[models.CheckConstraint(condition=(models.Q(quotation__isnull=False,order__isnull=True)|models.Q(quotation__isnull=True,order__isnull=False)),name='one_project_link_source'),
+            models.UniqueConstraint(fields=['quotation'],condition=models.Q(active=True,quotation__isnull=False),name='one_active_project_per_quote'),
+            models.UniqueConstraint(fields=['order'],condition=models.Q(active=True,order__isnull=False),name='one_active_project_per_order')]
+
+
+class ProjectEvent(models.Model):
+    project = models.ForeignKey(SalesProject,on_delete=models.PROTECT,related_name='events')
+    action = models.CharField(max_length=40)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    note = models.CharField(max_length=500)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:ordering=['-created_at','-pk']

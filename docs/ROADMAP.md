@@ -112,7 +112,12 @@ See [Customer returns and migration verification](CUSTOMER_RETURNS.md).
 daily routes, immutable visit/missed outcomes, retained review snapshots, field follow-ups and coverage gaps.
 Collection promises enter the collections desk only after independent finance review. See [Territories & beats](TERRITORIES_BEATS.md).
 
-Remaining in Step 8: unified project pipeline, recurring/optimized visits, cash pickup/receipting routes, dealer portal (with Step 10 apps).
+✅ Unified project pipeline: owner/site scope, retained influencer referral import, CRM buyer context, activity/next-action
+history, sent-quote and approved-order stage gates, atomic project quotation handoff, source-family attribution,
+manager reopening and estimates separated from actual invoice/credit totals. See [Project pipeline](PROJECT_PIPELINE.md).
+
+Remaining in Step 8: bulk contact/project migration and merging, forecast calibration, recurring/optimized visits,
+cash pickup/receipting routes, dealer portal (with Step 10 apps).
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.
