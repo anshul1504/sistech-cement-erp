@@ -25,7 +25,7 @@ def move_stock(user, site, product, quantity, source, kind, notes=''):
 def transition_order(user, pk, action):
     order = scope(Order.objects.select_for_update(), user).get(pk=pk)
     from accounts.roles import order_permission
-    if action in ['submit', 'approve', 'post', 'cancel'] and not order_permission(user, order.kind, action):
+    if action in ['submit', 'approve', 'post', 'cancel', 'close'] and not order_permission(user, order.kind, 'post' if action == 'close' else action):
         raise PermissionDenied
     if action == 'submit':
         if order.status != 'Draft': raise ValidationError('Only draft orders can be submitted.')
@@ -48,6 +48,8 @@ def transition_order(user, pk, action):
         order.status, order.approved_by = 'Approved', user
     elif action == 'post':
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')
+        if order.kind == 'Sale' and order.site.uses_weighbridge:
+            raise ValidationError(f'{order.site.code} dispatches through gate & weighbridge — plan a truck instead.')
         if not order.site.active or not order.partner.active: raise ValidationError('Site and partner must be active.')
         for line in order.lines.select_related('product').order_by('product_id', 'pk'):
             if not line.product.active: raise ValidationError('An order product is inactive.')
@@ -55,7 +57,14 @@ def transition_order(user, pk, action):
         order.status = 'Completed'
     elif action == 'cancel':
         if order.status not in ['Draft', 'Submitted', 'Approved']: raise ValidationError('Completed or cancelled orders cannot be cancelled.')
+        if order.dispatches.exclude(status='cancelled').exists(): raise ValidationError('A truck is planned or on its way — cancel the dispatch first.')
         order.status = 'Cancelled'
+    elif action == 'close':
+        # Short-close: the customer does not want the rest. Nothing open may remain on the gate.
+        if order.status != 'Part dispatched': raise ValidationError('Only part-dispatched orders can be short-closed.')
+        if order.dispatches.filter(status__in=['planned', 'gate_in', 'tared', 'loading', 'loaded', 'weighed']).exists():
+            raise ValidationError('Finish or cancel the trucks still inside the plant first.')
+        order.status = 'Completed'
     else: raise ValidationError('Unknown action.')
     order.save(update_fields=['status', 'approved_by'])
     audit(user, f'Order {action}', order)

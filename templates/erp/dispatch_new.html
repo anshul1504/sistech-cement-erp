@@ -1,0 +1,54 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'order_detail' order.pk %}">← {{ order.number }}</a></div><h1>Plan truck</h1>
+    <p>{{ order.partner.name }} · from {{ order.site }}. Load what this truck will carry; the rest stays pending on the order.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate data-plan-form>{% csrf_token %}
+    <div class="mst-form-grid">
+      <section class="org-card"><header><h2>Truck &amp; driver</h2><p>Vehicles with expired documents are shown but cannot be chosen.</p></header>
+        <div class="org-grid">
+          <div class="org-field is-wide"><label class="form-label" for="pl-v">Vehicle <span class="required">*</span></label>
+            <select class="form-select" id="pl-v" name="vehicle" required><option value="">Choose vehicle</option>{% for v in vehicles %}<option value="{{ v.pk }}" data-cap="{{ v.capacity_mt }}" data-transporter="{{ v.transporter_id|default:'' }}"{% if v.problems %} disabled{% endif %}{% if post.vehicle == v.pk|stringformat:'s' %} selected{% endif %}>{{ v.registration }} · {{ v.capacity_mt|qty }} MT{% if v.transporter %} · {{ v.transporter.name }}{% endif %}{% if v.problems %} — {{ v.problems.0 }}{% endif %}</option>{% endfor %}</select>
+            <div class="form-text">Not listed? <a href="{% url 'vehicle_new' %}">Add a vehicle</a>.</div></div>
+          <div class="org-field"><label class="form-label" for="pl-d">Driver <span class="required">*</span></label>
+            <select class="form-select" id="pl-d" name="driver" required><option value="">Choose driver</option>{% for d in drivers %}<option value="{{ d.pk }}"{% if not d.licence_valid %} disabled{% endif %}{% if post.driver == d.pk|stringformat:'s' %} selected{% endif %}>{{ d.name }} · {{ d.mobile }}{% if not d.licence_valid %} — licence expired{% endif %}</option>{% endfor %}</select></div>
+          <div class="org-field"><label class="form-label" for="pl-t">Transporter</label>
+            <select class="form-select" id="pl-t" name="transporter"><option value="">From vehicle</option>{% for t in transporters %}<option value="{{ t.pk }}"{% if post.transporter == t.pk|stringformat:'s' %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+          <div class="org-field"><label class="form-label" for="pl-b">Loading bay</label>{% if order.site.bays %}<select class="form-select" id="pl-b" name="bay"><option value="">Assign at loading</option>{% for b in order.site.bays %}<option{% if post.bay == b %} selected{% endif %}>{{ b }}</option>{% endfor %}</select>{% else %}<input class="form-control" id="pl-b" name="bay" value="{{ post.bay }}" maxlength="30" placeholder="e.g. Bay 2">{% endif %}</div>
+          <div class="org-field"><label class="form-label" for="pl-lr">LR / GR no.</label><input class="form-control" id="pl-lr" name="lr_number" value="{{ post.lr_number }}" maxlength="30"></div>
+        </div>
+      </section>
+      <section class="org-card"><header><h2>Load</h2><p>Planned weight is checked against the truck's capacity.</p></header>
+        {% if lines %}<div class="ord-lines">{% for l in lines %}
+          <div class="ord-line pl-line" data-kg="{% if l.product.unit == 'MT' %}1000{% elif l.product.unit == 'BAG' %}{{ l.product.bag_weight_kg|default:50 }}{% elif l.product.unit == 'KG' %}1{% else %}0{% endif %}">
+            <div class="ord-cell ord-product" data-label="Product"><strong>{{ l.product.name }}</strong><small class="ord-hint">Ordered {{ l.quantity|qty }} · pending {{ l.pending_quantity|qty }} {{ l.product.unit }}</small></div>
+            <div class="ord-cell" data-label="This truck"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" max="{{ l.pending_quantity }}" name="qty_{{ l.pk }}" value="{% if post %}{{ l.posted }}{% else %}{{ l.pending_quantity|qty|cut:',' }}{% endif %}"><span>{{ l.product.unit }}</span></div></div>
+          </div>{% endfor %}</div>
+          <div class="ord-totals is-static" style="max-width:none"><div><span>Planned load</span><strong data-load>0 MT</strong></div><div><span>Truck capacity</span><strong data-cap>—</strong></div></div>
+        {% else %}<p class="acc-muted">Nothing is pending on this order.</p>{% endif %}
+      </section>
+    </div>
+    <div class="org-actions"><span>The token number is given when you save.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'order_detail' order.pk %}">Cancel</a><button class="org-btn is-primary" type="submit"{% if not lines %} disabled{% endif %}>Plan truck</button></div></div>
+  </form>
+</div>
+<script>
+(() => {
+  const f = document.querySelector('[data-plan-form]'); if (!f) return;
+  const v = f.querySelector('[name=vehicle]'), t = f.querySelector('[name=transporter]');
+  const calc = () => {
+    let kg = 0;
+    f.querySelectorAll('.pl-line').forEach(r => { kg += (parseFloat(r.querySelector('input').value) || 0) * parseFloat(r.dataset.kg || 0); });
+    const cap = parseFloat(v.selectedOptions[0]?.dataset.cap || 0);
+    const load = f.querySelector('[data-load]'); if (!load) return;
+    load.textContent = (kg / 1000).toFixed(2) + ' MT';
+    f.querySelector('[data-cap]').textContent = cap ? cap.toFixed(2) + ' MT' : '—';
+    load.style.color = cap && kg / 1000 > cap ? '#b42318' : '';
+  };
+  f.addEventListener('input', calc);
+  v.addEventListener('change', () => { if (!t.value && v.selectedOptions[0]?.dataset.transporter) t.value = v.selectedOptions[0].dataset.transporter; calc(); });
+  calc();
+})();
+</script>
+{% endblock %}

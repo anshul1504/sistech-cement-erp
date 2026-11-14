@@ -1,0 +1,49 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow">LOGISTICS</div><h1>Vehicles &amp; drivers</h1><p>Trucks and drivers allowed at the gate. A missing or expired RC, insurance, permit, fitness or PUC — or an expired licence — stops gate-in.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'driver_new' %}"><svg><use href="#ic-plus"/></svg>Add driver</a><a class="org-btn is-primary" href="{% url 'vehicle_new' %}"><svg><use href="#ic-plus"/></svg>Add vehicle</a></div>{% endif %}
+  </div>
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Vehicles</span><strong>{{ stats.vehicles }}</strong><small>{{ stats.drivers }} driver{{ stats.drivers|pluralize }}</small></div>
+    <div role="listitem" class="inf-kpi{% if stats.blocked %} is-danger{% endif %}"><span>Cannot enter</span><strong>{{ stats.blocked }}</strong><small>Expired documents, blacklisted or inactive</small></div>
+    <div role="listitem" class="inf-kpi{% if stats.expiring %} is-warn{% endif %}"><span>Expiring in 30 days</span><strong>{{ stats.expiring }}</strong><small>Ask the transporter to renew</small></div>
+    <div role="listitem" class="inf-kpi{% if stats.licence_expired %} is-danger{% endif %}"><span>Licences expired</span><strong>{{ stats.licence_expired }}</strong><small>Drivers stopped at gate</small></div>
+  </div>
+  <nav class="org-tabs mst-cat-tabs" aria-label="Show">
+    <a class="org-tab{% if tab != 'drivers' %} is-active{% endif %}" href="?tab=vehicles">Vehicles<span class="org-tab-count">{{ vehicles|length }}</span></a>
+    <a class="org-tab{% if tab == 'drivers' %} is-active{% endif %}" href="?tab=drivers">Drivers<span class="org-tab-count">{{ drivers|length }}</span></a>
+  </nav>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>{% if tab == 'drivers' %}Drivers{% else %}Vehicles{% endif %}</h2><p>{% if q %}Matching “{{ q }}” · <a href="?tab={{ tab }}">Clear</a>{% else %}All records{% endif %}</p></div>
+      <form method="get" class="doc-filter"><input type="hidden" name="tab" value="{{ tab }}"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="{% if tab == 'drivers' %}Name, mobile, licence…{% else %}Vehicle no. or transporter…{% endif %}" aria-label="Search"><button class="org-btn is-light" type="submit">Search</button></form>
+    </header>
+    {% if tab == 'drivers' %}
+      {% if drivers %}<ul class="mst-list prc-list">{% for d in drivers %}
+        <li class="{% if not d.active %}is-inactive{% endif %}">
+          <div class="mst-main"><span class="mst-icon is-retailer">{{ d.name|first|upper }}</span><span><strong>{{ d.name }}</strong><small>+91 {{ d.mobile }}{% if d.transporter %} · {{ d.transporter.name }}{% endif %}</small></span></div>
+          <div class="mst-cell"><small>Licence</small>{{ d.licence_number }}</div>
+          <div class="mst-cell">{% if d.licence_valid %}<span class="doc-badge is-ok">Valid</span>{% else %}<span class="doc-badge is-danger">Expired</span>{% endif %}</div>
+          <div class="mst-cell"><small>Valid until</small>{{ d.licence_valid_until|date:'d M Y' }}</div>
+          <div class="mst-cell"><small>Trips</small>{{ d.dispatches.count }}</div>
+          {% if can_edit %}<a class="org-btn is-light is-sm mst-open" href="{% url 'driver_edit' d.pk %}">Edit</a>{% else %}<span></span>{% endif %}
+        </li>{% endfor %}</ul>
+      {% else %}<div class="doc-empty"><svg><use href="#ic-user"/></svg><strong>No drivers yet</strong><span>Add drivers with licence number and validity.</span></div>{% endif %}
+    {% else %}
+      {% if vehicles %}<ul class="mst-list prc-list">{% for v in vehicles %}
+        <li class="{% if not v.active or v.blacklisted %}is-inactive{% endif %}">
+          <div class="mst-main"><span class="mst-icon is-transporter"><svg><use href="#ic-truck"/></svg></span><span><strong class="is-mono">{{ v.registration }}</strong><small>{{ v.get_vehicle_type_display }} · {{ v.capacity_mt|qty }} MT{% if v.transporter %} · {{ v.transporter.name }}{% else %} · {{ v.get_owner_display }}{% endif %}</small></span></div>
+          <div class="mst-cell lg-docs">{% if v.blacklisted %}<span class="doc-badge is-danger">Blacklisted</span>{% elif v.issues %}{% for label, when in v.issues %}<span class="doc-badge is-danger">{{ label }} {% if when %}expired{% else %}missing{% endif %}</span>{% endfor %}{% elif v.soon %}{% for label, when in v.soon %}<span class="doc-badge is-warning">{{ label }} {{ when|date:'d M' }}</span>{% endfor %}{% else %}<span class="doc-badge is-ok">All documents valid</span>{% endif %}</div>
+          <div class="mst-cell"><small>Usual tare</small>{% if v.tare_kg %}{{ v.tare_kg|indian }} kg{% else %}—{% endif %}</div>
+          <div class="mst-cell"><small>Insurance</small>{{ v.insurance_valid_until|date:'d M Y'|default:'—' }}</div>
+          <div class="mst-cell"><small>Trips</small>{{ v.dispatches.count }}</div>
+          {% if can_edit %}<a class="org-btn is-light is-sm mst-open" href="{% url 'vehicle_edit' v.pk %}">Edit</a>{% else %}<span></span>{% endif %}
+        </li>{% endfor %}</ul>
+      {% else %}<div class="doc-empty"><svg><use href="#ic-truck"/></svg><strong>No vehicles yet</strong><span>Add transporter, customer and own trucks with their document validity.</span></div>{% endif %}
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

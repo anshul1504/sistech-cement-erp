@@ -11,6 +11,12 @@ MODULES = [
     ('invoices', 'Tax invoices', {'view': 'view_invoice', 'post': 'post_invoice', 'export': 'export_invoice'}),
     ('receipts', 'Receipts & ledger', {'view': 'view_receipt', 'create': 'add_receipt', 'cancel': 'bounce_receipt'}),
     ('credit_notes', 'Credit notes', {'view': 'view_creditnote', 'create': 'add_creditnote'}),
+    ('vehicles', 'Vehicles & drivers', {'view': 'view_vehicle', 'create': 'add_vehicle', 'edit': 'change_vehicle'}),
+    ('dispatch', 'Dispatch planning', {'view': 'view_dispatch', 'create': 'add_dispatch'}),
+    ('gate', 'Gate-in / gate-out', {'post': 'gate_dispatch'}),
+    ('weighbridge', 'Weighbridge readings', {'post': 'weigh_dispatch', 'approve': 'approve_weight_exception'}),
+    ('loading', 'Truck loading', {'post': 'load_dispatch'}),
+    ('pod', 'Proof of delivery', {'post': 'pod_dispatch'}),
     ('pricing', 'Price list', {'view': 'view_pricerule', 'create': 'add_pricerule', 'edit': 'change_pricerule'}),
     ('influencers', 'Masons & contractors', {'view': 'view_influencer', 'create': 'add_influencer', 'edit': 'change_influencer', 'export': 'export_influencer'}),
     ('partners', 'Business partners', {'view': 'view_partner', 'create': 'add_partner', 'edit': 'change_partner'}),
@@ -21,7 +27,7 @@ MODULES = [
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
-ALL_VIEWS = {p['view'] for _, _, p in MODULES}
+ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
@@ -30,6 +36,11 @@ PRESETS = {
     'Warehouse operator': {'view_sales_order', 'post_sales_order', 'view_purchase_order', 'post_purchase_order', 'view_stockbalance', 'view_stockmovement', 'view_product', 'view_site'},
     'Production operator': {'view_production', 'add_production', 'complete_production', 'view_product', 'view_site'},
     'Quality manager': {'view_qualitytest', 'add_qualitytest', 'view_production', 'release_production', 'view_product', 'view_site'},
+    'Gate security': {'view_dispatch', 'gate_dispatch', 'view_vehicle'},
+    'Weighbridge operator': {'view_dispatch', 'weigh_dispatch', 'view_vehicle'},
+    'Loading supervisor': {'view_dispatch', 'load_dispatch', 'view_vehicle'},
+    'Logistics manager': {'view_dispatch', 'add_dispatch', 'approve_weight_exception', 'pod_dispatch', 'view_vehicle', 'add_vehicle', 'change_vehicle',
+                          'view_sales_order', 'view_partner', 'view_product', 'view_site'},
     'Internal auditor': ALL_VIEWS | {'export_invoice', 'export_influencer', 'export_stockmovement'},
 }
 

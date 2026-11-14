@@ -107,6 +107,17 @@ A dispatched sales order gets **one tax invoice** (Finance → Tax invoices, or 
 - **Customer ledger** (from the dealer page): opening balance, invoices, receipts, bounces and credit notes with running balance, date filter and CSV; ageing (not due, 1–30, 31–60, 61–90, 90+) with open invoices. **Outstanding & ageing** lists every customer with buckets, advances held and CSV export.
 - **Credit control** now uses the ledger: exposure = invoices − receipts − credit notes + approved/dispatched orders not yet invoiced (incl. GST). **Approval is blocked while any invoice is past due** or when the limit would be exceeded; the order page warns beforehand. The dealer page shows ledger balance, pipeline and overdue.
 
+## Gate, weighbridge & dispatch (Step 3a)
+
+Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots → Dispatch settings) and set the stock-posting event (loading complete or gate-out), weight tolerance %, scale ID and loading bays. Sales orders at that plant then leave only through trucks (Logistics → Gate & dispatch); direct "dispatch & post stock" is blocked there.
+
+- **Vehicles & drivers**: registration (validated, BH series supported), type, capacity, owner/transporter, RC / insurance / permit / fitness / PUC validity, blacklist; drivers with licence and validity. Expired or missing documents, blacklisted vehicles, a truck already on another trip, or an expired licence block planning and gate-in.
+- **Truck flow** (SRS §4.4): plan truck against an approved order (partial quantities, capacity check, daily token) → gate-in with a 7-point security checklist → **tare** → loading at a bay → loading complete with actual bags/MT, seal, team, torn bags → **gross** → net vs loaded quantity (SKU bag weight) within the plant tolerance and vehicle capacity → **supervisor exception approval by a different person** → tax invoice for exactly what the truck carries (vehicle, transporter, LR, e-way bill printed) → gate-out → POD with receiver, shortage/damage and signed copy upload.
+- **Weighments are immutable**: manual entry needs a reason; a reweigh adds a new linked reading with a reason and the original stays visible (struck through) on screen and slip. Gross must exceed tare; tare far from the vehicle's usual tare needs a reason.
+- **Stock posts once** per dispatch line at the configured event (unique source id); cancelling a loaded truck puts stock back. Orders move Approved → Part dispatched → Completed automatically; **short-close** ends a part-dispatched order. One order can have many trucks and invoices.
+- **Segregated roles**: Gate security, Weighbridge operator, Loading supervisor, Logistics manager presets; gate cannot weigh, weighbridge cannot run the gate, the weigher/loader cannot approve their own exception. Board by stage with exceptions and POD pending; printable **weighment slip** and **gate pass**.
+- Next in Step 3b: freight rate cards, trip freight check and transporter bills. Weighbridge hardware integration is Step 11.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.

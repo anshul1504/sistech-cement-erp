@@ -140,3 +140,39 @@ a.ord-tr:hover { background: #fafbfd; }
   .led-age { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .led-table .ord-tr, .led-out .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Logistics */
+.ord-flag.is-info { background: #eef3fb; color: #073777; margin-left: 4px; }
+.lg-steps { margin-bottom: 16px; }
+.lg-action { border-color: #c9d6ea; box-shadow: 0 10px 28px -22px rgba(8, 40, 89, .55); }
+.lg-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 4px; }
+.lg-checks .org-check-label { padding: 10px 12px; border: 1px solid var(--o-line); border-radius: 10px; }
+.lg-big { height: 52px !important; font-size: 22px !important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lg-old { opacity: .55; }
+.lg-old strong { text-decoration: line-through; }
+.lg-docs { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal !important; }
+.lg-board-filter { margin-bottom: 12px; }
+.lg-board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.lg-col { min-width: 0; padding: 10px; border-radius: 14px; background: #eef1f6; }
+.lg-col > header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 8px; }
+.lg-col h2 { margin: 0; color: #082859; font-size: 13px; font-weight: 600; }
+.lg-col > header span { min-width: 24px; padding: 1px 8px; border-radius: 99px; background: #fff; color: #4a5668; font-size: 12px; font-weight: 600; text-align: center; }
+.lg-card { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; padding: 10px 12px; border: 1px solid var(--o-line); border-left: 4px solid #8a94a6; border-radius: 10px; background: #fff; color: inherit; text-decoration: none; }
+.lg-card:hover { border-color: #c9d6ea; color: inherit; }
+.lg-card small { color: var(--o-ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-card .doc-badge { align-self: flex-start; margin-top: 4px; }
+.lg-card.is-alert { border-left-color: #f04438; }
+.is-planned .lg-card { border-left-color: #8a94a6; }
+.is-at_gate .lg-card { border-left-color: #f0b323; }
+.is-loading .lg-card { border-left-color: #073777; }
+.is-weighed .lg-card { border-left-color: #7a5af8; }
+.is-transit .lg-card { border-left-color: #12b76a; }
+.lg-card-top { display: flex; justify-content: space-between; gap: 8px; }
+.lg-card-top strong { font-size: 14px; }
+.lg-token { color: #8a5a00; font-size: 12px; font-weight: 700; }
+.lg-empty { margin: 4px; color: var(--o-ink-3); font-size: 12.5px; }
+@media (max-width: 1199.98px) { .lg-board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) {
+  .lg-board { grid-template-columns: minmax(0, 1fr); }
+  .lg-checks { grid-template-columns: minmax(0, 1fr); }
+}

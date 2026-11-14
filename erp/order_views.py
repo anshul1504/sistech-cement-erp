@@ -127,6 +127,8 @@ def order_detail(request, pk):
     order = get_object_or_404(scope(Order.objects.select_related('partner', 'site', 'created_by', 'approved_by'), request.user), pk=pk)
     _check(request.user, order.kind, 'view')
     lines = list(order.lines.select_related('product', 'price_rule'))
+    for l in lines:
+        l.sent = l.dispatched_quantity() if order.status in ('Part dispatched', 'Completed') else None
     tax = summarise(lines, order.is_interstate)
     actions = {f'can_{a}': order_permission(request.user, order.kind, a) for a in ['create', 'submit', 'approve', 'post', 'cancel']}
     checks = []
@@ -152,10 +154,15 @@ def order_detail(request, pk):
     flow = ['Draft', 'Submitted', 'Approved', 'Completed']
     at = flow.index(order.status) if order.status in flow else -1
     steps = [(name, 'cancelled' if order.status == 'Cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i, name in enumerate(flow)]
-    invoice = getattr(order, 'invoice', None) if order.kind == 'Sale' else None
+    invoices = list(order.invoices.all()) if order.kind == 'Sale' else []
+    invoice = invoices[0] if len(invoices) == 1 and not invoices[0].dispatch_id else None
     if order.kind == 'Sale':
-        steps[-1] = ('Dispatched', 'done' if invoice else steps[-1][1])
-        steps.append(('Invoiced', 'cancelled' if order.status == 'Cancelled' else 'current' if invoice else 'todo'))
+        if order.status == 'Part dispatched':
+            steps[-1] = ('Dispatched', 'current')
+            steps[2] = ('Approved', 'done')
+        steps[-1] = ('Dispatched', 'done' if invoices and order.status == 'Completed' else steps[-1][1])
+        steps.append(('Invoiced', 'cancelled' if order.status == 'Cancelled' else 'current' if invoices and order.status == 'Completed' else 'todo'))
     history = AuditEvent.objects.filter(reference=order.number).select_related('actor').order_by('-created_at')[:8]
     return render(request, 'erp/order_detail.html', {'title': order.number, 'order': order, 'lines': lines, 'tax': tax, 'words': in_words(tax['grand_total']),
-                                                     'checks': checks, 'history': history, 'steps': steps, 'invoice': invoice, **actions})
+                                                     'checks': checks, 'history': history, 'steps': steps, 'invoice': invoice, 'invoices': invoices,
+                                                     'dispatches': order.dispatches.select_related('vehicle', 'invoice').prefetch_related('lines__order_line__product') if order.kind == 'Sale' else [], **actions})

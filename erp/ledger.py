@@ -76,17 +76,22 @@ def ageing(invoices, on=None):
 
 
 def uninvoiced_orders(partner):
-    """Approved orders, and dispatched orders not yet invoiced — committed but not on the ledger yet."""
+    """Approved / part-dispatched / dispatched orders whose value is not fully invoiced yet."""
     from .models import Order
-    return Order.objects.filter(kind='Sale', partner=partner).filter(Q(status='Approved') | Q(status='Completed', invoice__isnull=True)) \
-        .select_related('site', 'partner').prefetch_related('lines')
+    return Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Part dispatched', 'Completed']) \
+        .select_related('site', 'partner').prefetch_related('lines', 'invoices')
+
+
+def uninvoiced_value(order):
+    invoiced = sum((i.grand_total for i in order.invoices.all()), ZERO)
+    return max(order.grand_total - invoiced, ZERO)
 
 
 def exposure(partner, exclude_order=None):
     orders = uninvoiced_orders(partner)
     if exclude_order:
         orders = orders.exclude(pk=exclude_order)
-    pipeline = sum((o.grand_total for o in orders), ZERO)
+    pipeline = sum((uninvoiced_value(o) for o in orders), ZERO)
     return {'balance': balance(partner), 'pipeline': pipeline, 'total': balance(partner) + pipeline}
 
 

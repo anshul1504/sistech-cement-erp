@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.8.0'
+ASSET_VERSION = '0.9.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -43,8 +43,9 @@ NAV_GROUPS = [
         _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening',)),
     ]),
     ('Logistics', [
-        _soon('Gate & weighbridge', 'scale'),
-        _soon('Dispatch & trips', 'truck'),
+        _item('dispatch_board', 'Gate & dispatch', 'scale', 'view_dispatch', match=('dispatch_new', 'dispatch_detail', 'dispatch_print')),
+        _item('vehicles', 'Vehicles & drivers', 'truck', 'view_vehicle', match=('vehicle_new', 'vehicle_edit', 'driver_new', 'driver_edit')),
+        _soon('Freight & trips', 'truck'),
     ]),
     ('Finance', [
         _item('invoices', 'Tax invoices', 'receipt', 'view_invoice', match=('invoice_detail', 'invoice_new')),
@@ -146,6 +147,8 @@ def navigation(request):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
     if user.has_perm('erp.add_product'):
         quick_create.append(('Product', reverse('products_new'), 'package'))
+    if user.has_perm('erp.add_vehicle'):
+        quick_create.append(('Vehicle', reverse('vehicle_new'), 'truck'))
     if user.has_perm('erp.add_receipt'):
         quick_create.append(('Receipt', reverse('receipt_new'), 'book'))
     if user.has_perm('erp.add_pricerule'):

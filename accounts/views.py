@@ -242,8 +242,9 @@ def role_edit(request, pk=None, copy_from=None):
             error = 'The request contains permissions outside the ERP role matrix.'
         else:
             for _, label, codes in MODULES:
-                if (selected & set(codes.values())) and codes['view'] not in selected:
-                    error = f'Enable View for {label} before granting its actions.'
+                needs = codes.get('view') or ('view_dispatch' if any(c.endswith('_dispatch') or c == 'approve_weight_exception' for c in codes.values()) else None)
+                if needs and (selected & set(codes.values())) and needs not in selected:
+                    error = f'Enable View for {label} before granting its actions.' if codes.get('view') else f'{label} needs View on Dispatch planning.'
                     break
         if not error:
             previous = set(role.permissions.values_list('codename', flat=True)) if pk else set()

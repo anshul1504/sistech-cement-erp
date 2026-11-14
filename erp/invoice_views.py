@@ -49,29 +49,36 @@ def invoice_blockers(order):
     out = []
     if order.kind != 'Sale': out.append('Only sales orders are invoiced.')
     if order.status != 'Completed': out.append('Dispatch and post the order first.')
-    if hasattr(order, 'invoice'): out.append(f'Already invoiced as {order.invoice.number}.')
-    if not (order.site.gstin or (org and org.gstin)): out.append(f'Set the GSTIN for {order.site.code} (Masters → Plants & depots) or the company (Organisation setup).')
-    if not order.seller_state: out.append(f'Set the state of {order.site.code}.')
-    if not order.supply_state: out.append(f'Set the state of {order.partner.name} or the place of supply on the order.')
-    if any(l.gst_rate is None for l in order.lines.all()): out.append('A line has no GST rate.')
+    if order.invoices.exists(): out.append(f'Already invoiced as {order.invoices.first().number}.')
+    if order.site.uses_weighbridge and order.kind == 'Sale': out.append(f'{order.site.code} dispatches through the weighbridge — each truck is invoiced from its dispatch.')
+    out += seller_problems(order)
     return out
 
 
-@transaction.atomic
-def post_invoice(user, order_pk, transport):
-    order = Order.objects.select_for_update().select_related('site', 'partner').get(pk=order_pk)
-    problems = invoice_blockers(order)
-    if problems:
-        raise ValidationError(problems)
+def seller_problems(order):
+    org = Organization.objects.defer('logo', 'icon').filter(pk=1).first()
+    out = []
+    if not (order.site.gstin or (org and org.gstin)): out.append(f'Set the GSTIN for {order.site.code} (Masters → Plants & depots) or the company (Organisation setup).')
+    if not order.seller_state: out.append(f'Set the state of {order.site.code}.')
+    if not order.supply_state: out.append(f'Set the state of {order.partner.name} or the place of supply on the order.')
+    return out
+
+
+class _Billable:
+    """An order line billed at a given quantity (whole order, or what one truck carried)."""
+    def __init__(self, line, quantity):
+        self.line, self.product, self.quantity, self.rate, self.gst_rate, self.hsn = line, line.product, quantity, line.rate, line.gst_rate, line.hsn
+
+
+def create_invoice(user, order, billables, transport, dispatch=None):
+    """Snapshot seller, buyer, lines and GST into a posted invoice, then settle any advance. Caller holds the transaction."""
     org = Organization.objects.defer('logo', 'icon').filter(pk=1).first() or Organization()
-    lines = list(order.lines.select_related('product'))
-    tax = summarise(lines, order.is_interstate)
+    tax = summarise(billables, order.is_interstate)
     today = timezone.localdate()
     site, partner = order.site, order.partner
-    seller_address = site.full_address or org.full_address
     inv = Invoice.objects.create(
-        number=next_number('INV', site, today), date=today, order=order, site=site, partner=partner,
-        seller_name=org.legal_name, seller_gstin=site.gstin or org.gstin, seller_state=order.seller_state, seller_address=seller_address,
+        number=next_number('INV', site, today), date=today, order=order, dispatch=dispatch, site=site, partner=partner,
+        seller_name=org.legal_name, seller_gstin=site.gstin or org.gstin, seller_state=order.seller_state, seller_address=site.full_address or org.full_address,
         buyer_name=partner.name, buyer_gstin=partner.gstin, buyer_state=partner.state, buyer_address=partner.full_address,
         ship_to=order.ship_to or partner.shipping_address or '', place_of_supply=order.supply_state, interstate=order.is_interstate,
         taxable=tax['taxable'], cgst=tax['cgst'], sgst=tax['sgst'], igst=tax['igst'], round_off=tax['round_off'], grand_total=tax['grand_total'],
@@ -82,9 +89,19 @@ def post_invoice(user, order_pk, transport):
                                    taxable=row['taxable'], gst_rate=l.gst_rate, cgst=row['cgst'], sgst=row['sgst'], igst=row['igst'], total=row['total'])
     from .ledger import allocate
     allocate(partner)  # any advance already received settles the new invoice
-    AuditEvent.objects.create(actor=user, site=site, action='Invoice posted', reference=inv.number, detail=f'{order.number} · ₹{inv.grand_total}')
+    AuditEvent.objects.create(actor=user, site=site, action='Invoice posted', reference=inv.number, detail=f'{order.number}{" · " + dispatch.number if dispatch else ""} · ₹{inv.grand_total}')
     AuditEvent.objects.create(actor=user, site=site, action='Order invoiced', reference=order.number, detail=inv.number)
     return inv
+
+
+@transaction.atomic
+def post_invoice(user, order_pk, transport):
+    """Whole-order invoice for plants that dispatch without the weighbridge flow."""
+    order = Order.objects.select_for_update().select_related('site', 'partner').get(pk=order_pk)
+    problems = invoice_blockers(order)
+    if problems:
+        raise ValidationError(problems)
+    return create_invoice(user, order, list(order.lines.select_related('product')), transport)
 
 
 @login_required
@@ -92,8 +109,8 @@ def invoice_new(request, pk):
     permitted(request.user, 'post_invoice')
     order = get_object_or_404(scope(Order.objects.select_related('site', 'partner'), request.user), pk=pk)
     blockers = invoice_blockers(order)
-    if hasattr(order, 'invoice'):
-        return redirect('invoice_detail', pk=order.invoice.pk)
+    if order.invoices.exists():
+        return redirect('invoice_detail', pk=order.invoices.first().pk)
     form = TransportForm(request.POST or None)
     lines = list(order.lines.select_related('product'))
     tax = summarise(lines, order.is_interstate)
@@ -135,7 +152,7 @@ def invoices(request):
     return render(request, 'erp/invoices.html', {'title': 'Tax invoices', 'page': Paginator(qs, 50).get_page(request.GET.get('page')), 'totals': totals, 'filters': f,
                                                  'sites': Site.objects.filter(active=True), 'querystring': params.urlencode(),
                                                  'can_export': request.user.has_perm('erp.export_invoice'),
-                                                 'ready': scope(Order.objects.filter(kind='Sale', status='Completed', invoice__isnull=True), request.user).select_related('partner')[:20]
+                                                 'ready': scope(Order.objects.filter(kind='Sale', status='Completed', invoices__isnull=True, site__uses_weighbridge=False), request.user).select_related('partner')[:20]
                                                  if request.user.has_perm('erp.post_invoice') else []})
 
 

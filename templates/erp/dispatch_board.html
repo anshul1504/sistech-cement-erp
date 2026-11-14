@@ -1,0 +1,41 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow">LOGISTICS</div><h1>Gate &amp; dispatch</h1><p>Every truck from token to delivery: gate-in, tare, loading, gross, invoice, gate-out and POD.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'vehicles' %}"><svg><use href="#ic-truck"/></svg>Vehicles &amp; drivers</a></div>
+  </div>
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Left today</span><strong>{{ stats.today }}</strong><small>Gate-out completed</small></div>
+    <div role="listitem" class="inf-kpi"><span>Inside the plant</span><strong>{{ stats.inside }}</strong><small>Between gate-in and gate-out</small></div>
+    <div role="listitem" class="inf-kpi{% if stats.exceptions %} is-danger{% endif %}"><span>Weight exceptions</span><strong>{{ stats.exceptions }}</strong><small>Waiting for supervisor</small></div>
+    <div role="listitem" class="inf-kpi{% if stats.pod_due %} is-warn{% endif %}"><span>POD pending</span><strong>{{ stats.pod_due }}</strong><small>Trucks in transit</small></div>
+  </div>
+  {% if ready %}<section class="org-card" style="margin-bottom:16px"><header><h2>Orders waiting for a truck</h2><p>Approved or part-dispatched orders at weighbridge plants.</p></header>
+    <ul class="mst-order-list">{% for o in ready %}<li><a href="{% url 'order_detail' o.pk %}"><strong>{{ o.number }}</strong><small>{{ o.partner.name }} · {{ o.site.code }} · due {{ o.due_date|date:'d M' }}{% if o.status == 'Part dispatched' %} · part dispatched{% endif %}</small></a><span class="mst-qty">₹{{ o.grand_total|indian }}</span><a class="org-btn is-primary is-sm" href="{% url 'dispatch_new' o.pk %}">Plan truck</a></li>{% endfor %}</ul></section>{% endif %}
+
+  <form method="get" class="doc-filter lg-board-filter">
+    <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Vehicle no., order, dealer, dispatch…" aria-label="Search">
+    {% if sites|length > 1 %}<select class="form-select" name="site" aria-label="Plant" onchange="this.form.submit()"><option value="">All plants</option>{% for s in sites %}<option value="{{ s.pk }}"{% if site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select>{% endif %}
+    <button class="org-btn is-light" type="submit">Search</button>
+  </form>
+  <div class="lg-board">
+    {% for key, label, items in columns %}
+    <section class="lg-col is-{{ key }}" aria-label="{{ label }}">
+      <header><h2>{{ label }}</h2><span>{{ items|length }}</span></header>
+      {% for d in items %}
+      <a class="lg-card{% if d.exception_open %} is-alert{% endif %}" href="{% url 'dispatch_detail' d.pk %}">
+        <div class="lg-card-top"><strong class="is-mono">{{ d.vehicle.registration }}</strong><span class="lg-token">#{{ d.token }}</span></div>
+        <small>{{ d.order.partner.name }}</small>
+        <small>{{ d.number }} · {{ d.site.code }}{% if d.bay %} · {{ d.bay }}{% endif %}</small>
+        <span class="doc-badge{% if d.exception_open %} is-danger{% elif d.status == 'gate_out' %} is-ok{% endif %}">{% if d.exception_open %}Weight exception{% else %}{{ d.get_status_display }}{% endif %}</span>
+      </a>
+      {% empty %}<p class="lg-empty">No trucks</p>{% endfor %}
+    </section>
+    {% endfor %}
+  </div>
+  {% if done %}<section class="org-card" style="margin-top:16px"><header><h2>Recently closed</h2><p>Delivered or cancelled.</p></header>
+    <ul class="mst-order-list">{% for d in done %}<li><a href="{% url 'dispatch_detail' d.pk %}"><strong>{{ d.number }} · {{ d.vehicle.registration }}</strong><small>{{ d.order.partner.name }} · {% if d.delivered_at %}delivered {{ d.delivered_at|date:'d M, H:i' }}{% else %}{{ d.cancel_reason }}{% endif %}</small></a><span class="doc-badge{% if d.status == 'delivered' %} is-ok{% else %} is-danger{% endif %}">{{ d.get_status_display }}</span><span></span></li>{% endfor %}</ul></section>{% endif %}
+</div>
+{% endblock %}

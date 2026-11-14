@@ -1,0 +1,149 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'dispatch_board' %}">← Gate &amp; dispatch</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-transporter"><svg><use href="#ic-truck"/></svg></span>
+    <div class="org-hero-text">
+      <h1 class="is-mono">{{ d.vehicle.registration }}</h1>
+      <p>{{ d.number }} · token #{{ d.token }} · {{ d.order.partner.name }} · order <a href="{% url 'order_detail' d.order.pk %}">{{ d.order.number }}</a></p>
+      <div class="org-chips">
+        <span class="org-chip ord-status is-{% if d.status == 'cancelled' %}cancelled{% elif d.status == 'delivered' %}completed{% elif d.status == 'gate_out' %}approved{% else %}submitted{% endif %}">● {{ d.get_status_display }}</span>
+        <span class="org-chip">{{ d.driver.name }} · {{ d.driver.mobile }}</span>
+        {% if d.bay %}<span class="org-chip">{{ d.bay }}</span>{% endif %}
+        {% if d.transporter %}<span class="org-chip">{{ d.transporter.name }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side"><small>Net weight</small><span class="mst-total">{% if net %}{{ net|indian }} kg{% else %}—{% endif %}</span><small>Loaded ≈ {{ loaded_mt|floatformat:2 }} MT · capacity {{ d.vehicle.capacity_mt|qty }} MT</small></div>
+  </section>
+
+  <ol class="ord-steps lg-steps">{% for label, state in steps %}<li class="is-{{ state }}">{{ label }}</li>{% endfor %}</ol>
+
+  {% if d.exception %}<ul class="ord-checks"><li class="{% if d.exception_open %}is-danger{% else %}is-info{% endif %}">{% if d.exception_open %}Needs supervisor approval: {% else %}Approved by {{ d.exception_approved_by.get_full_name|default:d.exception_approved_by.username }} — {{ d.exception_note }}. Was: {% endif %}{{ d.exception }}.</li></ul>{% endif %}
+  {% if vehicle_problems %}<ul class="ord-checks">{% for p in vehicle_problems %}<li class="is-danger">{{ p }}</li>{% endfor %}</ul>{% endif %}
+
+  <div class="acc-grid">
+    {# ---------- The one action for the current step ---------- #}
+    <section class="org-card org-view acc-wide lg-action">
+      {% if d.status == 'planned' %}
+        <header class="acc-card-head"><h2>Gate-in</h2><span class="acc-muted">Security checks the truck and driver</span></header>
+        {% if can.gate %}<form method="post" action="{% url 'dispatch_action' d.pk 'gate_in' %}">{% csrf_token %}
+          <div class="lg-checks">{% for key, label in checks %}<label class="org-check-label"><input class="form-check-input" type="checkbox" name="{{ key }}"><span><strong>{{ label }}</strong></span></label>{% endfor %}</div>
+          <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Allow gate-in</button></div></form>
+        {% else %}<p class="acc-muted">Waiting for gate security.</p>{% endif %}
+      {% elif d.status == 'gate_in' or d.status == 'loaded' %}
+        <header class="acc-card-head"><h2>{% if d.status == 'gate_in' %}Tare weight (empty truck){% else %}Gross weight (loaded truck){% endif %}</h2><span class="acc-muted">Scale {{ d.site.scale_id|default:'not set' }}</span></header>
+        {% if can.weigh %}<form method="post" action="{% if d.status == 'gate_in' %}{% url 'dispatch_action' d.pk 'tare' %}{% else %}{% url 'dispatch_action' d.pk 'gross' %}{% endif %}" class="lg-weigh" data-weigh>{% csrf_token %}
+          <div class="org-grid">
+            <div class="org-field"><label class="form-label" for="w-kg">Reading (kg) <span class="required">*</span></label><input class="form-control lg-big" id="w-kg" type="number" name="weight_kg" min="1" max="80000" step="1" inputmode="numeric" required {% if d.status == 'loaded' and d.tare %}placeholder="more than {{ d.tare.weight_kg }}"{% elif d.vehicle.tare_kg %}placeholder="usual {{ d.vehicle.tare_kg }}"{% endif %}></div>
+            <div class="org-field"><label class="form-label" for="w-src">Source</label><select class="form-select" id="w-src" name="source"><option value="manual">Manual entry</option><option value="scale">Scale interface</option></select></div>
+            <div class="org-field is-wide"><label class="form-label" for="w-reason">Reason (required for manual entry)</label><input class="form-control" id="w-reason" name="reason" maxlength="150" placeholder="e.g. Scale interface not connected yet"></div>
+          </div>
+          {% if d.status == 'loaded' %}<p class="acc-note">Expected net ≈ {{ loaded_mt|floatformat:2 }} MT. Plant tolerance ±{{ d.site.weight_tolerance_pct|qty }}%.</p>{% endif %}
+          <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Save reading</button></div></form>
+        {% else %}<p class="acc-muted">Waiting for the weighbridge operator.</p>{% endif %}
+      {% elif d.status == 'tared' %}
+        <header class="acc-card-head"><h2>Start loading</h2><span class="acc-muted">Tare {{ d.tare.weight_kg|indian }} kg</span></header>
+        {% if can.load %}<form method="post" action="{% url 'dispatch_action' d.pk 'start_loading' %}">{% csrf_token %}
+          <div class="org-grid"><div class="org-field"><label class="form-label" for="ld-bay">Bay</label>{% if d.site.bays %}<select class="form-select" id="ld-bay" name="bay">{% for b in d.site.bays %}<option{% if d.bay == b %} selected{% endif %}>{{ b }}</option>{% endfor %}</select>{% else %}<input class="form-control" id="ld-bay" name="bay" value="{{ d.bay }}" maxlength="30">{% endif %}</div></div>
+          <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Send to bay</button></div></form>
+        {% else %}<p class="acc-muted">Waiting for the loading supervisor.</p>{% endif %}
+      {% elif d.status == 'loading' %}
+        <header class="acc-card-head"><h2>Loading complete</h2><span class="acc-muted">Count the actual bags / MT loaded</span></header>
+        {% if can.load %}<form method="post" action="{% url 'dispatch_action' d.pk 'complete_loading' %}">{% csrf_token %}
+          <div class="ord-lines">{% for l in lines %}<div class="ord-line pl-line"><div class="ord-cell ord-product" data-label="Product"><strong>{{ l.order_line.product.name }}</strong><small class="ord-hint">Planned {{ l.planned_quantity|qty }} {{ l.order_line.product.unit }}</small></div><div class="ord-cell" data-label="Loaded"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" max="{{ l.planned_quantity }}" name="qty_{{ l.pk }}" value="{{ l.planned_quantity|qty|cut:',' }}"><span>{{ l.order_line.product.unit }}</span></div></div></div>{% endfor %}</div>
+          <div class="org-grid">
+            <div class="org-field"><label class="form-label" for="ld-seal">Seal no.</label><input class="form-control" id="ld-seal" name="seal" maxlength="30"{% if d.vehicle.vehicle_type == 'bulker' %} required{% endif %}></div>
+            <div class="org-field"><label class="form-label" for="ld-team">Loading team / shift</label><input class="form-control" id="ld-team" name="team" maxlength="80" placeholder="e.g. Gang 3 · Shift B"></div>
+            <div class="org-field"><label class="form-label" for="ld-dmg">Torn bags replaced</label><input class="form-control" id="ld-dmg" type="number" min="0" name="damaged_bags" value="0"></div>
+            <div class="org-field"><label class="form-label" for="ld-notes">Notes</label><input class="form-control" id="ld-notes" name="notes" maxlength="200"></div>
+          </div>
+          <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Loading complete</button></div></form>
+        {% else %}<p class="acc-muted">Loading in progress at {{ d.bay|default:'the bay' }}.</p>{% endif %}
+      {% elif d.status == 'weighed' %}
+        <header class="acc-card-head"><h2>{% if d.exception_open %}Supervisor approval{% elif not invoice %}Tax invoice{% else %}Gate-out{% endif %}</h2><span class="acc-muted">Net {{ net|indian }} kg · expected {{ d.expected_kg|floatformat:0 }} kg</span></header>
+        {% if d.exception_open %}
+          {% if can.approve %}<form method="post" action="{% url 'dispatch_action' d.pk 'approve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="ap-note">Why is this acceptable? <span class="required">*</span></label><input class="form-control" id="ap-note" name="note" maxlength="200" required placeholder="e.g. 4 bags re-weighed at 50.2 kg — within spec"></div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Approve exception</button></div></form>
+          {% else %}<p class="acc-muted">A weighbridge supervisor or dispatch manager must approve. Or reweigh / correct the load.</p>{% endif %}
+        {% elif not invoice %}
+          {% if can.invoice %}<form method="post" action="{% url 'dispatch_action' d.pk 'invoice' %}" data-confirm="Post the tax invoice for this truck? It cannot be edited afterwards.">{% csrf_token %}<div class="org-grid"><div class="org-field"><label class="form-label" for="iv-ewb">E-way bill no.</label><input class="form-control" id="iv-ewb" name="eway_bill" inputmode="numeric" maxlength="14" placeholder="12 digits"></div></div><p class="acc-note">Invoice uses the loaded quantity at the order's rates; vehicle, transporter and LR print automatically.</p><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Post tax invoice</button></div></form>
+          {% else %}<p class="acc-muted">Waiting for accounts to post the tax invoice.</p>{% endif %}
+        {% else %}
+          <p>Invoice <a href="{% url 'invoice_detail' invoice.pk %}">{{ invoice.number }}</a> · ₹{{ invoice.grand_total|indian }}{% if d.seal_number %} · seal {{ d.seal_number }}{% endif %}</p>
+          {% if can.gate %}<form method="post" action="{% url 'dispatch_action' d.pk 'gate_out' %}" data-confirm="Let {{ d.vehicle.registration }} out?{% if d.site.stock_post_event == 'gate_out' %} Stock will be reduced now.{% endif %}">{% csrf_token %}<div class="inf-log-actions"><a class="org-btn is-light" href="{% url 'dispatch_print' d.pk 'pass' %}" target="_blank">Print gate pass</a><button class="org-btn is-primary" type="submit">Gate-out</button></div></form>
+          {% else %}<p class="acc-muted">Waiting for gate security.</p>{% endif %}
+        {% endif %}
+      {% elif d.status == 'gate_out' %}
+        <header class="acc-card-head"><h2>Proof of delivery</h2><span class="acc-muted">Left {{ d.gate_out_at|date:'d M, H:i' }}</span></header>
+        {% if can.pod %}<form method="post" action="{% url 'dispatch_action' d.pk 'deliver' %}" enctype="multipart/form-data">{% csrf_token %}
+          <div class="org-grid">
+            <div class="org-field"><label class="form-label" for="pod-by">Received by <span class="required">*</span></label><input class="form-control" id="pod-by" name="received_by" maxlength="80" required></div>
+            <div class="org-field"><label class="form-label" for="pod-m">Receiver mobile</label><input class="form-control" id="pod-m" name="receiver_mobile" inputmode="tel" maxlength="14"></div>
+            <div class="org-field"><label class="form-label" for="pod-s">Shortage (units)</label><input class="form-control" id="pod-s" type="number" step="any" min="0" name="shortage" value="0"></div>
+            <div class="org-field"><label class="form-label" for="pod-d">Damaged / wet (units)</label><input class="form-control" id="pod-d" type="number" step="any" min="0" name="damaged" value="0"></div>
+            <div class="org-field is-wide"><label class="form-label" for="pod-n">Notes</label><input class="form-control" id="pod-n" name="notes" maxlength="200" placeholder="Required when there is shortage or damage"></div>
+            <div class="org-field is-wide"><label class="form-label" for="pod-f">Signed LR / POD photo</label><input class="form-control" id="pod-f" type="file" name="pod_file" accept="application/pdf,image/png,image/jpeg,image/webp"><div class="form-text">PDF or image, up to 5 MB.</div></div>
+          </div>
+          <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Record delivery</button></div></form>
+        {% else %}<p class="acc-muted">In transit — POD will be recorded on delivery.</p>{% endif %}
+      {% elif d.status == 'delivered' %}
+        <header class="acc-card-head"><h2>Delivered</h2><span class="acc-muted">{{ d.delivered_at|date:'d M Y, H:i' }}</span></header>
+        <dl><div><dt>Received by</dt><dd>{{ d.received_by }}{% if d.receiver_mobile %} · {{ d.receiver_mobile }}{% endif %}</dd></div><div><dt>Shortage / damaged</dt><dd>{{ d.shortage_qty|qty }} / {{ d.damaged_qty|qty }}</dd></div>{% if d.pod_notes %}<div class="is-wide"><dt>Notes</dt><dd>{{ d.pod_notes }}</dd></div>{% endif %}{% if d.pod_file_type %}<div class="is-wide"><dt>POD</dt><dd><a href="{% url 'dispatch_pod' d.pk %}" target="_blank" rel="noopener">Open signed copy</a></dd></div>{% endif %}</dl>
+        {% if d.shortage_qty or d.damaged_qty %}{% if invoice and perms.erp.add_creditnote %}<a class="org-btn is-light is-sm inf-add" href="{% url 'credit_note_new' invoice.pk %}">Raise credit note for shortage / damage</a>{% endif %}{% endif %}
+      {% else %}
+        <header class="acc-card-head"><h2>Cancelled</h2></header><p>{{ d.cancel_reason }}</p>
+      {% endif %}
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Load</h2><span class="acc-muted">{% if d.stock_posted %}Stock issued{% else %}Stock reduces at {{ d.site.get_stock_post_event_display|lower }}{% endif %}</span></header>
+      <ul class="mst-stock-list">{% for l in lines %}<li><span><strong>{{ l.order_line.product.name }}</strong><small>Planned {{ l.planned_quantity|qty }}{% if l.loaded_quantity is not None %} · loaded {{ l.loaded_quantity|qty }}{% endif %} {{ l.order_line.product.unit }}</small></span><span class="mst-qty">{{ l.quantity|qty }}</span></li>{% endfor %}</ul>
+      <dl>{% if d.seal_number %}<div><dt>Seal</dt><dd>{{ d.seal_number }}</dd></div>{% endif %}{% if d.loading_team %}<div><dt>Team</dt><dd>{{ d.loading_team }}</dd></div>{% endif %}{% if d.damaged_bags %}<div><dt>Torn bags replaced</dt><dd>{{ d.damaged_bags }}</dd></div>{% endif %}{% if d.lr_number %}<div><dt>LR / GR</dt><dd>{{ d.lr_number }}</dd></div>{% endif %}</dl>
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Weighbridge</h2>{% if d.gross %}<a href="{% url 'dispatch_print' d.pk 'slip' %}" target="_blank">Print slip</a>{% endif %}</header>
+      {% if weighments %}<ul class="mst-order-list">{% for w in weighments %}<li class="{% if w.superseded_by_id %}lg-old{% endif %}"><span><strong>{{ w.get_kind_display }} · {{ w.weight_kg|indian }} kg</strong><small>{{ w.captured_at|date:'d M, H:i' }} · {{ w.captured_by.get_full_name|default:w.captured_by.username }} · {{ w.get_source_display }}{% if w.reason %} · {{ w.reason }}{% endif %}</small></span>{% if w.superseded_by_id %}<span class="doc-badge">Replaced</span>{% else %}<span class="doc-badge is-ok">Current</span>{% endif %}<span></span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No readings yet.</p>{% endif %}
+      {% if can.weigh and d.tare and d.status in 'tared loading loaded weighed' %}
+      <details class="inf-log" style="margin-top:12px"><summary><svg><use href="#ic-scale"/></svg>Reweigh (keeps the original)</summary>
+        <form method="post" class="inf-log-form" action="#" data-reweigh>{% csrf_token %}
+          <div class="org-grid">
+            <div class="org-field"><label class="form-label" for="rw-k">Reading</label><select class="form-select" id="rw-k" name="kind"><option value="tare">Tare</option>{% if d.gross %}<option value="gross">Gross</option>{% endif %}</select></div>
+            <div class="org-field"><label class="form-label" for="rw-kg">Weight (kg)</label><input class="form-control" id="rw-kg" type="number" name="weight_kg" min="1" step="1" required></div>
+            <div class="org-field is-wide"><label class="form-label" for="rw-r">Reason <span class="required">*</span></label><input class="form-control" id="rw-r" name="reason" maxlength="150" required placeholder="e.g. Driver was in the cabin during tare"></div>
+            <input type="hidden" name="source" value="manual">
+          </div>
+          <div class="inf-log-actions"><button class="org-btn is-light" type="submit">Save new reading</button></div>
+        </form>
+      </details>{% endif %}
+    </section>
+
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Trip</h2></header>
+      <dl>
+        <div><dt>Plant</dt><dd>{{ d.site.code }}</dd></div>
+        <div><dt>Planned for</dt><dd>{{ d.planned_for|date:'d M Y' }}</dd></div>
+        <div><dt>Gate-in</dt><dd>{{ d.gate_in_at|date:'d M, H:i'|default:'—' }}</dd></div>
+        <div><dt>Loading</dt><dd>{% if d.loading_started_at %}{{ d.loading_started_at|time:'H:i' }} – {{ d.loading_done_at|time:'H:i'|default:'…' }}{% else %}—{% endif %}</dd></div>
+        <div><dt>Gate-out</dt><dd>{{ d.gate_out_at|date:'d M, H:i'|default:'—' }}</dd></div>
+        <div><dt>Invoice</dt><dd>{% if invoice %}<a href="{% url 'invoice_detail' invoice.pk %}">{{ invoice.number }}</a>{% else %}—{% endif %}</dd></div>
+      </dl>
+      {% if can.cancel and d.status in 'planned gate_in tared loading loaded weighed' and not invoice %}
+      <details class="inf-log" style="margin-top:12px"><summary><svg><use href="#ic-close"/></svg>Cancel this truck</summary>
+        <form method="post" class="inf-log-form" action="{% url 'dispatch_action' d.pk 'cancel' %}" data-confirm="Cancel {{ d.number }}?{% if d.stock_posted %} Loaded stock will be put back.{% endif %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="cx-r">Reason <span class="required">*</span></label><input class="form-control" id="cx-r" name="reason" maxlength="150" required></div><div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit">Cancel dispatch</button></div></form>
+      </details>{% endif %}
+    </section>
+
+    {% if history %}<section class="org-card org-view acc-wide"><header class="acc-card-head"><h2>History</h2></header>
+      <ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor.get_full_name|default:e.actor.username }}</small><small>{{ e.created_at|date:'d M, H:i' }}</small></li>{% endfor %}</ul></section>{% endif %}
+  </div>
+</div>
+<script>
+(() => {
+  const rw = document.querySelector('[data-reweigh]');
+  if (rw) rw.addEventListener('submit', () => { rw.action = '{% url "dispatch_action" d.pk "tare" %}'.replace('/tare/', '/' + rw.querySelector('[name=kind]').value + '/'); });
+})();
+</script>
+{% endblock %}

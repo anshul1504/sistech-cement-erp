@@ -17,14 +17,19 @@ class SiteForm(StyledForm):
         ('Basics', 'What this location is and what it does.', ['kind', 'facility_type', 'code', 'name', 'active']),
         ('Address', 'Where goods are produced, stored or dispatched from.', ['address', 'city', 'district', 'state', 'pincode']),
         ('Registration & contact', 'State GST registration and the people to reach.', ['gstin', 'manager', 'phone', 'email']),
+        ('Dispatch settings', 'How trucks leave this location.', ['uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays']),
         ('Capacity & notes', 'Installed capacity and anything the team should know.', ['capacity_tpa', 'notes']),
     ]
 
     class Meta:
         model = Site
         fields = ['kind', 'facility_type', 'code', 'name', 'active', 'address', 'city', 'district', 'state', 'pincode',
-                  'gstin', 'manager', 'phone', 'email', 'capacity_tpa', 'notes']
+                  'gstin', 'manager', 'phone', 'email', 'uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays', 'capacity_tpa', 'notes']
         widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
+
+    def _dispatch_defaults(self):
+        for name in ['stock_post_event', 'weight_tolerance_pct']:
+            self.fields[name].required = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,6 +45,20 @@ class SiteForm(StyledForm):
         self.fields['pincode'].widget.attrs.update(inputmode='numeric', maxlength='6')
         self.fields['phone'].widget.attrs.update(inputmode='tel', placeholder='e.g. +91 98765 43210')
         self.fields['capacity_tpa'].widget.attrs.update(step='any', placeholder='e.g. 1000000')
+        self._dispatch_defaults()
+        self.fields['weight_tolerance_pct'].widget.attrs.update(step='0.05', min='0', max='5')
+        self.fields['loading_bays'].widget.attrs.update(placeholder='Bay 1, Bay 2, Bulk 1')
+
+    def clean_stock_post_event(self):
+        return self.cleaned_data.get('stock_post_event') or 'gate_out'
+
+    def clean_weight_tolerance_pct(self):
+        v = self.cleaned_data.get('weight_tolerance_pct')
+        if v is None:
+            return Decimal('0.50')
+        if v > 5:
+            raise forms.ValidationError('Keep tolerance at 5% or less.')
+        return v
 
     def sections(self):
         return [(title, note, [self[name] for name in names]) for title, note, names in self.SECTIONS]

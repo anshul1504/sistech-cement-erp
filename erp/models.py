@@ -44,10 +44,23 @@ class Site(models.Model):
     manager = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='managed_sites',
                                 verbose_name='Plant / depot manager')
     capacity_tpa = models.DecimalField('Installed capacity (MT per year)', max_digits=12, decimal_places=2, null=True, blank=True, validators=MONEY)
+    # Dispatch settings (FR-LOG-008/009)
+    uses_weighbridge = models.BooleanField('Gate & weighbridge dispatch', default=False,
+                                           help_text='Sales leave through gate-in, tare, loading, gross and gate-out. Off = dispatch posts directly from the order.')
+    stock_post_event = models.CharField('Stock reduces at', max_length=14, default='gate_out',
+                                        choices=[('load_complete', 'Loading complete'), ('gate_out', 'Gate-out')])
+    weight_tolerance_pct = models.DecimalField('Weight tolerance (%)', max_digits=4, decimal_places=2, default=Decimal('0.50'), validators=MONEY,
+                                               help_text='Allowed difference between weighbridge net and loaded quantity before supervisor approval.')
+    scale_id = models.CharField('Weighbridge scale ID', max_length=30, blank=True, help_text='Printed on weighment slips. Calibration is tracked under assets later.')
+    loading_bays = models.CharField('Loading bays', max_length=120, blank=True, help_text='Comma separated, e.g. Bay 1, Bay 2, Bulk 1.')
     notes = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self): return f'{self.code} · {self.name}'
+
+    @property
+    def bays(self):
+        return [b.strip() for b in self.loading_bays.split(',') if b.strip()]
 
     @property
     def full_address(self):
@@ -216,7 +229,7 @@ class Order(Document):
     kind = models.CharField(max_length=10, choices=[('Sale', 'Sales order'), ('Purchase', 'Purchase order')])
     partner = models.ForeignKey(Partner, on_delete=models.PROTECT)
     due_date = models.DateField(default=timezone.localdate)
-    status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Completed', 'Cancelled']])
+    status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Part dispatched', 'Completed', 'Cancelled']])
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='approved_orders')
     place_of_supply = models.CharField('Place of supply', max_length=2, blank=True, choices=INDIAN_STATES,
                                        help_text="Buyer's delivery state. Same state as the plant → CGST + SGST, otherwise IGST.")
@@ -284,6 +297,20 @@ class OrderLine(models.Model):
     @property
     def below_list(self):
         return self.list_rate is not None and self.rate < self.list_rate
+
+    def dispatched_quantity(self, include_open=False):
+        """Quantity that has left (or, with include_open, is planned / on a truck that has not been cancelled)."""
+        qs = self.dispatch_lines.exclude(dispatch__status='cancelled')
+        if not include_open:
+            qs = qs.filter(dispatch__stock_posted=True)
+        total = Decimal('0')
+        for dl in qs:
+            total += dl.loaded_quantity if dl.loaded_quantity is not None else dl.planned_quantity
+        return total
+
+    @property
+    def pending_quantity(self):
+        return max(self.quantity - self.dispatched_quantity(include_open=True), Decimal('0'))
 
 class StockBalance(models.Model):
     site = models.ForeignKey(Site, on_delete=models.PROTECT)
@@ -701,7 +728,8 @@ class Invoice(models.Model):
     """Posted GST tax invoice. Everything printed is a snapshot; nothing changes after posting (corrections go through credit notes)."""
     number = models.CharField(max_length=16, unique=True, editable=False)
     date = models.DateField(default=timezone.localdate)
-    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name='invoice')
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name='invoices')
+    dispatch = models.OneToOneField('Dispatch', null=True, blank=True, on_delete=models.PROTECT, related_name='invoice')
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='invoices')
     partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='invoices')
     # Seller snapshot
@@ -871,3 +899,184 @@ class Settlement(models.Model):
 
     class Meta:
         constraints = [models.CheckConstraint(condition=models.Q(receipt__isnull=False) | models.Q(credit_note__isnull=False), name='settlement_has_source')]
+
+
+# ---------- Logistics: vehicles, drivers, dispatch & weighbridge (Step 3) ----------
+
+VEHICLE_TYPES = [('lcv', 'LCV / pickup'), ('truck6', 'Truck 6-wheel'), ('truck10', 'Truck 10-wheel'), ('truck12', 'Truck 12-wheel'), ('truck14', 'Truck 14-wheel'),
+                 ('trailer', 'Trailer'), ('bulker', 'Bulker (bulk cement)'), ('tipper', 'Tipper')]
+VEHICLE_DOCS = [('rc_valid_until', 'RC'), ('insurance_valid_until', 'Insurance'), ('permit_valid_until', 'Permit'), ('fitness_valid_until', 'Fitness'), ('puc_valid_until', 'PUC')]
+
+
+class Vehicle(models.Model):
+    registration = models.CharField('Vehicle no.', max_length=12, unique=True, help_text='e.g. MP04GA1234 (spaces are removed).')
+    vehicle_type = models.CharField('Type', max_length=10, choices=VEHICLE_TYPES)
+    capacity_mt = models.DecimalField('Capacity (MT)', max_digits=6, decimal_places=2, validators=POSITIVE, help_text='Registered payload. Loading above this needs approval.')
+    tare_kg = models.PositiveIntegerField('Usual tare (kg)', null=True, blank=True, help_text='From earlier weighments; a big change is flagged.')
+    owner = models.CharField(max_length=12, default='transporter', choices=[('transporter', 'Transporter'), ('customer', "Customer's own"), ('own', 'Sistech fleet')])
+    transporter = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='vehicles', limit_choices_to={'kind': 'Transporter'})
+    rc_valid_until = models.DateField('RC valid until', null=True, blank=True)
+    insurance_valid_until = models.DateField('Insurance valid until', null=True, blank=True)
+    permit_valid_until = models.DateField('Permit valid until', null=True, blank=True)
+    fitness_valid_until = models.DateField('Fitness valid until', null=True, blank=True)
+    puc_valid_until = models.DateField('PUC valid until', null=True, blank=True)
+    gps_device = models.CharField('GPS device ID', max_length=40, blank=True)
+    active = models.BooleanField(default=True)
+    blacklisted = models.BooleanField(default=False)
+    blacklist_reason = models.CharField(max_length=150, blank=True)
+    notes = models.CharField(max_length=200, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['registration']
+
+    def __str__(self): return self.registration
+
+    def document_issues(self, on=None):
+        """[(label, date or None)] for missing / expired documents — any issue stops gate-in."""
+        on = on or timezone.localdate()
+        return [(label, getattr(self, f)) for f, label in VEHICLE_DOCS if not getattr(self, f) or getattr(self, f) < on]
+
+    def expiring(self, days=30):
+        today = timezone.localdate()
+        return [(label, getattr(self, f)) for f, label in VEHICLE_DOCS if getattr(self, f) and today <= getattr(self, f) <= today + timezone.timedelta(days=days)]
+
+    @property
+    def can_enter(self):
+        return self.active and not self.blacklisted and not self.document_issues()
+
+
+class Driver(models.Model):
+    name = models.CharField(max_length=100)
+    mobile = models.CharField(max_length=10, unique=True)
+    licence_number = models.CharField('Driving licence no.', max_length=20, unique=True)
+    licence_valid_until = models.DateField('Licence valid until')
+    transporter = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='drivers', limit_choices_to={'kind': 'Transporter'})
+    active = models.BooleanField(default=True)
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self): return f'{self.name} ({self.mobile})'
+
+    @property
+    def licence_valid(self):
+        return self.licence_valid_until >= timezone.localdate()
+
+
+DISPATCH_STATUSES = [('planned', 'Planned'), ('gate_in', 'At gate · tare due'), ('tared', 'Tared · waiting to load'), ('loading', 'Loading'),
+                     ('loaded', 'Loaded · gross due'), ('weighed', 'Weighed'), ('gate_out', 'In transit'), ('delivered', 'Delivered'), ('cancelled', 'Cancelled')]
+
+
+class Dispatch(models.Model):
+    """One truck trip against one sales order (partial supply allowed). Follows SRS §4.4 step by step."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    token = models.PositiveIntegerField(editable=False, help_text='Daily queue token per plant.')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='dispatches')
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name='dispatches')
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='dispatches')
+    driver = models.ForeignKey(Driver, on_delete=models.PROTECT, related_name='dispatches')
+    transporter = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='trips')
+    status = models.CharField(max_length=10, choices=DISPATCH_STATUSES, default='planned')
+    planned_for = models.DateField(default=timezone.localdate)
+    bay = models.CharField('Loading bay', max_length=30, blank=True)
+    lr_number = models.CharField('LR / GR no.', max_length=30, blank=True)
+    # Gate
+    gate_checklist = models.JSONField(default=dict, blank=True)
+    gate_in_at = models.DateTimeField(null=True, blank=True)
+    gate_in_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    # Loading
+    loading_started_at = models.DateTimeField(null=True, blank=True)
+    loading_done_at = models.DateTimeField(null=True, blank=True)
+    loaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    loading_team = models.CharField(max_length=80, blank=True)
+    seal_number = models.CharField('Seal no.', max_length=30, blank=True)
+    damaged_bags = models.PositiveIntegerField('Torn / damaged bags replaced', default=0)
+    loading_notes = models.CharField(max_length=200, blank=True)
+    # Weight check
+    expected_kg = models.DecimalField(max_digits=10, decimal_places=1, null=True, blank=True)
+    variance_kg = models.DecimalField(max_digits=10, decimal_places=1, null=True, blank=True)
+    exception = models.CharField(max_length=200, blank=True, help_text='Why supervisor approval is needed.')
+    exception_approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    exception_note = models.CharField(max_length=200, blank=True)
+    # Exit & delivery
+    stock_posted = models.BooleanField(default=False, editable=False)
+    gate_out_at = models.DateTimeField(null=True, blank=True)
+    gate_out_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    received_by = models.CharField(max_length=80, blank=True)
+    receiver_mobile = models.CharField(max_length=10, blank=True)
+    shortage_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    damaged_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    pod_notes = models.CharField(max_length=200, blank=True)
+    pod_file = models.BinaryField(null=True, blank=True, editable=False)
+    pod_file_type = models.CharField(max_length=40, blank=True, editable=False)
+    cancel_reason = models.CharField(max_length=150, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = 'dispatches'
+        permissions = [('gate_dispatch', 'Gate-in / gate-out trucks'), ('weigh_dispatch', 'Record weighments'), ('load_dispatch', 'Record loading'),
+                       ('approve_weight_exception', 'Approve weight / overload exceptions'), ('pod_dispatch', 'Record proof of delivery')]
+
+    def __str__(self): return self.number
+
+    def reading(self, kind):
+        return self.weighments.filter(kind=kind, superseded_by__isnull=True).first()
+
+    @property
+    def tare(self): return self.reading('tare')
+
+    @property
+    def gross(self): return self.reading('gross')
+
+    @property
+    def net_kg(self):
+        t, g = self.tare, self.gross
+        return (g.weight_kg - t.weight_kg) if t and g else None
+
+    @property
+    def exception_open(self):
+        return bool(self.exception) and not self.exception_approved_by_id
+
+
+class DispatchLine(models.Model):
+    dispatch = models.ForeignKey(Dispatch, on_delete=models.CASCADE, related_name='lines')
+    order_line = models.ForeignKey(OrderLine, on_delete=models.PROTECT, related_name='dispatch_lines')
+    planned_quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    loaded_quantity = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)
+
+    @property
+    def quantity(self):
+        return self.loaded_quantity if self.loaded_quantity is not None else self.planned_quantity
+
+    def unit_kg(self):
+        """Kilograms per unit for the weight check: SKU bag weight → organisation default; MT → 1000; KG → 1; pieces → unknown."""
+        p = self.order_line.product
+        if p.unit == 'MT': return Decimal('1000')
+        if p.unit == 'KG': return Decimal('1')
+        if p.unit == 'BAG':
+            if p.bag_weight_kg: return p.bag_weight_kg
+            org = Organization.objects.filter(pk=1).values_list('default_bag_weight', flat=True).first()
+            return Decimal(org or 50)
+        return None
+
+
+class Weighment(models.Model):
+    """Immutable weighbridge reading. A reweigh adds a new row and links the old one; nothing is ever edited."""
+    dispatch = models.ForeignKey(Dispatch, on_delete=models.PROTECT, related_name='weighments')
+    kind = models.CharField(max_length=5, choices=[('tare', 'Tare (empty)'), ('gross', 'Gross (loaded)')])
+    weight_kg = models.PositiveIntegerField()
+    source = models.CharField(max_length=6, default='manual', choices=[('scale', 'Scale interface'), ('manual', 'Manual entry')])
+    scale_id = models.CharField(max_length=30, blank=True)
+    reason = models.CharField(max_length=150, blank=True, help_text='Required for manual entry and every reweigh.')
+    superseded_by = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='supersedes')
+    captured_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['captured_at']
+        constraints = [models.CheckConstraint(condition=models.Q(weight_kg__gt=0), name='weighment_positive')]

@@ -1,0 +1,31 @@
+{% extends 'erp/base.html' %}{% load erp_format static %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  <div class="ord-workflow inv-noprint"><div><a href="{% url 'dispatch_detail' d.pk %}">← {{ d.number }}</a></div><div class="ord-buttons"><button class="org-btn is-primary" type="button" onclick="window.print()">Print</button></div></div>
+  <article class="inv-sheet lg-slip">
+    <header class="inv-top">
+      <div class="inv-brand">{% if org_logo_url %}<img src="{{ org_logo_url }}" alt="">{% endif %}<div><h2>{{ company.legal_name }}</h2><p>{{ d.site.name }} · {{ d.site.full_address }}</p>{% if d.site.gstin %}<p><b>GSTIN</b> {{ d.site.gstin }}</p>{% endif %}</div></div>
+      <div class="inv-title"><span>{% if doc == 'slip' %}Scale {{ d.site.scale_id|default:'—' }}{% else %}Security copy{% endif %}</span><h1>{% if doc == 'slip' %}Weighment slip{% else %}Gate pass{% endif %}</h1>
+        <dl><div><dt>Dispatch</dt><dd>{{ d.number }}</dd></div><div><dt>Token</dt><dd>#{{ d.token }}</dd></div><div><dt>Order</dt><dd>{{ d.order.number }}</dd></div>{% if invoice %}<div><dt>Invoice</dt><dd>{{ invoice.number }}</dd></div>{% endif %}<div><dt>Printed</dt><dd>{{ now|date:'d-m-Y H:i' }}</dd></div></dl></div>
+    </header>
+    <section class="inv-parties">
+      <div><h3>Vehicle</h3><strong class="is-mono">{{ d.vehicle.registration }}</strong><p>{{ d.vehicle.get_vehicle_type_display }} · capacity {{ d.vehicle.capacity_mt|qty }} MT</p><p><b>Transporter</b> {{ d.transporter.name|default:'—' }}{% if d.lr_number %} · <b>LR</b> {{ d.lr_number }}{% endif %}</p></div>
+      <div><h3>Driver</h3><strong>{{ d.driver.name }}</strong><p>+91 {{ d.driver.mobile }}</p><p><b>Licence</b> {{ d.driver.licence_number }}</p></div>
+      <div><h3>Consignee</h3><strong>{{ d.order.partner.name }}</strong><p>{{ d.order.ship_to|default:d.order.partner.full_address|default:'—' }}</p></div>
+    </section>
+    {% if doc == 'slip' %}
+    <table class="inv-lines"><thead><tr><th>Reading</th><th class="num">Weight (kg)</th><th>Time</th><th>Source</th><th>Operator</th><th>Remark</th></tr></thead>
+      <tbody>{% for w in weighments %}<tr{% if w.superseded_by_id %} class="lg-old"{% endif %}><td>{{ w.get_kind_display }}{% if w.superseded_by_id %} (replaced){% endif %}</td><td class="num">{{ w.weight_kg|indian }}</td><td>{{ w.captured_at|date:'d-m-Y H:i' }}</td><td>{{ w.get_source_display }}</td><td>{{ w.captured_by.get_full_name|default:w.captured_by.username }}</td><td>{{ w.reason }}</td></tr>{% endfor %}</tbody></table>
+    <section class="inv-bottom"><div class="inv-words"><p><b>Material</b><br>{% for l in lines %}{{ l.order_line.product.name }} — {{ l.quantity|qty }} {{ l.order_line.product.unit }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</p>{% if d.exception %}<p><b>Exception</b><br>{{ d.exception }}{% if d.exception_approved_by %} — approved: {{ d.exception_note }}{% endif %}</p>{% endif %}</div>
+      <dl class="inv-totals"><div><dt>Gross</dt><dd>{{ d.gross.weight_kg|indian }} kg</dd></div><div><dt>Tare</dt><dd>{{ d.tare.weight_kg|indian }} kg</dd></div><div class="is-grand"><dt>Net</dt><dd>{{ d.net_kg|indian }} kg</dd></div><div><dt>Expected</dt><dd>{{ d.expected_kg|floatformat:0 }} kg</dd></div></dl></section>
+    {% else %}
+    <table class="inv-lines"><thead><tr><th>Material</th><th class="num">Quantity</th><th>Unit</th></tr></thead><tbody>{% for l in lines %}<tr><td>{{ l.order_line.product.name }}</td><td class="num">{{ l.quantity|qty }}</td><td>{{ l.order_line.product.unit }}</td></tr>{% endfor %}</tbody></table>
+    <section class="inv-bottom"><div class="inv-words"><p><b>Seal</b> {{ d.seal_number|default:'—' }} · <b>Net weight</b> {{ d.net_kg|indian }} kg · <b>E-way bill</b> {{ invoice.eway_bill|default:'—' }}</p><p>Truck may leave the premises with the goods listed above against invoice {{ invoice.number }}.</p></div>
+      <dl class="inv-totals"><div><dt>Invoice value</dt><dd>₹{{ invoice.grand_total|indian }}</dd></div></dl></section>
+    {% endif %}
+    <footer class="inv-foot"><div class="inv-sign" style="text-align:left"><span></span><p>{% if doc == 'slip' %}Weighbridge operator{% else %}Dispatch / accounts{% endif %}</p></div><div class="inv-sign"><span></span><p>{% if doc == 'slip' %}Driver{% else %}Gate security{% endif %}</p></div></footer>
+    <p class="inv-credit">Sistech ERP · Design &amp; developed by The Webfix</p>
+  </article>
+</div>
+{% endblock %}

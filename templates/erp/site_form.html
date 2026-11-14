@@ -16,7 +16,7 @@
         <div class="org-grid">
           {% for field in fields %}
           {% if field.field.widget.input_type == 'checkbox' %}
-          <div class="org-field org-check"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>Active</strong><small>Inactive locations are hidden from new orders, production and stock entries.</small></span></label></div>
+          <div class="org-field org-check"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>{% if field.name == 'active' %}Active{% else %}{{ field.label }}{% endif %}</strong><small>{% if field.name == 'active' %}Inactive locations are hidden from new orders, production and stock entries.{% else %}{{ field.help_text }}{% endif %}</small></span></label></div>
           {% else %}
           <div class="org-field{% if field.name == 'name' or field.name == 'address' or field.name == 'notes' or field.name == 'gstin' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
             <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>

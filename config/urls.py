@@ -112,3 +112,17 @@ urlpatterns += [
     path('outstanding/', fv.outstanding, name='outstanding'),
     path('partners/<int:pk>/ledger/', fv.partner_ledger, name='partner_ledger'),
 ]
+from erp import logistics_views as lv
+urlpatterns += [
+    path('vehicles/', lv.vehicles, name='vehicles'),
+    path('vehicles/new/', lv.vehicle_form, name='vehicle_new'),
+    path('vehicles/<int:pk>/edit/', lv.vehicle_form, name='vehicle_edit'),
+    path('drivers/new/', lv.driver_form, name='driver_new'),
+    path('drivers/<int:pk>/edit/', lv.driver_form, name='driver_edit'),
+    path('dispatch/', lv.dispatch_board, name='dispatch_board'),
+    path('dispatch/plan/<int:order_pk>/', lv.dispatch_new, name='dispatch_new'),
+    path('dispatch/<int:pk>/', lv.dispatch_detail, name='dispatch_detail'),
+    path('dispatch/<int:pk>/do/<str:action>/', lv.dispatch_action, name='dispatch_action'),
+    path('dispatch/<int:pk>/print/<str:doc>/', lv.dispatch_print, name='dispatch_print'),
+    path('dispatch/<int:pk>/pod/', lv.dispatch_pod, name='dispatch_pod'),
+]

@@ -16,7 +16,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .gst import next_number, line_tax, money, in_words
+from .gst import next_number, line_tax, money, in_words, qtxt
 from .ledger import allocate, balance, open_invoices, ageing, ledger_rows, exposure, credit_unapplied, AGE_BUCKETS
 from .models import (Receipt, CreditNote, CreditNoteLine, Invoice, InvoiceLine, Partner, Settlement, AuditEvent, StockMovement, Organization,
                      RECEIPT_MODES, CREDIT_REASONS, CASH_LIMIT, CUSTOMER_KINDS, INDIAN_STATES)
@@ -166,7 +166,7 @@ def credit_note_new(request, pk):
                 errors.append(f'{l.description}: enter numbers only.'); continue
             if reason == 'return' and qty:
                 if qty < 0 or qty > row['room_qty']:
-                    errors.append(f'{l.description}: returned quantity must be between 0 and {row["room_qty"].normalize()} {l.unit}.'); continue
+                    errors.append(f'{l.description}: returned quantity must be between 0 and {qtxt(row["room_qty"])} {l.unit}.'); continue
                 value = value or money(qty * l.rate)
             elif qty:
                 qty = Decimal('0')
