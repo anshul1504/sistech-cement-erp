@@ -1,0 +1,9 @@
+<div class="ord-line{% if line.errors %} has-error{% endif %}" data-line>
+  {% for hidden in line.hidden_fields %}{{ hidden }}{% endfor %}
+  <div class="ord-cell ord-product" data-label="Product">{{ line.product }}{% for e in line.product.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+  <div class="ord-cell" data-label="Quantity"><div class="ord-qty">{{ line.quantity }}<span data-unit></span></div>{% for e in line.quantity.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+  <div class="ord-cell" data-label="Rate (₹)">{{ line.rate }}<small class="ord-hint" data-hint></small>{% for e in line.rate.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+  <div class="ord-cell ord-gst" data-label="GST" data-gst>—</div>
+  <div class="ord-cell ord-amt" data-label="Amount" data-amount>₹0.00</div>
+  <div class="ord-cell ord-del">{% if line.DELETE %}<label class="ord-remove" title="Remove item">{{ line.DELETE }}<svg><use href="#ic-trash"/></svg><span class="visually-hidden">Remove</span></label>{% endif %}</div>
+</div>

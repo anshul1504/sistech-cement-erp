@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth
 from django.urls import path, include
 from erp import views as v
+from erp import order_views as ov
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -14,8 +15,10 @@ urlpatterns = [
     path('', v.dashboard, name='dashboard'),
     path('sales/', v.orders, {'kind': 'Sale'}, name='sales'),
     path('purchases/', v.orders, {'kind': 'Purchase'}, name='purchases'),
-    path('orders/new/<str:kind>/', v.order_new, name='order_new'),
-    path('orders/<int:pk>/', v.order_detail, name='order_detail'),
+    path('orders/new/<str:kind>/', ov.order_new, name='order_new'),
+    path('orders/price/', ov.price_lookup, name='order_price'),
+    path('orders/<int:pk>/', ov.order_detail, name='order_detail'),
+    path('orders/<int:pk>/edit/', ov.order_edit, name='order_edit'),
     path('orders/<int:pk>/<str:action>/', v.order_action, name='order_action'),
     path('inventory/', v.inventory, name='inventory'),
     path('inventory/opening/', v.opening, name='opening'),
@@ -82,4 +85,12 @@ urlpatterns += [
     path('influencers/<int:pk>/activities/new/', iv.activity_new, name='influencer_activity_new'),
     path('influencers/<int:pk>/activities/<int:activity_pk>/status/', iv.activity_status, name='influencer_activity_status'),
     path('influencers/<int:pk>/activities/<int:activity_pk>/delete/', iv.activity_delete, name='influencer_activity_delete'),
+]
+from erp import pricing_views as prv
+urlpatterns += [
+    path('prices/', prv.prices, name='prices'),
+    path('prices/new/', prv.price_form, name='prices_new'),
+    path('prices/<int:pk>/edit/', prv.price_form, name='prices_edit'),
+    path('prices/<int:pk>/revise/', prv.price_revise, name='price_revise'),
+    path('prices/<int:pk>/end/', prv.price_end, name='price_end'),
 ]

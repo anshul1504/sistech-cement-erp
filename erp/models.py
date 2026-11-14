@@ -199,6 +199,9 @@ class PartnerDocument(models.Model):
         days = (self.valid_until - timezone.localdate()).days
         return ('expired' if days < 0 else 'expiring' if days <= 30 else 'valid'), days
 
+FREIGHT_TERMS = [('ex_works', 'Ex-works (buyer collects)'), ('for_destination', 'FOR destination (freight in price)'), ('to_pay', 'Freight to pay (billed separately)')]
+
+
 class Document(models.Model):
     number = models.CharField(max_length=25, default=document_number, unique=True, editable=False)
     site = models.ForeignKey(Site, on_delete=models.PROTECT)
@@ -215,6 +218,11 @@ class Order(Document):
     due_date = models.DateField(default=timezone.localdate)
     status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Completed', 'Cancelled']])
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='approved_orders')
+    place_of_supply = models.CharField('Place of supply', max_length=2, blank=True, choices=INDIAN_STATES,
+                                       help_text="Buyer's delivery state. Same state as the plant → CGST + SGST, otherwise IGST.")
+    ship_to = models.TextField('Ship-to address', blank=True, help_text="Leave empty to deliver to the partner's delivery / billing address.")
+    freight_terms = models.CharField(max_length=16, choices=FREIGHT_TERMS, default='ex_works')
+    customer_ref = models.CharField('Customer PO / reference', max_length=40, blank=True)
     class Meta(Document.Meta):
         permissions = [('approve_order', 'Approve orders (legacy)'), ('post_order', 'Receive or dispatch orders (legacy)')] + [
             (f'{action}_{kind}_order', f'{action.title()} {kind} orders')
@@ -222,18 +230,60 @@ class Order(Document):
             for action in ['view', 'create', 'submit', 'approve', 'post', 'cancel']
         ]
     @property
-    def total(self): return sum((line.quantity * line.rate for line in self.lines.all()), Decimal('0'))
+    def total(self):
+        """Taxable value (quantity × rate), before GST."""
+        return sum((line.quantity * line.rate for line in self.lines.all()), Decimal('0'))
+
+    @property
+    def seller_state(self):
+        if self.kind == 'Purchase':
+            return self.partner.state
+        return self.site.state or (Organization.objects.filter(pk=1).values_list('state', flat=True).first() or '')
+
+    @property
+    def supply_state(self):
+        if self.kind == 'Purchase':
+            return self.site.state or self.place_of_supply
+        return self.place_of_supply or self.partner.state or self.site.state
+
+    @property
+    def supply_state_name(self):
+        code = self.supply_state
+        return f'{dict(INDIAN_STATES).get(code, code)} ({code})' if code else ''
+
+    @property
+    def is_interstate(self):
+        a, b = self.seller_state, self.supply_state
+        return bool(a and b and a != b)
+
+    @property
+    def tax(self):
+        from .gst import summarise
+        return summarise(self.lines.all(), self.is_interstate)
+
+    @property
+    def grand_total(self):
+        return self.tax['grand_total']
+
     def __str__(self): return f'{self.kind} {self.number}'
 
 class OrderLine(models.Model):
     order = models.ForeignKey(Order, related_name='lines', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
-    rate = models.DecimalField(max_digits=14, decimal_places=2, validators=MONEY)
+    rate = models.DecimalField('Rate (₹, before GST)', max_digits=14, decimal_places=2, validators=MONEY)
+    list_rate = models.DecimalField('List price', max_digits=14, decimal_places=2, null=True, blank=True, editable=False)
+    price_rule = models.ForeignKey('PriceRule', null=True, blank=True, on_delete=models.PROTECT, related_name='order_lines', editable=False)
+    gst_rate = models.DecimalField('GST %', max_digits=5, decimal_places=2, default=0, editable=False)
+    hsn = models.CharField('HSN', max_length=10, blank=True, editable=False)
     class Meta:
         constraints = [models.CheckConstraint(condition=models.Q(quantity__gt=0), name='order_quantity_positive'), models.CheckConstraint(condition=models.Q(rate__gte=0), name='order_rate_nonnegative')]
     @property
     def amount(self): return self.quantity * self.rate
+
+    @property
+    def below_list(self):
+        return self.list_rate is not None and self.rate < self.list_rate
 
 class StockBalance(models.Model):
     site = models.ForeignKey(Site, on_delete=models.PROTECT)
@@ -578,3 +628,68 @@ class InfluencerActivity(models.Model):
     @property
     def is_lead(self):
         return self.kind in LEAD_KINDS
+
+
+# ---------- Number series & price list (Step 2a) ----------
+
+DOC_SERIES = [('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note')]
+
+
+class NumberSeries(models.Model):
+    """Gap-free running numbers per document type, site and financial year (GST: invoice no. ≤ 16 characters, unique per FY)."""
+    doc_type = models.CharField(max_length=4, choices=DOC_SERIES)
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT)
+    fy = models.CharField('Financial year', max_length=7)  # 2026-27
+    prefix = models.CharField(max_length=10)
+    next_number = models.PositiveIntegerField(default=1)
+    padding = models.PositiveSmallIntegerField(default=5)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['doc_type', 'site', 'fy'], name='unique_number_series')]
+        verbose_name_plural = 'number series'
+
+    def __str__(self): return f'{self.get_doc_type_display()} · {self.prefix} · {self.fy}'
+
+    def format(self, n):
+        return f'{self.prefix}/{self.fy[2:]}/{n:0{self.padding}d}'
+
+
+class PriceRule(models.Model):
+    """One price-list entry. The most specific active rule wins: dealer > dealer type > district > plant > all; then the highest slab."""
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='price_rules')
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Plant / depot', help_text='Empty = every plant and depot.')
+    district = models.CharField(max_length=80, blank=True, help_text="Buyer's district. Empty = every district.")
+    partner_kind = models.CharField('Buyer type', max_length=15, blank=True, choices=[(k, l) for k, l in PARTNER_KINDS if k in CUSTOMER_KINDS],
+                                    help_text='Empty = every buyer type.')
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Specific buyer',
+                                help_text='Special price for one dealer. Overrides the other rules.')
+    min_quantity = models.DecimalField('From quantity', max_digits=14, decimal_places=3, default=0, validators=MONEY,
+                                       help_text='Quantity slab in the product unit. 0 = any quantity.')
+    rate = models.DecimalField('Rate (₹ per unit, before GST)', max_digits=14, decimal_places=2, validators=POSITIVE)
+    valid_from = models.DateField(default=timezone.localdate)
+    valid_to = models.DateField(null=True, blank=True, help_text='Empty = until replaced.')
+    active = models.BooleanField(default=True)
+    replaces = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='revisions', editable=False)
+    notes = models.CharField(max_length=150, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+', editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['product__name', '-valid_from', 'min_quantity']
+        verbose_name = 'price'
+
+    def __str__(self): return f'{self.product.code} ₹{self.rate} ({self.scope_label})'
+
+    @property
+    def specificity(self):
+        return (4 if self.partner_id else 0) + (3 if self.partner_kind else 0) + (2 if self.district else 0) + (1 if self.site_id else 0)
+
+    @property
+    def scope_label(self):
+        parts = [self.partner.name if self.partner_id else '', self.get_partner_kind_display() if self.partner_kind else '',
+                 self.district, self.site.code if self.site_id else '']
+        return ' · '.join(p for p in parts if p) or 'Standard price'
+
+    def is_current(self, on=None):
+        on = on or timezone.localdate()
+        return self.active and self.valid_from <= on and (self.valid_to is None or self.valid_to >= on)

@@ -47,37 +47,6 @@ def orders(request, kind):
                  '+ New sales order' if kind == 'Sale' else '+ New purchase order')
 
 @login_required
-def order_new(request, kind):
-    if kind not in ['Sale', 'Purchase']: raise Http404
-    if not order_permission(request.user, kind, 'create'):
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
-    obj = Order(kind=kind, created_by=request.user)
-    form = OrderForm(request.POST or None, instance=obj)
-    form.fields['site'].queryset = sites(request.user)
-    form.fields['partner'].queryset = Partner.objects.filter(active=True, kind__in=CUSTOMER_KINDS if kind == 'Sale' else ['Supplier']).order_by('name')
-    lines = Lines(request.POST or None, instance=obj)
-    for line in lines: line.fields['product'].queryset = Product.objects.filter(active=True)
-    if request.method == 'POST' and form.is_valid() and lines.is_valid():
-        with transaction.atomic():
-            obj = form.save()
-            lines.instance = obj
-            lines.save()
-            audit(request.user, 'Order created', obj)
-        messages.success(request, 'Draft created. Submit it for independent approval.')
-        return redirect('order_detail', pk=obj.pk)
-    return render(request, 'erp/form.html', {'title': 'New sales order' if kind == 'Sale' else 'New purchase order', 'form': form, 'formset': lines})
-
-@login_required
-def order_detail(request, pk):
-    obj = get_object_or_404(scope(Order.objects.select_related('partner', 'site', 'created_by', 'approved_by').prefetch_related('lines__product'), request.user), pk=pk)
-    if not order_permission(request.user, obj.kind, 'view'):
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
-    actions = {f'can_{action}': order_permission(request.user, obj.kind, action) for action in ['submit', 'approve', 'post', 'cancel']}
-    return render(request, 'erp/order_detail.html', {'title': str(obj), 'order': obj, **actions})
-
-@login_required
 @require_POST
 def order_action(request, pk, action):
     get_object_or_404(scope(Order.objects.all(), request.user), pk=pk)

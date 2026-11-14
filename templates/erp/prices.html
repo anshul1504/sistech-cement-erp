@@ -1,0 +1,59 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow">SALES</div><h1>Price list</h1><p>Selling prices before GST. The most specific price wins: a dealer's own price, then buyer type, district, plant, then the standard price — at the highest quantity slab reached.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'prices_new' %}"><svg><use href="#ic-plus"/></svg>Add price</a></div>{% endif %}
+  </div>
+
+  {% if unpriced %}<ul class="ord-checks"><li class="is-warn">No standard price today for: {% for p in unpriced %}{% if can_add %}<a href="{% url 'prices_new' %}?product={{ p.pk }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}. Orders for these need a typed rate.</li></ul>{% endif %}
+
+  <section class="org-card">
+    <header><h2>Price checker</h2><p>What rate will an order get?</p></header>
+    <form method="get" class="prc-tester">
+      <div class="org-field"><label class="form-label" for="ck-p">Product</label><select class="form-select" id="ck-p" name="check_product" required><option value="">Choose</option>{% for p in products %}<option value="{{ p.pk }}"{% if check.product.pk == p.pk %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="ck-b">Buyer</label><select class="form-select" id="ck-b" name="check_partner"><option value="">Any buyer</option>{% for p in partners %}<option value="{{ p.pk }}"{% if check.partner.pk == p.pk %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="ck-s">Plant / depot</label><select class="form-select" id="ck-s" name="check_site"><option value="">Any</option>{% for s in sites %}<option value="{{ s.pk }}"{% if check.site.pk == s.pk %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="ck-q">Quantity</label><input class="form-control" id="ck-q" type="number" step="any" min="0" name="check_qty" value="{{ check.qty|default:'' }}" placeholder="e.g. 500"></div>
+      <button class="org-btn is-light" type="submit">Check</button>
+    </form>
+    {% if check %}<div class="prc-result">{% if check.rule %}<strong>₹{{ check.rule.rate|indian:2 }}</strong> per {{ check.product.unit|lower }} + GST {{ check.product.gst_rate|qty|default:'?' }}% · {{ check.rule.scope_label }}{% if check.rule.min_quantity %} · slab from {{ check.rule.min_quantity|qty }}{% endif %} · valid from {{ check.rule.valid_from|date:'d M Y' }}{% else %}No price applies — the order will need a typed rate.{% endif %}</div>{% endif %}
+  </section>
+
+  <nav class="org-tabs mst-cat-tabs" aria-label="Validity" style="margin-top:20px">
+    <a class="org-tab{% if filters.state == 'current' %} is-active{% endif %}" href="?state=current">In force<span class="org-tab-count">{{ counts.current }}</span></a>
+    <a class="org-tab{% if filters.state == 'upcoming' %} is-active{% endif %}" href="?state=upcoming">Upcoming<span class="org-tab-count">{{ counts.upcoming }}</span></a>
+    <a class="org-tab{% if filters.state == 'ended' %} is-active{% endif %}" href="?state=ended">History<span class="org-tab-count">{{ counts.ended }}</span></a>
+    <a class="org-tab{% if filters.state == 'all' %} is-active{% endif %}" href="?state=all">All</a>
+  </nav>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Prices</h2><p>{{ rules|length }} shown</p></div>
+      <form method="get" class="doc-filter inf-filter">
+        <input type="hidden" name="state" value="{{ filters.state }}">
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Product or dealer…" aria-label="Search">
+        <select class="form-select" name="product" aria-label="Product" onchange="this.form.submit()"><option value="">All products</option>{% for p in products %}<option value="{{ p.pk }}"{% if filters.product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select>
+        <select class="form-select" name="district" aria-label="District" onchange="this.form.submit()"><option value="">All districts</option>{% for d in districts %}<option{% if filters.district|lower == d|lower %} selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if rules %}
+    <ul class="mst-list prc-list">
+      {% for r in rules %}
+      <li class="{% if not r.is_current %}is-inactive{% endif %}">
+        <div class="mst-main"><span class="mst-icon is-{{ r.product.category|slugify }}"><svg><use href="#ic-package"/></svg></span><span><strong>{{ r.product.name }}</strong><small>{{ r.product.code }} · per {{ r.product.unit|lower }}{% if r.min_quantity %} · from {{ r.min_quantity|qty }}{% endif %}</small></span></div>
+        <div class="mst-cell prc-scope">{% if r.partner %}<span class="org-chip">{{ r.partner.name }}</span>{% endif %}{% if r.partner_kind %}<span class="org-chip">{{ r.get_partner_kind_display }}</span>{% endif %}{% if r.district %}<span class="org-chip">{{ r.district }}</span>{% endif %}{% if r.site %}<span class="org-chip">{{ r.site.code }}</span>{% endif %}{% if not r.partner and not r.partner_kind and not r.district and not r.site %}<span class="org-chip">Standard</span>{% endif %}</div>
+        <div class="mst-cell"><span class="prc-rate">₹{{ r.rate|indian:2 }}</span></div>
+        <div class="mst-cell"><small>Valid</small>{{ r.valid_from|date:'d M y' }} – {% if r.valid_to %}{{ r.valid_to|date:'d M y' }}{% else %}open{% endif %}</div>
+        <div class="mst-cell"><small>Used on</small>{{ r.uses }} line{{ r.uses|pluralize }}</div>
+        <div class="doc-head-actions">{% if can_change and r.active %}{% if r.uses %}<a class="org-btn is-light is-sm" href="{% url 'price_revise' r.pk %}">Revise</a>{% else %}<a class="org-btn is-light is-sm" href="{% url 'prices_edit' r.pk %}">Edit</a>{% endif %}{% if not r.valid_to or r.valid_to > today %}<form method="post" action="{% url 'price_end' r.pk %}" data-confirm="End this price{% if r.valid_from <= today %} today{% endif %}?">{% csrf_token %}<button class="org-btn is-light is-sm">End</button></form>{% endif %}{% endif %}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-receipt"/></svg><strong>No prices here</strong><span>{% if can_add %}Add a standard price for each cement grade and TMT size, then special prices for districts or dealers.{% else %}Prices set by the sales team appear here.{% endif %}</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,1 +1,90 @@
-{% extends 'erp/base.html' %}{% load erp_format %}{% block content %}<div class="page-heading"><div><div class="eyebrow">{{ order.kind|upper }} ORDER</div><h1>{{ order.number }}</h1><p>Created by {{ order.created_by }} on {{ order.created_at|date:'d M Y, H:i' }} IST</p></div><span class="status large" data-status="{{ order.status }}">{{ order.status }}</span></div><section class="panel form-panel"><div class="row g-4 mb-4"><div class="col-md-4"><div class="eyebrow">BUSINESS PARTNER</div><h3>{{ order.partner.name }}</h3><p>{{ order.partner.address|default:'No address supplied' }}</p></div><div class="col-md-4"><div class="eyebrow">FULFILMENT SITE</div><h3>{{ order.site.name }}</h3><p>Required by {{ order.due_date|date:'d M Y' }}</p></div><div class="col-md-4"><div class="eyebrow">APPROVAL</div><h3>{{ order.approved_by|default:'Awaiting independent approval' }}</h3><p>Net order value · tax and freight excluded</p></div></div><div class="table-responsive"><table class="table"><thead><tr><th>PRODUCT</th><th>QUANTITY</th><th>UOM</th><th>RATE</th><th>AMOUNT</th></tr></thead><tbody>{% for line in order.lines.all %}<tr><td>{{ line.product.name }}</td><td>{{ line.quantity|qty }}</td><td>{{ line.product.unit }}</td><td>₹{{ line.rate|indian:2 }}</td><td>₹{{ line.amount|indian:2 }}</td></tr>{% endfor %}</tbody></table></div><div class="order-total">Net order value <strong>₹{{ order.total|indian:2 }}</strong></div>{% if order.notes %}<p class="mt-4"><strong>Notes</strong><br>{{ order.notes|linebreaksbr }}</p>{% endif %}<div class="form-actions workflow-actions">{% if order.status == 'Draft' and can_submit %}<form method="post" action="{% url 'order_action' order.pk 'submit' %}">{% csrf_token %}<button class="btn btn-primary">Submit for approval →</button></form>{% endif %}{% if order.status == 'Submitted' and can_approve %}<form method="post" action="{% url 'order_action' order.pk 'approve' %}">{% csrf_token %}<button class="btn btn-primary">Approve order</button></form>{% endif %}{% if order.status == 'Approved' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'post' %}" data-confirm="Post this order and update stock? This action cannot be edited.">{% csrf_token %}<button class="btn btn-primary">{% if order.kind == 'Sale' %}Dispatch & post stock{% else %}Receive & post stock{% endif %}</button></form>{% endif %}{% if order.status != 'Completed' and order.status != 'Cancelled' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" data-confirm="Cancel this order?">{% csrf_token %}<button class="btn btn-outline-danger">Cancel order</button></form>{% endif %}</div></section><div class="info-note">This is a commercial order, not a tax invoice. Stock posts at full receipt or dispatch. Partial supply, invoicing and payment settlement are planned extensions.</div>{% endblock %}
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% if order.kind == 'Sale' %}{% url 'sales' %}{% else %}{% url 'purchases' %}{% endif %}">← {% if order.kind == 'Sale' %}Sales orders{% else %}Purchase orders{% endif %}</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl"><svg><use href="#ic-{% if order.kind == 'Sale' %}sales{% else %}purchase{% endif %}"/></svg></span>
+    <div class="org-hero-text">
+      <h1>{{ order.number }}</h1>
+      <p>{{ order.partner.name }} · {{ order.site.code }} · created {{ order.created_at|date:'d M Y' }} by {{ order.created_by.get_full_name|default:order.created_by.username }}</p>
+      <div class="org-chips">
+        <span class="org-chip ord-status is-{{ order.status|lower }}">● {{ order.status }}</span>
+        <span class="org-chip">{% if tax.interstate %}Inter-state · IGST{% else %}Intra-state · CGST + SGST{% endif %}</span>
+        {% if order.kind == 'Sale' %}<span class="org-chip">{{ order.get_freight_terms_display }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side"><small>Order total</small><span class="mst-total">₹{{ tax.grand_total|indian }}</span><small>incl. GST ₹{{ tax.tax|indian:2 }}</small></div>
+  </section>
+
+  {% if checks %}<ul class="ord-checks">{% for level, text in checks %}<li class="is-{{ level }}">{{ text }}</li>{% endfor %}</ul>{% endif %}
+
+  <section class="ord-workflow">
+    <ol class="ord-steps">
+      {% for step, state in steps %}<li class="is-{{ state }}">{{ step }}</li>{% endfor %}
+    </ol>
+    <div class="ord-buttons">
+      {% if order.status == 'Draft' and can_create %}<a class="org-btn is-light" href="{% url 'order_edit' order.pk %}">Edit draft</a>{% endif %}
+      {% if order.status == 'Draft' and can_submit %}<form method="post" action="{% url 'order_action' order.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary">Submit for approval</button></form>{% endif %}
+      {% if order.status == 'Submitted' and can_approve %}<form method="post" action="{% url 'order_action' order.pk 'approve' %}">{% csrf_token %}<button class="org-btn is-primary">Approve</button></form>{% endif %}
+      {% if order.status == 'Approved' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'post' %}" data-confirm="Post this order and {% if order.kind == 'Sale' %}dispatch{% else %}receive{% endif %} stock? Posted orders cannot be edited.">{% csrf_token %}<button class="org-btn is-primary">{% if order.kind == 'Sale' %}Dispatch &amp; post stock{% else %}Receive &amp; post stock{% endif %}</button></form>{% endif %}
+      {% block invoice_button %}{% endblock %}
+      {% if order.status in 'Draft Submitted Approved' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" data-confirm="Cancel {{ order.number }}?">{% csrf_token %}<button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}
+    </div>
+  </section>
+
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Items</h2><span class="acc-muted">{{ lines|length }} line{{ lines|length|pluralize }}</span></header>
+      <div class="ord-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Product</span><span>HSN</span><span>Qty</span><span>Rate</span><span>Taxable</span><span>GST</span><span>Total</span></div>
+        {% for r in tax.rows %}{% with l=r.line %}
+        <div class="ord-tr" role="row">
+          <span class="ord-name"><strong>{{ l.product.name }}</strong><small>{{ l.product.code }}{% if l.price_rule %} · list ₹{{ l.list_rate|indian:2 }} ({{ l.price_rule.scope_label }}){% endif %}</small>{% if l.below_list %}<em class="ord-flag">Below list price</em>{% endif %}</span>
+          <span data-label="HSN">{{ l.hsn|default:'—' }}</span>
+          <span data-label="Qty">{{ l.quantity|qty }} {{ l.product.unit }}</span>
+          <span data-label="Rate">₹{{ l.rate|indian:2 }}</span>
+          <span data-label="Taxable">₹{{ r.taxable|indian:2 }}</span>
+          <span data-label="GST">{{ l.gst_rate|qty }}%<small>₹{{ r.cgst|add:r.sgst|add:r.igst|indian:2 }}</small></span>
+          <span data-label="Total"><strong>₹{{ r.total|indian:2 }}</strong></span>
+        </div>
+        {% endwith %}{% endfor %}
+      </div>
+      <div class="ord-summary">
+        <div class="ord-totals is-static">
+          <div><span>Taxable value</span><strong>₹{{ tax.taxable|indian:2 }}</strong></div>
+          {% if tax.interstate %}<div><span>IGST</span><strong>₹{{ tax.igst|indian:2 }}</strong></div>{% else %}<div><span>CGST</span><strong>₹{{ tax.cgst|indian:2 }}</strong></div><div><span>SGST</span><strong>₹{{ tax.sgst|indian:2 }}</strong></div>{% endif %}
+          <div><span>Round off</span><strong>₹{{ tax.round_off|indian:2 }}</strong></div>
+          <div class="is-grand"><span>Total</span><strong>₹{{ tax.grand_total|indian }}</strong></div>
+        </div>
+        <p class="ord-words">{{ words }}</p>
+      </div>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>{% if order.kind == 'Sale' %}Customer{% else %}Supplier{% endif %}</h2><a href="{% url 'partner_detail' order.partner.pk %}">Open</a></header>
+      <dl>
+        <div class="is-wide"><dt>Name</dt><dd>{{ order.partner.name }}</dd></div>
+        <div><dt>GSTIN</dt><dd class="is-mono">{{ order.partner.gstin|default:'Unregistered' }}</dd></div>
+        <div><dt>Place of supply</dt><dd>{{ order.supply_state_name|default:'—' }}</dd></div>
+        <div class="is-wide"><dt>{% if order.kind == 'Sale' %}Ship to{% else %}Billing address{% endif %}</dt><dd>{{ order.ship_to|default:order.partner.shipping_address|default:order.partner.full_address|default:'—'|linebreaksbr }}</dd></div>
+        {% if order.customer_ref %}<div class="is-wide"><dt>Reference</dt><dd>{{ order.customer_ref }}</dd></div>{% endif %}
+      </dl>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Fulfilment</h2></header>
+      <dl>
+        <div class="is-wide"><dt>Plant / depot</dt><dd>{{ order.site }}</dd></div>
+        <div><dt>Required by</dt><dd>{{ order.due_date|date:'d M Y' }}</dd></div>
+        <div><dt>Approved by</dt><dd>{% if order.approved_by %}{{ order.approved_by.get_full_name|default:order.approved_by.username }}{% else %}—{% endif %}</dd></div>
+      </dl>
+      {% if order.notes %}<p class="acc-note">{{ order.notes|linebreaksbr }}</p>{% endif %}
+    </section>
+    {% if history %}
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>History</h2></header>
+      <ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor.get_full_name|default:e.actor.username }}</small><small>{{ e.created_at|date:'d M Y, H:i' }}</small></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

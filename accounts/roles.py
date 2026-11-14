@@ -8,6 +8,7 @@ MODULES = [
     ('inventory', 'Inventory', {'view': 'view_stockbalance', 'post': 'post_opening'}),
     ('production', 'Production', {'view': 'view_production', 'create': 'add_production', 'post': 'complete_production', 'approve': 'release_production'}),
     ('quality', 'Quality lab', {'view': 'view_qualitytest', 'create': 'add_qualitytest'}),
+    ('pricing', 'Price list', {'view': 'view_pricerule', 'create': 'add_pricerule', 'edit': 'change_pricerule'}),
     ('influencers', 'Masons & contractors', {'view': 'view_influencer', 'create': 'add_influencer', 'edit': 'change_influencer', 'export': 'export_influencer'}),
     ('partners', 'Business partners', {'view': 'view_partner', 'create': 'add_partner', 'edit': 'change_partner'}),
     ('products', 'Products & materials', {'view': 'view_product', 'create': 'add_product', 'edit': 'change_product'}),
@@ -21,7 +22,7 @@ ALL_VIEWS = {p['view'] for _, _, p in MODULES}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
-    'Sales executive': {'view_sales_order', 'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'view_influencer', 'add_influencer', 'change_influencer', 'view_partner', 'view_product', 'view_site'},
+    'Sales executive': {'view_pricerule', 'view_sales_order', 'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'view_influencer', 'add_influencer', 'change_influencer', 'view_partner', 'view_product', 'view_site'},
     'Purchase officer': {'view_purchase_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'view_partner', 'view_product', 'view_site'},
     'Warehouse operator': {'view_sales_order', 'post_sales_order', 'view_purchase_order', 'post_purchase_order', 'view_stockbalance', 'view_stockmovement', 'view_product', 'view_site'},
     'Production operator': {'view_production', 'add_production', 'complete_production', 'view_product', 'view_site'},

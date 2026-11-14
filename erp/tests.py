@@ -1,4 +1,6 @@
 from decimal import Decimal
+from datetime import timedelta
+from django.utils import timezone
 from django.contrib.auth.models import User, Permission
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import IntegrityError
@@ -150,7 +152,8 @@ class WorkflowTests(TestCase):
 
     def test_order_form_persists_lines_and_checks_partner_kind(self):
         self.client.force_login(self.maker)
-        data = {'site': self.site.pk, 'partner': self.dealer.pk, 'due_date': '2026-11-01', 'lines-TOTAL_FORMS': 1, 'lines-INITIAL_FORMS': 0, 'lines-MIN_NUM_FORMS': 1, 'lines-MAX_NUM_FORMS': 50, 'lines-0-product': self.product.pk, 'lines-0-quantity': '12.500', 'lines-0-rate': '125.75'}
+        Product.objects.filter(pk=self.product.pk).update(gst_rate=18)
+        data = {'site': self.site.pk, 'partner': self.dealer.pk, 'due_date': (timezone.localdate() + timedelta(days=3)).isoformat(), 'freight_terms': 'ex_works', 'lines-TOTAL_FORMS': 1, 'lines-INITIAL_FORMS': 0, 'lines-MIN_NUM_FORMS': 1, 'lines-MAX_NUM_FORMS': 50, 'lines-0-product': self.product.pk, 'lines-0-quantity': '12.500', 'lines-0-rate': '125.75'}
         response = self.client.post(reverse('order_new', args=['Sale']), data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Order.objects.get().total, Decimal('1571.87500'))

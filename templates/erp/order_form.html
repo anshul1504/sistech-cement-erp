@@ -1,0 +1,50 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if order %}{% url 'order_detail' order.pk %}{% elif kind == 'Sale' %}{% url 'sales' %}{% else %}{% url 'purchases' %}{% endif %}">← {% if order %}{{ order.number }}{% elif kind == 'Sale' %}Sales orders{% else %}Purchase orders{% endif %}</a></div>
+      <h1>{{ title }}</h1>
+      <p>{% if kind == 'Sale' %}Leave the rate empty to use the price list. GST is worked out from the plant and the place of supply.{% else %}Rates are before GST. The supplier's state decides CGST + SGST or IGST.{% endif %}</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate data-order-form data-kind="{{ kind }}">
+    {% csrf_token %}
+    {% if form.errors or formset.total_error_count %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}{% for e in formset.non_form_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <section class="org-card">
+      <header><h2>{% if kind == 'Sale' %}Customer &amp; delivery{% else %}Supplier &amp; receipt{% endif %}</h2><p>{% if kind == 'Sale' %}Bill-to, ship-to and the plant that supplies.{% else %}Who supplies and which plant receives.{% endif %}</p></header>
+      <div class="org-grid">
+        {% for field in form %}
+        <div class="org-field{% if field.name == 'ship_to' or field.name == 'notes' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="org-card ord-lines-card">
+      <header class="ord-lines-head"><div><h2>Items</h2><p>Quantity is in the product's unit (bags, MT…). Rate is per unit, before GST.</p></div><span class="ord-supply" data-supply>—</span></header>
+      {{ formset.management_form }}
+      <div class="ord-lines" data-lines>
+        <div class="ord-line ord-line-head" aria-hidden="true"><span>Product</span><span>Quantity</span><span>Rate (₹)</span><span>GST</span><span>Amount</span><span></span></div>
+        {% for line in formset %}{% include 'erp/_order_line.html' with line=line %}{% endfor %}
+      </div>
+      <template data-empty-line>{% include 'erp/_order_line.html' with line=formset.empty_form %}</template>
+      <button class="org-btn is-light is-sm" type="button" data-add-line><svg><use href="#ic-plus"/></svg>Add item</button>
+      <div class="ord-totals" data-totals>
+        <div><span>Taxable value</span><strong data-t="taxable">₹0.00</strong></div>
+        <div data-intra><span>CGST</span><strong data-t="cgst">₹0.00</strong></div>
+        <div data-intra><span>SGST</span><strong data-t="sgst">₹0.00</strong></div>
+        <div data-inter hidden><span>IGST</span><strong data-t="igst">₹0.00</strong></div>
+        <div><span>Round off</span><strong data-t="round">₹0.00</strong></div>
+        <div class="is-grand"><span>Order total</span><strong data-t="grand">₹0</strong></div>
+      </div>
+    </section>
+    <div class="org-actions"><span>Saved as a draft. A different user approves it (maker-checker).</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% if order %}{% url 'order_detail' order.pk %}{% elif kind == 'Sale' %}{% url 'sales' %}{% else %}{% url 'purchases' %}{% endif %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if order %}Save changes{% else %}Save draft{% endif %}</button></div></div>
+  </form>
+</div>
+{{ js_data|json_script:'order-data' }}
+<script src="{% load static %}{% static 'erp/order_form.js' %}?v={{ asset_version }}" defer></script>
+{% endblock %}

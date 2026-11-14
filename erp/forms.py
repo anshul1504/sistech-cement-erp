@@ -2,7 +2,7 @@ from decimal import Decimal
 from django import forms
 from django.forms import inlineformset_factory
 import re
-from .models import Site, Product, Partner, Order, OrderLine, Production, QualityTest, Organization, OrganizationDocument, Influencer, InfluencerActivity, CUSTOMER_KINDS, LEAD_KINDS
+from .models import Site, Product, Partner, Order, OrderLine, Production, QualityTest, Organization, OrganizationDocument, Influencer, InfluencerActivity, PriceRule, CUSTOMER_KINDS, LEAD_KINDS, clean_place
 
 class StyledForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -237,16 +237,43 @@ class PartnerForm(StyledForm):
 class OrderForm(StyledForm):
     class Meta:
         model = Order
-        fields = ['site', 'partner', 'due_date', 'notes']
-        widgets = {'due_date': forms.DateInput(attrs={'type': 'date'})}
+        fields = ['site', 'partner', 'due_date', 'place_of_supply', 'freight_terms', 'customer_ref', 'ship_to', 'notes']
+        widgets = {'due_date': forms.DateInput(attrs={'type': 'date'}), 'ship_to': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['site'].label = 'Plant / depot'
+        self.fields['site'].empty_label = 'Choose plant / depot'
+        self.fields['partner'].empty_label = 'Choose ' + ('supplier' if self.instance.kind == 'Purchase' else 'customer')
+        self.fields['place_of_supply'].choices = [('', "Partner's state")] + list(self.fields['place_of_supply'].choices)[1:]
+        if self.instance.kind == 'Purchase':
+            for name in ['place_of_supply', 'freight_terms', 'ship_to']:
+                del self.fields[name]
+            self.fields['customer_ref'].label = 'Supplier quotation / reference'
+            self.fields['partner'].label = 'Supplier'
+        else:
+            self.fields['partner'].label = 'Customer'
+
+    def clean_due_date(self):
+        due = self.cleaned_data['due_date']
+        from django.utils import timezone
+        if due and due < timezone.localdate() and not self.instance.pk:
+            raise forms.ValidationError('Required-by date cannot be in the past.')
+        return due
+
 
 class LineForm(StyledForm):
     class Meta:
         model = OrderLine
         fields = ['product', 'quantity', 'rate']
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['product'].queryset = Product.objects.filter(active=True).order_by('category', 'name')  # inactive SKUs stay off new orders
+        self.fields['product'].empty_label = 'Choose product'
+        self.fields['rate'].required = False
+        self.fields['rate'].widget.attrs.update(step='0.01', placeholder='List price')
+        self.fields['quantity'].widget.attrs.update(step='any', min='0')
 
 Lines = inlineformset_factory(Order, OrderLine, form=LineForm, extra=0, min_num=1, validate_min=True, max_num=50, validate_max=True, can_delete=True)
 
@@ -637,3 +664,52 @@ class InfluencerImportForm(forms.Form):
         if not f.name.lower().endswith('.csv'):
             raise forms.ValidationError('Upload a .csv file. In Excel use File → Save As → CSV UTF-8.')
         return f
+
+
+# ---------- Price list ----------
+
+class PriceRuleForm(StyledForm):
+    class Meta:
+        model = PriceRule
+        fields = ['product', 'rate', 'min_quantity', 'site', 'district', 'partner_kind', 'partner', 'valid_from', 'valid_to', 'active', 'notes']
+        widgets = {'valid_from': forms.DateInput(attrs={'type': 'date'}), 'valid_to': forms.DateInput(attrs={'type': 'date'})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].queryset = Product.objects.filter(active=True, category__in=['Cement', 'TMT']).order_by('category', 'name')
+        self.fields['site'].queryset = Site.objects.filter(active=True).order_by('code')
+        self.fields['site'].empty_label = 'All plants & depots'
+        self.fields['partner'].queryset = Partner.objects.filter(active=True, kind__in=CUSTOMER_KINDS).order_by('name')
+        self.fields['partner'].empty_label = 'Any buyer'
+        self.fields['partner_kind'].choices = [('', 'Any buyer type')] + list(self.fields['partner_kind'].choices)[1:]
+        self.fields['district'].widget.attrs.update(list='district-options', autocomplete='off', placeholder='Any district')
+        self.fields['rate'].widget.attrs.update(step='0.01')
+        self.fields['min_quantity'].widget.attrs.update(step='any')
+        self.revising = None  # the older version being replaced; it ends the day before the new one starts
+
+    def clean(self):
+        data = super().clean()
+        data['district'] = clean_place(data.get('district'))
+        vf, vt = data.get('valid_from'), data.get('valid_to')
+        if vf and vt and vt < vf:
+            self.add_error('valid_to', 'End date cannot be before the start date.')
+        if data.get('partner') and data.get('partner_kind') and data['partner'].kind != data['partner_kind']:
+            self.add_error('partner_kind', f"{data['partner'].name} is a {data['partner'].get_kind_display()} — leave buyer type empty or match it.")
+        if data.get('product') and vf and data.get('active', True) and not self.errors:
+            clash = PriceRule.objects.filter(product=data['product'], site=data.get('site'), district__iexact=data['district'], partner_kind=data.get('partner_kind') or '',
+                                             partner=data.get('partner'), min_quantity=data.get('min_quantity') or 0, active=True).exclude(pk=self.instance.pk)
+            if self.revising:
+                clash = clash.exclude(pk=self.revising.pk)
+            clash = clash.filter(models_q_overlap(vf, vt))
+            if clash.exists():
+                c = clash.first()
+                raise forms.ValidationError(f'A price for the same product, scope and slab already covers these dates (₹{c.rate} from {c.valid_from:%d %b %Y}). Revise that price instead.')
+        return data
+
+
+def models_q_overlap(start, end):
+    from django.db.models import Q
+    q = Q(valid_to__isnull=True) | Q(valid_to__gte=start)
+    if end:
+        q &= Q(valid_from__lte=end)
+    return q

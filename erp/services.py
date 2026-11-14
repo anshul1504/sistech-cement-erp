@@ -38,8 +38,8 @@ def transition_order(user, pk, action):
         if order.kind == 'Sale':
             # Serialize credit approvals for a dealer on row-locking databases.
             partner = Partner.objects.select_for_update().get(pk=order.partner_id)
-            exposure = sum((o.total for o in Order.objects.filter(kind='Sale', partner=order.partner, status__in=['Approved', 'Completed']).prefetch_related('lines')), Decimal('0'))
-            if exposure + order.total > partner.credit_limit:
+            exposure = sum((o.grand_total for o in Order.objects.filter(kind='Sale', partner=order.partner, status__in=['Approved', 'Completed']).select_related('site', 'partner').prefetch_related('lines')), Decimal('0'))
+            if exposure + order.grand_total > partner.credit_limit:
                 raise ValidationError('Dealer credit limit exceeded. Exposure includes all approved/completed orders; receipt accounting is not implemented yet.')
         order.status, order.approved_by = 'Approved', user
     elif action == 'post':

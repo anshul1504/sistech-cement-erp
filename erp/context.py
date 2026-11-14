@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.6.0'
+ASSET_VERSION = '0.7.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -26,6 +26,7 @@ NAV_GROUPS = [
     ]),
     ('Sales', [
         _item('sales', 'Sales orders', 'sales', 'view_sales_order'),
+        _item('prices', 'Price list', 'receipt', 'view_pricerule', match=('prices_new', 'prices_edit', 'price_revise')),
         _soon('Quotations', 'quote'),
         _soon('Dealer CRM', 'crm'),
         _item('influencers', 'Masons & contractors', 'hardhat', 'view_influencer',
@@ -85,7 +86,7 @@ def _active_route(request):
     name, kwargs = match.url_name, match.kwargs
     if name == 'order_new':
         return 'sales' if kwargs.get('kind') == 'Sale' else 'purchases'
-    if name in ('order_detail', 'order_action'):
+    if name in ('order_detail', 'order_action', 'order_edit'):
         from erp.models import Order
         kind = Order.objects.filter(pk=kwargs.get('pk')).values_list('kind', flat=True).first()
         return 'sales' if kind == 'Sale' else 'purchases' if kind == 'Purchase' else None
@@ -142,6 +143,8 @@ def navigation(request):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
     if user.has_perm('erp.add_product'):
         quick_create.append(('Product', reverse('products_new'), 'package'))
+    if user.has_perm('erp.add_pricerule'):
+        quick_create.append(('Price', reverse('prices_new'), 'receipt'))
     if user.has_perm('erp.add_influencer'):
         quick_create.append(('Mason or contractor', reverse('influencers_new'), 'hardhat'))
     if user.has_perm('erp.add_partner'):

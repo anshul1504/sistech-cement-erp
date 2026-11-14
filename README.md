@@ -90,6 +90,12 @@ Changes are audited. Plant-level addresses, GST registrations and factory licenc
 - **CSV import** with a downloadable template (type aliases like Mistri/Thekedar, state codes like MP, dealer codes), duplicate and per-row error report; **CSV export** behind its own permission (audited).
 - Permissions: `view/add/change/export_influencer` in the role matrix; the Sales executive preset can view, add and edit. `manage.py seed_influencers` adds fictional demo records locally.
 
+## Price list, numbering & GST on orders (Step 2a)
+
+- **Price list** (`/prices/`, Sales → Price list): selling price per product before GST, optionally narrowed to a plant/depot, buyer district, buyer type or one dealer, with quantity slabs and validity dates. The most specific price wins (dealer > buyer type > district > plant > standard), then the highest slab reached. Overlapping prices for the same scope are refused. A price already used on orders is never edited — **Revise** creates a new version from a date and ends the old one the day before. Includes a price checker and a warning for finished products with no standard price.
+- **Number series** per document type, plant and financial year (Organisation's FY start month): `SOPLT-/26-27/00001` for orders; tax-invoice series fit GST's 16-character limit and restart each FY. Allocation is row-locked.
+- **Orders** now record place of supply, ship-to, freight terms and customer reference. Leaving the rate empty uses the list price; each line snapshots list price, price rule, GST rate and HSN. CGST + SGST or IGST follows plant state vs place of supply (supplier state vs plant state on purchases); totals round to the rupee with amount in words. Drafts can be edited. The detail page shows GST breakup, workflow steps and pre-approval checks: below-list-price lines, credit limit including GST, stock free after reservations, and B2C (no GSTIN) buyers. Credit exposure now includes GST.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.

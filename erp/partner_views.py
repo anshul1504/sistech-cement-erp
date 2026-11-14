@@ -20,9 +20,9 @@ KIND_ICONS = {'Dealer': 'handshake', 'Distributor': 'truck', 'Retailer': 'buildi
 
 
 def credit_position(partner):
-    """Provisional exposure = approved + completed sales orders (collections are not recorded yet)."""
-    orders = Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Completed']).prefetch_related('lines')
-    exposure = sum((o.total for o in orders), Decimal('0'))
+    """Provisional exposure = approved + completed sales orders incl. GST (collections are not recorded yet)."""
+    orders = Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Completed']).select_related('site', 'partner').prefetch_related('lines')
+    exposure = sum((o.grand_total for o in orders), Decimal('0'))
     limit = partner.credit_limit or Decimal('0')
     used = int(min(100, (exposure / limit * 100))) if limit else (100 if exposure else 0)
     return {'limit': limit, 'exposure': exposure, 'available': max(limit - exposure, Decimal('0')), 'used_pct': used,

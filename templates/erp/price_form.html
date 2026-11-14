@@ -1,0 +1,24 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'prices' %}">← Price list</a></div><h1>{{ title }}</h1>
+      <p>{% if revise %}{{ rule.product.name }} · {{ rule.scope_label }} — currently ₹{{ rule.rate }} from {{ rule.valid_from|date:'d M Y' }}. The old price ends the day before the new one starts and stays on past orders.{% else %}Leave plant, district, buyer type and dealer empty for the standard price.{% endif %}</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
+    <div class="mst-form-grid">
+      <section class="org-card"><header><h2>Price</h2><p>Per product unit, before GST.</p></header><div class="org-grid">
+        {% for field in form %}{% if field.name in 'product rate min_quantity valid_from valid_to active' %}{% include 'erp/_field.html' %}{% endif %}{% endfor %}
+      </div></section>
+      <section class="org-card"><header><h2>Applies to</h2><p>Narrow it down only when the price differs.</p></header><div class="org-grid">
+        {% for field in form %}{% if field.name in 'site district partner_kind partner notes' %}{% include 'erp/_field.html' %}{% endif %}{% endfor %}
+      </div></section>
+    </div>
+    <datalist id="district-options">{% for d in districts %}<option value="{{ d }}">{% endfor %}</datalist>
+    <div class="org-actions"><span>Every change is recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'prices' %}">Cancel</a><button class="org-btn is-primary" type="submit">{% if revise %}Save new price{% else %}Save price{% endif %}</button></div></div>
+  </form>
+</div>
+{% endblock %}
