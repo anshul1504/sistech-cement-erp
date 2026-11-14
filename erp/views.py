@@ -27,7 +27,7 @@ def table(request, title, subtitle, headers, rows, create=None, filters=False, c
 def dashboard(request):
     allowed_kinds = [kind for kind in ['Sale', 'Purchase'] if order_permission(request.user, kind, 'view')]
     orders = scope(Order.objects.filter(kind__in=allowed_kinds).select_related('partner', 'site').prefetch_related('lines'), request.user)
-    balances = scope(StockBalance.objects.select_related('product', 'site'), request.user) if request.user.has_perm('erp.view_stockbalance') else StockBalance.objects.none()
+    balances = scope(StockBalance.objects.filter(status='available').select_related('product', 'site'), request.user) if request.user.has_perm('erp.view_stockbalance') else StockBalance.objects.none()
     batches = scope(Production.objects.all(), request.user) if request.user.has_perm('erp.view_production') else Production.objects.none()
     sales = orders.filter(kind='Sale')
     sales_total = sum((o.total for o in sales.exclude(status='Cancelled')), Decimal('0'))
@@ -57,14 +57,6 @@ def order_action(request, pk, action):
     return redirect('order_detail', pk=pk)
 
 @login_required
-def inventory(request):
-    permitted(request.user, 'view_stockbalance')
-    qs = scope(StockBalance.objects.select_related('site', 'product'), request.user).order_by('site__code', 'product__code')
-    if request.GET.get('q'): qs = qs.filter(Q(product__name__icontains=request.GET['q']) | Q(site__name__icontains=request.GET['q']))
-    rows = [{'cells': [o.product.code, o.product.name, o.site.name, o.quantity, o.product.unit, 'Low stock' if o.quantity <= o.product.reorder_level else 'Available']} for o in qs]
-    return table(request, 'Inventory', 'Posted available quantities by site and product. Quality-held production is excluded.', ['SKU', 'Product', 'Location', 'On hand', 'UOM', 'Status'], rows, '/inventory/opening/' if request.user.has_perm('erp.post_opening') else None, True, '+ Opening stock')
-
-@login_required
 def opening(request):
     permitted(request.user, 'post_opening')
     form = OpeningForm(request.POST or None)
@@ -73,10 +65,10 @@ def opening(request):
         d = form.cleaned_data
         try:
             with transaction.atomic():
-                obj = move_stock(request.user, d['site'], d['product'], d['quantity'], 'opening:' + d['reference'], 'Opening', d['notes'])
+                obj = move_stock(request.user, d['site'], d['product'], d['quantity'], 'opening:' + d['reference'], 'Opening', d['notes'], unit_cost=d.get('unit_cost'))
                 audit(request.user, 'Opening stock posted', obj, d['notes'])
             messages.success(request, 'Opening stock posted.')
-            return redirect('inventory')
+            return redirect('stock_card', site_pk=d['site'].pk, product_pk=d['product'].pk)
         except IntegrityError: form.add_error('reference', 'This reference has already been posted.')
     return render(request, 'erp/form.html', {'title': 'Post opening stock', 'form': form})
 

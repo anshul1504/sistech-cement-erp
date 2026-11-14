@@ -37,7 +37,7 @@ def _log(user, site, action, reference, detail=''):
 # ---------- Stock position ----------
 
 def stock_at(site, product):
-    return StockBalance.objects.filter(site=site, product=product).values_list('quantity', flat=True).first() or ZERO
+    return StockBalance.objects.filter(site=site, product=product, status='available').values_list('quantity', flat=True).first() or ZERO
 
 
 def on_order(site, product):

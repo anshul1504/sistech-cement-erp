@@ -93,6 +93,8 @@ class Product(models.Model):
     bag_weight_kg = models.DecimalField('Bag weight (kg)', max_digits=8, decimal_places=3, null=True, blank=True, validators=POSITIVE)
     hsn = models.CharField('HSN code', max_length=10, blank=True)
     reorder_level = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    max_level = models.DecimalField('Maximum stock', max_digits=14, decimal_places=3, default=0, validators=MONEY,
+                                    help_text='Stock above this is flagged as excess. 0 = no maximum.')
     reorder_quantity = models.DecimalField('Reorder quantity', max_digits=14, decimal_places=3, default=0, validators=MONEY,
                                            help_text='Usual quantity to buy when stock falls below the reorder level. 0 = top up to the reorder level.')
     active = models.BooleanField(default=True)
@@ -337,18 +339,38 @@ class OrderLine(models.Model):
     def to_receive(self):
         return max(self.quantity - self.received_quantity(), Decimal('0'))
 
+STOCK_STATUSES = [('available', 'Available'), ('damaged', 'Damaged'), ('blocked', 'Blocked')]
+
+
 class StockBalance(models.Model):
+    """Quantity on hand per site, product and stock state, with weighted-average cost per unit (FR-INV-001/002)."""
     site = models.ForeignKey(Site, on_delete=models.PROTECT)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    status = models.CharField(max_length=10, choices=STOCK_STATUSES, default='available')
     quantity = models.DecimalField(max_digits=16, decimal_places=3, default=0)
+    avg_cost = models.DecimalField('Average cost (₹ per unit)', max_digits=14, decimal_places=4, default=0)
     class Meta:
-        constraints = [models.UniqueConstraint(fields=['site', 'product'], name='unique_stock_balance'), models.CheckConstraint(condition=models.Q(quantity__gte=0), name='stock_nonnegative')]
+        constraints = [models.UniqueConstraint(fields=['site', 'product', 'status'], name='unique_stock_balance_status'), models.CheckConstraint(condition=models.Q(quantity__gte=0), name='stock_nonnegative')]
+
+    @property
+    def value(self):
+        return (self.quantity * self.avg_cost).quantize(Decimal('0.01'))
+
+STOCK_KINDS = [('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output'),
+               ('Return', 'Sales return'), ('PurchaseReturn', 'Return to supplier'), ('TransferOut', 'Transfer out'), ('TransferIn', 'Transfer in'),
+               ('Damage', 'Moved to damaged'), ('Recovered', 'Recovered from damaged'), ('Scrap', 'Scrapped'), ('Adjustment', 'Count adjustment'),
+               ('Consumption', 'Issued to production')]
+
 
 class StockMovement(Document):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=14, decimal_places=3)
     source = models.CharField(max_length=100, unique=True)
-    kind = models.CharField(max_length=20, choices=[('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output'), ('Return', 'Sales return'), ('PurchaseReturn', 'Return to supplier')])
+    kind = models.CharField(max_length=20, choices=STOCK_KINDS)
+    status = models.CharField('Stock state', max_length=10, choices=STOCK_STATUSES, default='available')
+    uom = models.CharField('Unit', max_length=12, blank=True)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    balance_after = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     class Meta(Document.Meta):
         permissions = [('post_opening', 'Post opening stock'), ('export_stockmovement', 'Export stock ledger')]
 
@@ -691,7 +713,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -1547,3 +1569,149 @@ class DebitNoteLine(models.Model):
     rate = models.DecimalField(max_digits=14, decimal_places=2, validators=MONEY)
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     amount = models.DecimalField('Taxable amount', max_digits=16, decimal_places=2)
+
+
+# ---------- Inventory depth: transfers and damage (Step 5a, FR-INV-005/008) ----------
+
+TRANSFER_STATUSES = [('requested', 'Waiting approval'), ('approved', 'Approved — to dispatch'), ('rejected', 'Rejected'), ('in_transit', 'In transit'),
+                     ('discrepancy', 'Received — discrepancy open'), ('received', 'Received'), ('cancelled', 'Cancelled')]
+
+
+class StockTransfer(models.Model):
+    """Stock moved between Sistech locations: request → approval → dispatch (in transit) → receipt; shortage opens a case."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    from_site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='transfers_out', verbose_name='From')
+    to_site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='transfers_in', verbose_name='To')
+    status = models.CharField(max_length=12, choices=TRANSFER_STATUSES, default='requested')
+    needed_by = models.DateField(null=True, blank=True)
+    reason = models.CharField(max_length=150)
+    vehicle_number = models.CharField(max_length=15, blank=True)
+    driver_name = models.CharField(max_length=80, blank=True)
+    lr_number = models.CharField('LR / GR no.', max_length=30, blank=True)
+    eway_bill = models.CharField(max_length=12, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    dispatched_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    dispatched_at = models.DateTimeField(null=True, blank=True)
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    received_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    resolution = models.CharField(max_length=200, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_stocktransfer', 'Approve transfers and resolve discrepancies'), ('dispatch_stocktransfer', 'Dispatch transfers'),
+                       ('receive_stocktransfer', 'Receive transfers')]
+
+    def __str__(self): return self.number
+
+    @property
+    def badge(self):
+        return {'requested': 'submitted', 'approved': 'approved', 'in_transit': 'approved', 'received': 'completed', 'discrepancy': 'submitted'}.get(self.status, 'cancelled')
+
+
+class StockTransferLine(models.Model):
+    transfer = models.ForeignKey(StockTransfer, on_delete=models.CASCADE, related_name='lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    requested = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    dispatched = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    received = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    damaged = models.DecimalField('Received damaged', max_digits=14, decimal_places=3, default=0)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+
+    @property
+    def shortage(self):
+        return max(self.dispatched - self.received - self.damaged, Decimal('0'))
+
+
+DAMAGE_REASONS = [('torn', 'Torn / burst bags'), ('wet', 'Wet / water damage'), ('leaking', 'Leaking bags'), ('hardened', 'Hardened / lumped cement'),
+                  ('rusted', 'Rusted / bent TMT'), ('contaminated', 'Contaminated'), ('other', 'Other')]
+
+
+class DamageReport(models.Model):
+    """Damaged, wet, leaking or hardened stock: moved out of available on reporting; a different user decides recovery vs scrap."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='damage_reports')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    reason = models.CharField(max_length=12, choices=DAMAGE_REASONS)
+    location = models.CharField('Where in the plant / godown', max_length=100)
+    incident_owner = models.CharField('Responsible person', max_length=100)
+    description = models.CharField(max_length=200, blank=True)
+    photo = models.BinaryField(null=True, blank=True, editable=False)
+    photo_type = models.CharField(max_length=40, blank=True, editable=False)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=0, editable=False)
+    status = models.CharField(max_length=10, default='reported', choices=[('reported', 'Waiting disposition'), ('decided', 'Decided')])
+    recovered = models.DecimalField('Recovered (back to available)', max_digits=14, decimal_places=3, default=0)
+    scrapped = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    decision_note = models.CharField(max_length=200, blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('decide_damagereport', 'Decide disposition of damaged stock')]
+
+    def __str__(self): return self.number
+
+    @property
+    def value(self):
+        return (self.quantity * self.unit_cost).quantize(Decimal('0.01'))
+
+
+# ---------- Stock count (Step 5b, FR-INV-006) ----------
+
+COUNT_STATUSES = [('counting', 'Counting'), ('submitted', 'Waiting approval'), ('recount', 'Recount requested'), ('posted', 'Approved & posted'), ('cancelled', 'Cancelled')]
+
+
+class StockCount(models.Model):
+    """Cycle / annual count. System quantity is frozen when counting starts; the approved variance is posted as an adjustment."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='counts')
+    category = models.CharField(max_length=25, blank=True, choices=PRODUCT_CATEGORIES, help_text='Empty = every item with stock.')
+    blind = models.BooleanField('Blind count', default=True, help_text='Counters do not see the system quantity.')
+    status = models.CharField(max_length=10, choices=COUNT_STATUSES, default='counting')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_stockcount', 'Approve count variances and post adjustments')]
+
+    def __str__(self): return self.number
+
+    @property
+    def badge(self):
+        return {'counting': 'draft', 'submitted': 'submitted', 'recount': 'submitted', 'posted': 'completed'}.get(self.status, 'cancelled')
+
+
+class StockCountLine(models.Model):
+    count = models.ForeignKey(StockCount, on_delete=models.CASCADE, related_name='lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    system_qty = models.DecimalField(max_digits=16, decimal_places=3)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    counted = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    recount_needed = models.BooleanField(default=False)
+    recounted = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    reason = models.CharField(max_length=150, blank=True)
+
+    @property
+    def final(self):
+        return self.recounted if self.recounted is not None else self.counted
+
+    @property
+    def variance(self):
+        return None if self.final is None else self.final - self.system_qty
+
+    @property
+    def variance_value(self):
+        v = self.variance
+        return None if v is None else (v * self.unit_cost).quantize(Decimal('0.01'))

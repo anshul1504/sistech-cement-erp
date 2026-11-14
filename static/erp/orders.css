@@ -263,3 +263,19 @@ a.ord-tr:hover { background: #fafbfd; }
 @media (max-width: 767.98px) { .sinv-table .ord-tr, .ap-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 1199.98px) { .sinv-list li > .mst-cell:nth-child(2) { display: block; } .sinv-list li > .mst-cell:nth-child(3) { display: none; } }
 @media (max-width: 767.98px) { .sinv-list li > .mst-cell:nth-child(2) { display: block; text-align: right; } .sinv-list li > .mst-cell:nth-child(4) { display: none; } }
+
+/* Inventory (Step 5) */
+.inv-table .ord-tr { grid-template-columns: minmax(0, 2.4fr) repeat(6, minmax(0, .9fr)) minmax(0, 1.2fr); color: inherit; text-decoration: none; }
+.inv-table .ord-th > span, .trf-table .ord-th > span { white-space: normal; }
+.card-table .ord-tr { grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+.card-table .ord-tr > span:nth-child(3) { text-align: left; }
+.trf-table .ord-tr { grid-template-columns: minmax(0, 2.4fr) repeat(5, minmax(0, 1fr)); }
+.inv-filter { flex-wrap: wrap; }
+@media (max-width: 1199.98px) { .inv-table .ord-tr, .card-table .ord-tr, .trf-table .ord-tr { grid-template-columns: repeat(4, minmax(0, 1fr)); } .inv-table .ord-tr .ord-name, .card-table .ord-tr .ord-name, .trf-table .ord-tr .ord-name { grid-column: 1 / -1; } }
+@media (max-width: 767.98px) { .inv-table .ord-tr, .card-table .ord-tr, .trf-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cnt-line { grid-template-columns: minmax(0, 2.4fr) minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.6fr); align-items: center; }
+.age-table .ord-tr { grid-template-columns: minmax(0, 2.2fr) repeat(4, minmax(0, 1fr)) minmax(0, 1.2fr); color: inherit; text-decoration: none; }
+.age-table .ord-tr > span:nth-child(n+4) { text-align: left; }
+@media (max-width: 991.98px) { .cnt-line { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1199.98px) { .age-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } .age-table .ord-tr .ord-name { grid-column: 1 / -1; } }
+@media (max-width: 767.98px) { .age-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -149,6 +149,15 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 - **Debit notes** from a posted GRN: *return to supplier* takes accepted stock out (stock movement "Return to supplier") and is valued only for quantity already billed, so nothing is claimed twice; other reasons are value claims. Printable debit note.
 - **Supplier balances**: approved invoices − debit notes, with past-due amounts. Payments are part of Finance (Step 7). Roles: *Accounts payable*, *Finance controller*.
 
+## Inventory depth (Step 5)
+
+- **Stock states**: available, damaged and blocked are real balances per location and item; reserved (open approved sales orders), quality hold (GRN hold and production awaiting release) and in transit (dispatched transfers) are derived. The **Inventory** page shows available, reserved, **free** (available − reserved), quality hold, damaged, in transit, MT equivalent for bags and value, with filters for below-reorder, over-committed and damaged.
+- **Valuation**: weighted-average cost per location and item. GRNs bring stock in at the PO rate, opening stock can carry a rate, transfers move at the source cost, and every movement keeps its unit, rate and resulting balance (the **stock card**). Stock received before costing began takes the first real cost.
+- **Transfers** between plants and depots: request → approval by a different user → dispatch (vehicle, LR, e-way bill; stock leaves the source and is in transit) → receipt by someone other than the dispatcher (good and damaged counted separately). Shortage or damage opens a **discrepancy** that a third person resolves; transit loss is shown at cost and transit damage creates a damage report.
+- **Damaged stock**: reason (torn, wet, leaking, hardened, rusted…), location, responsible person and photo. The quantity leaves available at once; a different user decides how much is recovered (back to available) and how much is scrapped.
+- **Stock counts**: cycle or annual, by location and optionally category, blind by default. System quantity is frozen at start; counters enter quantities (save as they go), submit, and a different user reviews the variance at cost, sends chosen items for recount, and approves — each variance is posted as a count adjustment against today's stock, so sales during the count are not lost.
+- **Ageing & slow-moving**: stock value by age bucket (0–30, 31–60, 61–90, 90+ days since last receipt), days idle since the last issue, slow-moving after 30/60/90/180 days, and flags for above maximum / below reorder. Products now carry reorder quantity and maximum stock.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.
@@ -173,7 +182,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | CRM and dealer network | Dealer/supplier master with GST, credit terms and KYC documents. Leads, KYC approval workflow, territory hierarchy, visits and project pipeline remain. |
 | Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, stock reservations/ATP and order revisions remain. |
 | Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier invoices with three-way match, duplicate check, exception queue and debit notes / returns. Budget check and supplier payments (Step 7) remain. |
-| Inventory | Quantity ledger and opening stock. Lots, reservations, locations, transfers, returns, valuation and reversals remain. |
+| Inventory | Stock states, weighted-average valuation, stock card, transfers with in-transit and discrepancy, damaged-stock disposition, blind cycle counts with recount and approval, ageing and slow-moving. Bin locations and lot/batch balances remain (lot traceability comes with production, Step 6). |
 | Production and quality | Output tracking and quality release only. BOM versions, material consumption, test specifications, COA, energy and actual costing remain. |
 | Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |
 | Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journals, e-invoice/e-way bill connectors, banking, assets, statements and period close remain. |

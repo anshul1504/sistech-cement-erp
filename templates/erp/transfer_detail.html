@@ -1,0 +1,62 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'transfers' %}">← Stock transfers</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl"><svg><use href="#ic-truck"/></svg></span>
+    <div class="org-hero-text"><h1>{{ t.number }}</h1><p>{{ t.from_site.code }} {{ t.from_site.name }} → {{ t.to_site.code }} {{ t.to_site.name }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ t.badge }}">● {{ t.get_status_display }}</span>{% if t.vehicle_number %}<span class="org-chip is-mono">{{ t.vehicle_number }}</span>{% endif %}{% if t.needed_by %}<span class="org-chip">Needed by {{ t.needed_by|date:'d M Y' }}</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Requested by</small><span class="mst-total" style="font-size:18px">{{ t.created_by.get_full_name|default:t.created_by.username }}</span><small>{{ t.created_at|date:'d M Y, H:i' }}</small></div>
+  </section>
+  <ul class="ord-checks"><li class="is-info">{{ t.reason }}</li>{% if t.note %}<li class="is-warn">{{ t.note }}</li>{% endif %}{% if t.resolution %}<li class="is-info">Resolved by {{ t.resolved_by.get_full_name|default:t.resolved_by.username }}: {{ t.resolution }}</li>{% endif %}{% if loss %}<li class="is-danger">Transit loss ₹{{ loss|indian:2 }} at cost.</li>{% endif %}</ul>
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Items</h2></header>
+      <div class="ord-table trf-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Item</span><span>Requested</span><span>Dispatched</span><span>Received good</span><span>Damaged</span><span>Short</span></div>
+        {% for l in lines %}<div class="ord-tr" role="row">
+          <span class="ord-name"><strong>{{ l.product.name }}</strong><small>{{ l.product.code }} · {{ l.product.unit }}{% if t.status in 'requested approved' %} · {{ l.on_hand|qty }} available at {{ t.from_site.code }}{% endif %}{% if l.unit_cost %} · ₹{{ l.unit_cost|indian:2 }}{% endif %}</small></span>
+          <span data-label="Requested">{{ l.requested|qty }}</span><span data-label="Dispatched">{{ l.dispatched|qty }}</span><span data-label="Received good">{{ l.received|qty }}</span>
+          <span data-label="Damaged">{% if l.damaged %}<span class="led-late">{{ l.damaged|qty }}</span>{% else %}—{% endif %}</span>
+          <span data-label="Short">{% if l.shortage %}<span class="led-late">{{ l.shortage|qty }}</span>{% else %}—{% endif %}</span>
+        </div>{% endfor %}</div></section>
+
+    {% if can.decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Approve</h2></header>
+      <form method="post" action="{% url 'transfer_action' t.pk 'approve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="t-n">Note (required to reject)</label><input class="form-control" id="t-n" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'transfer_action' t.pk 'reject' %}">Reject</button><button class="org-btn is-primary" type="submit">Approve</button></div></form></section>{% endif %}
+
+    {% if can.dispatch %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Dispatch from {{ t.from_site.code }}</h2></header>
+      <form method="post" action="{% url 'transfer_action' t.pk 'dispatch' %}">{% csrf_token %}
+        <div class="ord-lines">{% for l in lines %}<div class="ord-line dp-line"><div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>Approved {{ l.requested|qty }} · {{ l.on_hand|qty }} available</small></div>
+          <div class="ord-cell" data-label="Dispatch"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{{ l.requested|floatformat:'-3' }}"><span data-unit>{{ l.product.unit }}</span></div></div><div class="ord-cell"></div><div class="ord-cell"></div></div>{% endfor %}</div>
+        <div class="org-grid">
+          <div class="org-field"><label class="form-label" for="t-v">Vehicle no. <span class="required">*</span></label><input class="form-control" id="t-v" name="vehicle" maxlength="15" required style="text-transform:uppercase"></div>
+          <div class="org-field"><label class="form-label" for="t-d">Driver</label><input class="form-control" id="t-d" name="driver" maxlength="80"></div>
+          <div class="org-field"><label class="form-label" for="t-l">LR / GR no.</label><input class="form-control" id="t-l" name="lr" maxlength="30"></div>
+          <div class="org-field"><label class="form-label" for="t-e">E-way bill</label><input class="form-control" id="t-e" name="eway" maxlength="14" inputmode="numeric"></div>
+        </div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Dispatch</button></div></form></section>{% endif %}
+
+    {% if can.receive %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Receive at {{ t.to_site.code }}</h2><span class="acc-muted">Count what actually arrived</span></header>
+      <form method="post" action="{% url 'transfer_action' t.pk 'receive' %}">{% csrf_token %}
+        <div class="ord-lines">{% for l in lines %}{% if l.dispatched %}<div class="ord-line dp-line"><div class="ord-cell ord-product" data-label="Item"><strong>{{ l.product.name }}</strong><small>Dispatched {{ l.dispatched|qty }} {{ l.product.unit }}</small></div>
+          <div class="ord-cell" data-label="Good"><input class="form-control" type="number" step="any" min="0" name="good_{{ l.pk }}" value="{{ l.dispatched|floatformat:'-3' }}"></div>
+          <div class="ord-cell" data-label="Damaged"><input class="form-control" type="number" step="any" min="0" name="damaged_{{ l.pk }}" value="0"></div><div class="ord-cell"></div></div>{% endif %}{% endfor %}</div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Confirm receipt</button></div></form></section>{% endif %}
+
+    {% if can.resolve %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Resolve discrepancy</h2></header>
+      <form method="post" action="{% url 'transfer_action' t.pk 'resolve' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="t-rs">Finding <span class="required">*</span></label><input class="form-control" id="t-rs" name="note" maxlength="200" required placeholder="e.g. 12 bags short — recovered from transporter's bill"></div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Close case</button></div></form></section>
+    {% elif t.status == 'discrepancy' %}<section class="org-card org-view acc-wide ord-items"><p class="acc-muted">Someone not involved in dispatch or receipt must resolve this case.</p></section>{% endif %}
+
+    <section class="org-card org-view"><header class="acc-card-head"><h2>Movement</h2></header><dl>
+      <div><dt>Approved</dt><dd>{% if t.approved_by %}{{ t.approved_by.get_full_name|default:t.approved_by.username }}{% else %}—{% endif %}</dd></div>
+      <div><dt>Dispatched</dt><dd>{% if t.dispatched_at %}{{ t.dispatched_at|date:'d M, H:i' }} · {{ t.dispatched_by.get_full_name|default:t.dispatched_by.username }}{% else %}—{% endif %}</dd></div>
+      <div><dt>Received</dt><dd>{% if t.received_at %}{{ t.received_at|date:'d M, H:i' }} · {{ t.received_by.get_full_name|default:t.received_by.username }}{% else %}—{% endif %}</dd></div>
+      <div><dt>Driver · LR</dt><dd>{{ t.driver_name|default:'—' }} · {{ t.lr_number|default:'—' }}</dd></div>
+      <div><dt>E-way bill</dt><dd>{{ t.eway_bill|default:'—' }}</dd></div></dl></section>
+    <section class="org-card org-view ord-items"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}
+      {% if can.cancel %}<details class="pr-cancel"><summary>Cancel transfer</summary><form method="post" action="{% url 'transfer_action' t.pk 'cancel' %}">{% csrf_token %}<div class="org-field"><label class="form-label" for="t-c">Reason</label><input class="form-control" id="t-c" name="note" maxlength="200" required></div><button class="org-btn is-light is-danger is-sm" type="submit">Cancel</button></form></details>{% endif %}</section>
+  </div>
+</div>
+{% endblock %}

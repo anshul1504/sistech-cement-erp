@@ -1,0 +1,36 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'transfers' %}">← Stock transfers</a></div><h1>New stock transfer</h1><p>Request stock from one location to another. Available stock at the source is shown as you choose items; it is checked again at dispatch.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate data-trf>{% csrf_token %}
+    <section class="org-card"><header><h2>Route</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="tr-f">From <span class="required">*</span></label><select class="form-select" id="tr-f" name="from_site" data-src><option value="">Choose</option>{% for s in sites %}<option value="{{ s.pk }}"{% if post.from_site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="tr-t">To <span class="required">*</span></label><select class="form-select" id="tr-t" name="to_site"><option value="">Choose</option>{% for s in all_sites %}<option value="{{ s.pk }}"{% if post.to_site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="tr-n">Needed by</label><input class="form-control" id="tr-n" type="date" name="needed_by" value="{{ post.needed_by }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="tr-r">Reason <span class="required">*</span></label><input class="form-control" id="tr-r" name="reason" maxlength="150" value="{{ post.reason }}" placeholder="e.g. Depot stock for Rewa dealers, festive demand"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Items</h2><p>Up to 8 items. Leave unused rows empty.</p></header><div class="ord-lines">{% for r in rows %}
+      <div class="ord-line dp-line" data-row>
+        <div class="ord-cell ord-product" data-label="Item"><select class="form-select" name="product_{{ forloop.counter0 }}" data-p><option value="">Choose item</option>{% for p in products %}<option value="{{ p.pk }}" data-unit="{{ p.unit }}"{% if r.product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }} ({{ p.code }})</option>{% endfor %}</select></div>
+        <div class="ord-cell" data-label="Quantity"><div class="ord-qty"><input class="form-control" type="number" step="any" min="0" name="qty_{{ forloop.counter0 }}" value="{{ r.qty }}"><span data-unit></span></div></div>
+        <div class="ord-cell ord-gst" data-label="Available at source" data-av>—</div><div class="ord-cell"></div>
+      </div>{% endfor %}</div></section>
+    <div class="org-actions"><span>A different user approves the transfer.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'transfers' %}">Cancel</a><button class="org-btn is-primary" type="submit">Request transfer</button></div></div>
+  </form>
+</div>
+{{ avail|json_script:'avail-data' }}
+<script>
+(() => {
+  const f = document.querySelector('[data-trf]'), av = JSON.parse(document.getElementById('avail-data').textContent);
+  const upd = () => f.querySelectorAll('[data-row]').forEach(r => {
+    const sel = r.querySelector('[data-p]'), opt = sel.selectedOptions[0];
+    r.querySelector('[data-unit]').textContent = opt && opt.value ? opt.dataset.unit : '';
+    const k = `${f.querySelector('[data-src]').value}:${sel.value}`;
+    r.querySelector('[data-av]').textContent = sel.value && f.querySelector('[data-src]').value ? (av[k] || '0') + ' ' + opt.dataset.unit : '—';
+  });
+  f.addEventListener('change', upd); upd();
+})();
+</script>
+{% endblock %}

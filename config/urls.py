@@ -20,7 +20,6 @@ urlpatterns = [
     path('orders/<int:pk>/', ov.order_detail, name='order_detail'),
     path('orders/<int:pk>/edit/', ov.order_edit, name='order_edit'),
     path('orders/<int:pk>/<str:action>/', v.order_action, name='order_action'),
-    path('inventory/', v.inventory, name='inventory'),
     path('inventory/opening/', v.opening, name='opening'),
     path('production/', v.production, name='production'),
     path('production/new/', v.production_new, name='production_new'),
@@ -170,4 +169,22 @@ urlpatterns += [
     path('payables/debit-notes/', apv.debit_notes, name='debit_notes'),
     path('payables/debit-notes/new/<int:grn_pk>/', apv.dn_new, name='dn_new'),
     path('payables/debit-notes/<int:pk>/', apv.dn_detail, name='dn_detail'),
+]
+from erp import stock_views as stv
+urlpatterns += [
+    path('inventory/', stv.inventory, name='inventory'),
+    path('inventory/card/<int:site_pk>/<int:product_pk>/', stv.stock_card, name='stock_card'),
+    path('inventory/transfers/', stv.transfers, name='transfers'),
+    path('inventory/transfers/new/', stv.transfer_new, name='transfer_new'),
+    path('inventory/transfers/<int:pk>/', stv.transfer_detail, name='transfer_detail'),
+    path('inventory/transfers/<int:pk>/do/<str:action>/', stv.transfer_action, name='transfer_action'),
+    path('inventory/damage/', stv.damages, name='damages'),
+    path('inventory/damage/new/', stv.damage_new, name='damage_new'),
+    path('inventory/damage/<int:pk>/', stv.damage_detail, name='damage_detail'),
+    path('inventory/damage/<int:pk>/decide/', stv.damage_decide, name='damage_decide'),
+    path('inventory/damage/<int:pk>/photo/', stv.damage_photo, name='damage_photo'),
+    path('inventory/counts/', stv.counts, name='counts'),
+    path('inventory/counts/<int:pk>/', stv.count_detail, name='count_detail'),
+    path('inventory/counts/<int:pk>/do/<str:action>/', stv.count_action, name='count_action'),
+    path('inventory/analysis/', stv.stock_analysis, name='stock_analysis'),
 ]

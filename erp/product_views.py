@@ -47,7 +47,7 @@ def products(request):
 
 
 def low_stock_count():
-    return StockBalance.objects.filter(product__active=True, quantity__lte=F('product__reorder_level')).count()
+    return StockBalance.objects.filter(status='available', product__active=True, quantity__lte=F('product__reorder_level')).count()
 
 
 @login_required
@@ -56,7 +56,7 @@ def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk)
     from .views import sites as allowed_sites
     visible = allowed_sites(request.user)
-    balances = StockBalance.objects.filter(product=product, site__in=visible).select_related('site').order_by('site__code')
+    balances = StockBalance.objects.filter(product=product, site__in=visible, status='available').select_related('site').order_by('site__code')
     total = sum((b.quantity for b in balances), Decimal('0'))
     movements = StockMovement.objects.filter(product=product, site__in=visible).select_related('site').order_by('-created_at')[:10]
     usage = product_usage(product)

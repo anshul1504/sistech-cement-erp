@@ -1,0 +1,28 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Stock transfers</h1><p>Stock moved between Sistech plants and depots: request → approval by a different user → dispatch (stock in transit) → receipt. Shortage or damage on arrival opens a case.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'transfer_new' %}"><svg><use href="#ic-plus"/></svg>New transfer</a></div>{% endif %}</div>
+  {% include 'erp/_inv_tabs.html' with tab='transfers' %}
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi{% if counts.requested %} is-warn{% endif %}" href="?status=requested"><span>Waiting approval</span><strong>{{ counts.requested }}</strong><small>Maker-checker</small></a>
+    <a role="listitem" class="inf-kpi" href="?status=approved"><span>To dispatch</span><strong>{{ counts.approved }}</strong><small>Approved</small></a>
+    <a role="listitem" class="inf-kpi" href="?status=in_transit"><span>In transit</span><strong>{{ counts.in_transit }}</strong><small>Waiting receipt</small></a>
+    <a role="listitem" class="inf-kpi{% if counts.discrepancy %} is-danger{% endif %}" href="?status=discrepancy"><span>Discrepancy</span><strong>{{ counts.discrepancy }}</strong><small>Short / damaged on arrival</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Transfers</h2><p>{{ transfers|length }} shown</p></div>
+      <form method="get" class="doc-filter"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option>{% for k, l in statuses %}<option value="{{ k }}"{% if status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></form></header>
+    {% if transfers %}<ul class="mst-list prc-list pr-list">{% for t in transfers %}
+      <li class="{% if t.status == 'cancelled' or t.status == 'rejected' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'transfer_detail' t.pk %}"><span class="mst-icon"><svg><use href="#ic-truck"/></svg></span><span><strong>{{ t.number }}</strong><small>{{ t.from_site.code }} → {{ t.to_site.code }} · {{ t.reason }}</small></span></a>
+        <div class="mst-cell"><small>Items</small>{% for l in t.lines.all|slice:':2' %}{{ l.product.name }} {{ l.requested|qty }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+        <div class="mst-cell"><small>Vehicle</small>{{ t.vehicle_number|default:'—' }}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ t.badge }}">● {{ t.get_status_display }}</span></div>
+        <div class="mst-cell"><small>Requested</small>{{ t.created_at|date:'d M Y' }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'transfer_detail' t.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-truck"/></svg><strong>No transfers</strong><span>Request stock from another plant or depot.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

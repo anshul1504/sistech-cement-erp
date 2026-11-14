@@ -17,7 +17,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from .gst import next_number, qtxt
-from .models import Dispatch, DispatchLine, Weighment, Order, AuditEvent
+from .models import Dispatch, DispatchLine, Weighment, Order, AuditEvent, StockMovement
 from .services import move_stock
 
 GATE_CHECKS = [('licence', 'Driver licence seen'), ('rc', 'RC & permit in vehicle'), ('puc', 'PUC certificate'), ('tarpaulin', 'Tarpaulin / cover available'),
@@ -350,7 +350,8 @@ def cancel(user, pk, reason):
     if d.stock_posted:  # stock was issued at load-complete: put it back with its own source id
         for l in d.lines.select_related('order_line__product'):
             if l.quantity:
-                move_stock(user, d.site, l.order_line.product, l.quantity, f'dispatch:{d.pk}:line:{l.pk}:unload', 'Return', f'{d.number} cancelled')
+                out = StockMovement.objects.filter(source=f'dispatch:{d.pk}:line:{l.pk}').values_list('unit_cost', flat=True).first()
+                move_stock(user, d.site, l.order_line.product, l.quantity, f'dispatch:{d.pk}:line:{l.pk}:unload', 'Return', f'{d.number} cancelled', unit_cost=out)
         d.stock_posted = False
     d.status, d.cancel_reason = 'cancelled', reason.strip()[:150]
     d.save()

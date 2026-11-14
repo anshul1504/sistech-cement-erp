@@ -12,6 +12,9 @@ MODULES = [
     ('debit_notes', 'Debit notes & returns', {'view': 'view_debitnote', 'create': 'add_debitnote'}),
     ('grn', 'Goods receipt (GRN)', {'view': 'view_goodsreceipt', 'create': 'add_goodsreceipt', 'post': 'post_goodsreceipt', 'approve': 'release_goodsreceipt'}),
     ('inventory', 'Inventory', {'view': 'view_stockbalance', 'post': 'post_opening'}),
+    ('transfers', 'Stock transfers', {'view': 'view_stocktransfer', 'create': 'add_stocktransfer', 'approve': 'approve_stocktransfer', 'post': 'dispatch_stocktransfer', 'edit': 'receive_stocktransfer'}),
+    ('counts', 'Stock counts', {'view': 'view_stockcount', 'create': 'add_stockcount', 'approve': 'approve_stockcount'}),
+    ('damage', 'Damaged stock', {'view': 'view_damagereport', 'create': 'add_damagereport', 'approve': 'decide_damagereport'}),
     ('production', 'Production', {'view': 'view_production', 'create': 'add_production', 'post': 'complete_production', 'approve': 'release_production'}),
     ('quality', 'Quality lab', {'view': 'view_qualitytest', 'create': 'add_qualitytest'}),
     ('invoices', 'Tax invoices', {'view': 'view_invoice', 'post': 'post_invoice', 'export': 'export_invoice'}),
@@ -38,7 +41,7 @@ MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.v
 ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
-    'Operations approver': ALL_VIEWS | {'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
+    'Operations approver': ALL_VIEWS | {'approve_stockcount', 'approve_stocktransfer', 'decide_damagereport', 'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
     'Sales executive': {'view_pricerule', 'view_sales_order', 'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'view_influencer', 'add_influencer', 'change_influencer', 'view_partner', 'view_product', 'view_site'},
     'Purchase officer': {'view_purchase_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'view_purchaserequest', 'add_purchaserequest',
                          'change_purchaserequest', 'view_rfq', 'add_rfq', 'award_rfq', 'view_stockbalance', 'view_partner', 'view_product', 'view_site'},
@@ -48,7 +51,7 @@ PRESETS = {
     'Finance controller': {'view_supplierinvoice', 'approve_supplierinvoice', 'view_debitnote', 'view_goodsreceipt', 'view_purchase_order', 'view_receipt', 'view_invoice',
                            'view_partner', 'view_site', 'view_product'},
     'Store requester': {'view_purchaserequest', 'add_purchaserequest', 'change_purchaserequest', 'view_stockbalance', 'view_product', 'view_site'},
-    'Warehouse operator': {'view_goodsreceipt', 'post_goodsreceipt', 'view_sales_order', 'post_sales_order', 'view_purchase_order', 'post_purchase_order', 'view_stockbalance', 'view_stockmovement', 'view_product', 'view_site'},
+    'Warehouse operator': {'view_stockcount', 'add_stockcount', 'view_stocktransfer', 'add_stocktransfer', 'dispatch_stocktransfer', 'receive_stocktransfer', 'view_damagereport', 'add_damagereport', 'view_goodsreceipt', 'post_goodsreceipt', 'view_sales_order', 'post_sales_order', 'view_purchase_order', 'post_purchase_order', 'view_stockbalance', 'view_stockmovement', 'view_product', 'view_site'},
     'Production operator': {'view_production', 'add_production', 'complete_production', 'view_product', 'view_site'},
     'Quality manager': {'view_goodsreceipt', 'release_goodsreceipt', 'view_qualitytest', 'add_qualitytest', 'view_production', 'release_production', 'view_product', 'view_site'},
     'Gate security': {'view_dispatch', 'gate_dispatch', 'view_vehicle', 'view_goodsreceipt', 'add_goodsreceipt', 'view_purchase_order'},

@@ -148,7 +148,7 @@ def order_detail(request, pk):
             if credit['exposure'] + tax['grand_total'] > credit['limit']:
                 checks.append(('danger', f'Credit limit will be exceeded: exposure ₹{inr(credit["exposure"], 0)} + this order ₹{inr(tax["grand_total"], 0)} > limit ₹{inr(credit["limit"], 0)}.'))
         for l in lines:
-            bal = StockBalance.objects.filter(site=order.site, product=l.product).values_list('quantity', flat=True).first() or Decimal('0')
+            bal = StockBalance.objects.filter(site=order.site, product=l.product, status='available').values_list('quantity', flat=True).first() or Decimal('0')
             reserved = (Order.objects.filter(kind='Sale', site=order.site, status='Approved').exclude(pk=order.pk)
                         .aggregate(q=Sum('lines__quantity', filter=Q(lines__product=l.product)))['q'] or Decimal('0'))
             if bal - reserved < l.quantity:

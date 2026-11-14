@@ -86,3 +86,14 @@ def plus(value, arg):
         return Decimal(str(value or 0)) + Decimal(str(arg or 0))
     except (InvalidOperation, ValueError):
         return value
+
+
+@register.filter
+def rupees(value, decimals=0):
+    """Signed rupee amount: −₹211 / ₹1,200 (minus sign before the symbol)."""
+    try:
+        number = Decimal(str(value or 0))
+    except (InvalidOperation, ValueError):
+        return value
+    text = indian(abs(number), decimals)
+    return ('−₹' if number < 0 else '₹') + text

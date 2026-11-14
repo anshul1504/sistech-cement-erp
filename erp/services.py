@@ -2,7 +2,6 @@ from decimal import Decimal
 from .gst import inr
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
-from django.db.models import F
 from .models import Order, Partner, StockBalance, StockMovement, AuditEvent, Production
 
 def audit(user, action, obj, detail=''):
@@ -15,12 +14,39 @@ def scope(queryset, user, field='site'):
     return queryset if user.is_superuser else queryset.filter(**{field + '__siteaccess__user': user})
 
 @transaction.atomic
-def move_stock(user, site, product, quantity, source, kind, notes=''):
-    balance, _ = StockBalance.objects.get_or_create(site=site, product=product)
-    qs = StockBalance.objects.filter(pk=balance.pk)
-    if quantity < 0: qs = qs.filter(quantity__gte=-quantity)
-    if not qs.update(quantity=F('quantity') + quantity): raise ValidationError(f'Insufficient available stock for {product.name}.')
-    return StockMovement.objects.create(site=site, product=product, quantity=quantity, source=source, kind=kind, created_by=user, notes=notes)
+def move_stock(user, site, product, quantity, source, kind, notes='', status='available', unit_cost=None):
+    """The only way stock changes (FR-INV-003/004). Row-locked, never negative, one movement per unique source.
+
+    Incoming quantity with a cost updates the weighted-average cost; incoming without a cost keeps the current average;
+    outgoing quantity is valued at the current average. Each movement keeps its unit, cost and resulting balance.
+    """
+    quantity = Decimal(quantity)
+    StockBalance.objects.get_or_create(site=site, product=product, status=status)
+    balance = StockBalance.objects.select_for_update().get(site=site, product=product, status=status)
+    if quantity < 0 and balance.quantity < -quantity:
+        label = '' if status == 'available' else f' ({status})'
+        raise ValidationError(f'Insufficient available stock for {product.name}{label} at {site.code}: {balance.quantity.normalize():f} on hand.')
+    if quantity > 0 and unit_cost is not None:
+        unit_cost = Decimal(unit_cost)
+        total = balance.quantity + quantity
+        if balance.avg_cost == 0:
+            balance.avg_cost = unit_cost  # stock taken on before costing began is valued at the first real cost
+        else:
+            balance.avg_cost = ((balance.quantity * balance.avg_cost + quantity * unit_cost) / total).quantize(Decimal('0.0001')) if total else unit_cost
+        cost = unit_cost
+    else:
+        cost = balance.avg_cost
+    balance.quantity += quantity
+    balance.save(update_fields=['quantity', 'avg_cost'])
+    return StockMovement.objects.create(site=site, product=product, quantity=quantity, source=source, kind=kind, created_by=user, notes=notes,
+                                        status=status, uom=product.unit, unit_cost=cost, balance_after=balance.quantity)
+
+
+def transfer_state(user, site, product, quantity, source, kind_out, kind_in, from_status, to_status, notes=''):
+    """Move quantity between stock states at one site (e.g. available → damaged) at the current average cost."""
+    out = move_stock(user, site, product, -Decimal(quantity), source + ':out', kind_out, notes, status=from_status)
+    return move_stock(user, site, product, Decimal(quantity), source + ':in', kind_in, notes, status=to_status, unit_cost=out.unit_cost)
+
 
 @transaction.atomic
 def transition_order(user, pk, action):

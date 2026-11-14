@@ -101,7 +101,7 @@ class ProductForm(StyledForm):
         ('Basics', 'Identity and where it is used.', ['category', 'code', 'name', 'brand', 'active']),
         ('Specification', 'Grade and physical details used on orders, dispatch and test certificates.',
          ['grade', 'standard', 'bag_weight_kg', 'bar_diameter_mm', 'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle']),
-        ('Stock & tax', 'Unit for stock and orders, reorder alert, HSN and GST.', ['unit', 'reorder_level', 'reorder_quantity', 'hsn', 'gst_rate']),
+        ('Stock & tax', 'Unit for stock and orders, reorder alert, HSN and GST.', ['unit', 'reorder_level', 'reorder_quantity', 'max_level', 'hsn', 'gst_rate']),
         ('Notes', 'Optional description for the team.', ['description']),
     ]
     # Which category each specification field belongs to (used by the form's JavaScript and validation).
@@ -110,7 +110,7 @@ class ProductForm(StyledForm):
     class Meta:
         model = Product
         fields = ['category', 'code', 'name', 'brand', 'active', 'grade', 'standard', 'bag_weight_kg', 'bar_diameter_mm',
-                  'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle', 'unit', 'reorder_level', 'reorder_quantity', 'hsn', 'gst_rate', 'description']
+                  'weight_per_metre_kg', 'bar_length_m', 'bars_per_bundle', 'unit', 'reorder_level', 'reorder_quantity', 'max_level', 'hsn', 'gst_rate', 'description']
         widgets = {'description': forms.Textarea(attrs={'rows': 3})}
 
     def __init__(self, *args, **kwargs):
@@ -126,6 +126,7 @@ class ProductForm(StyledForm):
         for name in ['bag_weight_kg', 'weight_per_metre_kg', 'bar_length_m', 'reorder_level', 'reorder_quantity']:
             self.fields[name].widget.attrs['step'] = 'any'
         self.fields['reorder_quantity'].required = False
+        self.fields['max_level'].required = False
         if not self.instance.pk and not self.is_bound:
             # New products start from the organisation's standard cement bag weight.
             weight = Organization.objects.filter(pk=1).values_list('default_bag_weight', flat=True).first()
@@ -137,6 +138,13 @@ class ProductForm(StyledForm):
 
     def clean_reorder_quantity(self):
         return self.cleaned_data.get('reorder_quantity') or Decimal('0')
+
+    def clean_max_level(self):
+        value = self.cleaned_data.get('max_level') or Decimal('0')
+        level = self.cleaned_data.get('reorder_level') or Decimal('0')
+        if value and value <= level:
+            raise forms.ValidationError('Maximum stock must be above the reorder level.')
+        return value
 
     def clean_code(self):
         return self.cleaned_data['code'].strip().upper()
@@ -365,6 +373,9 @@ class OpeningForm(forms.Form):
     product = forms.ModelChoiceField(queryset=Product.objects.filter(active=True), widget=forms.Select(attrs={'class': 'form-select'}))
     quantity = forms.DecimalField(min_value=Decimal('0.001'), max_digits=14, decimal_places=3, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '.001'}))
     reference = forms.CharField(max_length=60, help_text='Unique opening reference. Reusing it will not post stock twice.', widget=forms.TextInput(attrs={'class': 'form-control'}))
+    unit_cost = forms.DecimalField(label='Rate (₹ per unit)', required=False, min_value=Decimal('0'), max_digits=14, decimal_places=4,
+                                   help_text='Cost for stock valuation. Leave empty to keep the current average cost.',
+                                   widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
     notes = forms.CharField(widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}), required=True)
 
 

@@ -54,9 +54,10 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 2. ✅ GRN with accepted / rejected / short / quality-hold quantities; incoming inspection.
 3. ✅ Supplier invoice with PO–GRN–invoice three-way match and duplicate check; supplier returns / debit notes.
 
-### Step 5 — Inventory depth (§5.5)
-Stock states (available, reserved, quality hold, damaged, in transit), lot/batch, inter-site transfers with
-in-transit stock, cycle counts, adjustments with approval, damaged/wet bag reports, UOM conversions (bag ↔ MT).
+### Step 5 — Inventory depth (§5.5) ✅
+✅ Stock states (available, reserved, quality hold, damaged, in transit), weighted-average valuation and stock card, inter-site transfers with
+in-transit stock and discrepancy cases, blind cycle counts with recount and approved adjustments, damaged/wet bag reports with disposition,
+bag ↔ MT equivalents, ageing / slow-moving / min-max. Lot/batch balances move to Step 6 (batch traceability).
 
 ### Step 6 — Production & quality for cement and TMT (SRS Phase 2, §4.3, §5.6, §5.7)
 1. Versioned recipes/BOM (clinker + gypsum + fly ash/slag; billet → TMT), process orders, material issue, shift log, downtime, packing line.

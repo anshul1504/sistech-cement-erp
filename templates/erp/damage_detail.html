@@ -1,0 +1,30 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'damages' %}">← Damaged stock</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl"><svg><use href="#ic-shield"/></svg></span>
+    <div class="org-hero-text"><h1>{{ d.product.name }} · {{ d.quantity|qty }} {{ d.product.unit }}</h1><p>{{ d.number }} · {{ d.site.code }} · {{ d.location }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{% if d.status == 'reported' %}submitted{% else %}completed{% endif %}">● {{ d.get_status_display }}</span><span class="org-chip">{{ d.get_reason_display }}</span></div></div>
+    <div class="org-hero-side"><small>Value at cost</small><span class="mst-total">₹{{ d.value|indian }}</span><small>@ ₹{{ d.unit_cost|indian:2 }}</small></div>
+  </section>
+  <div class="acc-grid">
+    <section class="org-card org-view"><header class="acc-card-head"><h2>Report</h2>{% if d.photo_type %}<a href="{% url 'damage_photo' d.pk %}" target="_blank">View photo</a>{% endif %}</header><dl>
+      <div><dt>Reported by</dt><dd>{{ d.created_by.get_full_name|default:d.created_by.username }} · {{ d.created_at|date:'d M Y, H:i' }}</dd></div>
+      <div><dt>Responsible</dt><dd>{{ d.incident_owner }}</dd></div>
+      <div class="is-wide"><dt>Description</dt><dd>{{ d.description|default:'—' }}</dd></div></dl></section>
+    {% if d.status == 'decided' %}<section class="org-card org-view"><header class="acc-card-head"><h2>Disposition</h2></header><dl>
+      <div><dt>Recovered</dt><dd>{{ d.recovered|qty }} {{ d.product.unit }}</dd></div><div><dt>Scrapped</dt><dd>{{ d.scrapped|qty }} {{ d.product.unit }}</dd></div>
+      <div class="is-wide"><dt>Decided by</dt><dd>{{ d.decided_by.get_full_name|default:d.decided_by.username }} · {{ d.decided_at|date:'d M Y' }} — {{ d.decision_note }}</dd></div></dl></section>
+    {% elif can_decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Decide disposition</h2></header>
+      <form method="post" action="{% url 'damage_decide' d.pk %}">{% csrf_token %}<div class="org-grid">
+        <div class="org-field"><label class="form-label" for="dd-r">Recovered (back to available)</label><input class="form-control" id="dd-r" type="number" step="any" min="0" name="recovered" value="0"></div>
+        <div class="org-field"><label class="form-label" for="dd-s">Scrapped</label><input class="form-control" id="dd-s" type="number" step="any" min="0" name="scrapped" value="{{ d.quantity|floatformat:'-3' }}"></div>
+        <div class="org-field is-wide"><label class="form-label" for="dd-n">Disposition note <span class="required">*</span></label><input class="form-control" id="dd-n" name="note" maxlength="200" required placeholder="e.g. 40 bags re-packed at packing plant, rest to crusher"></div></div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Record disposition</button></div></form></section>
+    {% else %}<section class="org-card org-view acc-wide ord-items"><p class="acc-muted">Waiting for a user other than the reporter to decide.</p></section>{% endif %}
+    <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}</section>
+  </div>
+</div>
+{% endblock %}

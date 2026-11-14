@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'damages' %}">← Damaged stock</a></div><h1>Report damaged stock</h1><p>The quantity moves from available to damaged straight away, so it cannot be sold by mistake.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" enctype="multipart/form-data" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>What and where</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="d-s">Location <span class="required">*</span></label><select class="form-select" id="d-s" name="site"><option value="">Choose</option>{% for s in sites %}<option value="{{ s.pk }}"{% if post.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="d-p">Item <span class="required">*</span></label><select class="form-select" id="d-p" name="product"><option value="">Choose</option>{% for p in products %}<option value="{{ p.pk }}"{% if post.product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }} ({{ p.unit }})</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="d-q">Quantity <span class="required">*</span></label><input class="form-control" id="d-q" type="number" step="any" min="0" name="quantity" value="{{ post.quantity }}"></div>
+      <div class="org-field"><label class="form-label" for="d-r">Reason <span class="required">*</span></label><select class="form-select" id="d-r" name="reason">{% for k, l in reasons %}<option value="{{ k }}"{% if post.reason == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="d-l">Where <span class="required">*</span></label><input class="form-control" id="d-l" name="location" maxlength="100" value="{{ post.location }}" placeholder="e.g. Godown 2, stack B"></div>
+      <div class="org-field"><label class="form-label" for="d-o">Responsible person <span class="required">*</span></label><input class="form-control" id="d-o" name="owner" maxlength="100" value="{{ post.owner }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="d-de">Description</label><input class="form-control" id="d-de" name="description" maxlength="200" value="{{ post.description }}" placeholder="e.g. Roof leak during rain on 12 Nov"></div>
+      <div class="org-field"><label class="form-label" for="d-ph">Photo</label><input class="form-control" id="d-ph" type="file" name="photo" accept="image/png,image/jpeg,image/webp,application/pdf" capture="environment"><div class="form-text">PDF, PNG, JPEG or WebP, up to 5 MB.</div></div>
+    </div></section>
+    <div class="org-actions"><span>A different user decides recovery or scrap.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'damages' %}">Cancel</a><button class="org-btn is-primary" type="submit">Report</button></div></div>
+  </form>
+</div>
+{% endblock %}

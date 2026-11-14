@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.9.5'
+ASSET_VERSION = '0.9.6'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -42,7 +42,10 @@ NAV_GROUPS = [
     ('Plant operations', [
         _item('production', 'Production', 'factory', 'view_production', match=('production_new', 'production_action')),
         _item('quality', 'Quality lab', 'flask', 'view_qualitytest', match=('quality_new',)),
-        _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening',)),
+        _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening', 'stock_card', 'stock_analysis')),
+        _item('counts', 'Stock counts', 'clipboard', 'view_stockcount', match=('count_detail',)),
+        _item('transfers', 'Stock transfers', 'truck', 'view_stocktransfer', match=('transfer_new', 'transfer_detail')),
+        _item('damages', 'Damaged stock', 'shield', 'view_damagereport', match=('damage_new', 'damage_detail')),
     ]),
     ('Logistics', [
         _item('dispatch_board', 'Gate & dispatch', 'scale', 'view_dispatch', match=('dispatch_new', 'dispatch_detail', 'dispatch_print')),
@@ -166,6 +169,10 @@ def navigation(request):
         quick_create.append(('Dealer or supplier', reverse('partners_new'), 'handshake'))
     if user.has_perm('erp.add_site'):
         quick_create.append(('Plant or depot', reverse('sites_new'), 'building'))
+    if user.has_perm('erp.add_stocktransfer'):
+        quick_create.append(('Stock transfer', reverse('transfer_new'), 'truck'))
+    if user.has_perm('erp.add_damagereport'):
+        quick_create.append(('Damaged stock report', reverse('damage_new'), 'shield'))
     if user.has_perm('erp.post_opening'):
         quick_create.append(('Opening stock', reverse('opening'), 'boxes'))
     if user.is_superuser:

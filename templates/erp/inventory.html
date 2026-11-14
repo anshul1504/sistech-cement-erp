@@ -1,0 +1,35 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Inventory</h1><p>Stock by location and state. <b>Free</b> = available − reserved for approved sales orders. Quality hold and in-transit stock are shown but are not available to sell. Value is at weighted-average cost.</p></div>
+    <div class="doc-head-actions">{% if perms.erp.add_stocktransfer %}<a class="org-btn is-light" href="{% url 'transfer_new' %}">Transfer</a>{% endif %}{% if perms.erp.add_damagereport %}<a class="org-btn is-light" href="{% url 'damage_new' %}">Report damage</a>{% endif %}{% if can_open %}<a class="org-btn is-primary" href="{% url 'opening' %}"><svg><use href="#ic-plus"/></svg>Opening stock</a>{% endif %}</div></div>
+  {% include 'erp/_inv_tabs.html' with tab='stock' %}
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Stock value</span><strong>₹{{ totals.value|indian }}</strong><small>Available + damaged, at average cost</small></div>
+    <a role="listitem" class="inf-kpi{% if totals.low %} is-warn{% endif %}" href="?show=low"><span>Below reorder level</span><strong>{{ totals.low }}</strong><small>Item × location</small></a>
+    <a role="listitem" class="inf-kpi{% if totals.short %} is-danger{% endif %}" href="?show=short"><span>Over-committed</span><strong>{{ totals.short }}</strong><small>Reserved more than available</small></a>
+    <a role="listitem" class="inf-kpi{% if transit %} is-warn{% endif %}" href="{% url 'transfers' %}?status=in_transit"><span>Transfers in transit</span><strong>{{ transit }}</strong><small>Damaged ₹{{ totals.damaged|indian }}</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Stock position</h2><p>{{ rows|length }} row{{ rows|length|pluralize }}</p></div>
+      <form method="get" class="doc-filter inv-filter"><input class="form-control" type="search" name="q" value="{{ f.q }}" placeholder="Item or code" aria-label="Search">
+        <select class="form-select" name="site" aria-label="Location" onchange="this.form.submit()"><option value="">All locations</option>{% for s in sites %}<option value="{{ s.pk }}"{% if f.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select>
+        <select class="form-select" name="category" aria-label="Category" onchange="this.form.submit()"><option value="">All categories</option>{% for k, l in categories %}<option value="{{ k }}"{% if f.category == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+        <select class="form-select" name="show" aria-label="Show" onchange="this.form.submit()"><option value="">Everything</option><option value="low"{% if f.show == 'low' %} selected{% endif %}>Below reorder</option><option value="short"{% if f.show == 'short' %} selected{% endif %}>Over-committed</option><option value="damaged"{% if f.show == 'damaged' %} selected{% endif %}>With damaged stock</option></select></form></header>
+    {% if rows %}<div class="ord-table inv-table" role="table">
+      <div class="ord-tr ord-th" role="row"><span>Item · location</span><span>Available</span><span>Reserved</span><span>Free</span><span>Quality hold</span><span>Damaged</span><span>In transit</span><span>Value</span></div>
+      {% for r in rows %}<a class="ord-tr" role="row" href="{% url 'stock_card' r.site.pk r.product.pk %}">
+        <span class="ord-name"><strong>{{ r.product.name }}</strong><small>{{ r.site.code }} · {{ r.product.code }}{% if r.mt is not None and r.product.unit != 'MT' %} · ≈ {{ r.mt|qty }} MT{% endif %}</small>{% if r.low %}<em class="ord-flag">Below reorder {{ r.product.reorder_level|qty }}</em>{% endif %}</span>
+        <span data-label="Available"><strong>{{ r.available|qty }}</strong><small>{{ r.product.unit }}</small></span>
+        <span data-label="Reserved">{{ r.reserved|qty|default:'—' }}</span>
+        <span data-label="Free" class="{% if r.free < 0 %}led-late{% endif %}">{{ r.free|qty }}</span>
+        <span data-label="Quality hold">{% if r.hold %}{{ r.hold|qty }}{% else %}—{% endif %}</span>
+        <span data-label="Damaged">{% if r.damaged %}<span class="led-late">{{ r.damaged|qty }}</span>{% else %}—{% endif %}</span>
+        <span data-label="In transit">{% if r.transit %}{{ r.transit|qty }}{% else %}—{% endif %}</span>
+        <span data-label="Value">₹{{ r.value|indian }}<small>{% if r.cost %}@ ₹{{ r.cost|indian:2 }}{% else %}Not valued{% endif %}</small></span>
+      </a>{% endfor %}</div>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-boxes"/></svg><strong>No stock</strong><span>Post opening stock or receive material to see it here.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

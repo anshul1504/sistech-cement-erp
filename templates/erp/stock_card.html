@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'inventory' %}">← Inventory</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl"><svg><use href="#ic-boxes"/></svg></span>
+    <div class="org-hero-text"><h1>{{ product.name }}</h1><p>{{ product.code }} · {{ site.code }} · {{ site.name }}</p>
+      <div class="org-chips"><a class="org-chip{% if status == 'available' %} ord-status is-approved{% endif %}" href="?status=available">Available</a><a class="org-chip{% if status == 'damaged' %} ord-status is-cancelled{% endif %}" href="?status=damaged">Damaged</a><a class="org-chip{% if status == 'blocked' %} ord-status is-submitted{% endif %}" href="?status=blocked">Blocked</a></div></div>
+    <div class="org-hero-side"><small>On hand ({{ status }})</small><span class="mst-total">{{ bal.quantity|default:0|qty }} {{ product.unit }}</span><small>{% if bal %}₹{{ bal.value|indian }} @ ₹{{ bal.avg_cost|indian:2 }}{% endif %}{% if bal_mt is not None and product.unit != 'MT' %} · ≈ {{ bal_mt|qty }} MT{% endif %}</small></div>
+  </section>
+  <section class="org-card ord-items"><header class="acc-card-head"><h2>Movements</h2><span class="acc-muted">Latest first · every movement is permanent</span></header>
+    {% if moves %}<div class="ord-table card-table" role="table">
+      <div class="ord-tr ord-th" role="row"><span>Document · source</span><span>Date</span><span>Type</span><span>In / out</span><span>Rate</span><span>Balance</span></div>
+      {% for m in moves %}<div class="ord-tr" role="row">
+        <span class="ord-name"><strong>{{ m.notes|default:m.number }}</strong><small>{{ m.source }} · {{ m.created_by.get_full_name|default:m.created_by.username }}</small></span>
+        <span data-label="Date">{{ m.created_at|date:'d M Y, H:i' }}</span>
+        <span data-label="Type">{{ m.get_kind_display }}</span>
+        <span data-label="In / out" class="{% if m.quantity < 0 %}led-late{% endif %}"><strong>{% if m.quantity > 0 %}+{% endif %}{{ m.quantity|qty }}</strong> {{ m.uom }}</span>
+        <span data-label="Rate">{% if m.unit_cost is not None %}₹{{ m.unit_cost|indian:2 }}{% else %}—{% endif %}</span>
+        <span data-label="Balance">{% if m.balance_after is not None %}{{ m.balance_after|qty }}{% else %}—{% endif %}</span>
+      </div>{% endfor %}</div>
+    {% else %}<p class="acc-muted">No movements in this state.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

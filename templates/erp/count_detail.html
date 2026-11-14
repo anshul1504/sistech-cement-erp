@@ -1,0 +1,34 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'counts' %}">← Stock counts</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl"><svg><use href="#ic-clipboard"/></svg></span>
+    <div class="org-hero-text"><h1>{{ c.number }}</h1><p>{{ c.site.code }} · {{ c.site.name }} · {{ c.get_category_display|default:'All items with stock' }}</p>
+      <div class="org-chips"><span class="org-chip ord-status is-{{ c.badge }}">● {{ c.get_status_display }}</span>{% if c.blind %}<span class="org-chip">Blind count</span>{% endif %}<span class="org-chip">{{ lines|length }} items</span></div></div>
+    <div class="org-hero-side"><small>Net variance</small><span class="mst-total">{% if show_system %}{{ net|rupees }}{% else %}—{% endif %}</span><small>{% if show_system %}{{ diff }} item{{ diff|pluralize }} differ{% else %}Hidden while counting{% endif %}</small></div>
+  </section>
+  {% if c.note %}<ul class="ord-checks"><li class="is-info">{{ c.note }}</li></ul>{% endif %}
+  {% if c.status == 'recount' %}<ul class="ord-checks"><li class="is-warn">Recount the highlighted items and submit again.</li></ul>{% endif %}
+  <form method="post" action="{% if entering %}{% url 'count_action' c.pk 'save' %}{% else %}{% url 'count_action' c.pk 'approve' %}{% endif %}" class="doc-form" novalidate>{% csrf_token %}
+  <section class="org-card ord-items"><header class="acc-card-head"><h2>Items</h2><span class="acc-muted">Quantity in each item's unit · system frozen {{ c.created_at|date:'d M, H:i' }}</span></header>
+    <div class="ord-lines">
+      <div class="ord-line cnt-line ord-line-head" aria-hidden="true"><span>Item</span><span>{% if show_system %}System{% endif %}</span><span>Counted</span><span>{% if show_system %}Variance{% endif %}</span><span>Reason / remark</span></div>
+      {% for l in lines %}<div class="ord-line cnt-line{% if l.recount_needed and c.status == 'recount' %} has-error{% endif %}">
+        <div class="ord-cell ord-product" data-label="Item">{% if reviewing %}<label class="org-check-label"><input class="form-check-input" type="checkbox" name="recount" value="{{ l.pk }}"><span><strong>{{ l.product.name }}</strong><small>{{ l.product.code }} · tick to recount</small></span></label>{% else %}<strong>{{ l.product.name }}</strong><small>{{ l.product.code }} · {{ l.product.unit }}</small>{% endif %}</div>
+        <div class="ord-cell ord-gst" data-label="System">{% if show_system %}{{ l.system_qty|qty }}{% else %}—{% endif %}</div>
+        <div class="ord-cell" data-label="Counted">{% if entering and c.status == 'counting' or entering and l.recount_needed %}<input class="form-control" type="number" step="any" min="0" name="qty_{{ l.pk }}" value="{% if c.status == 'recount' %}{{ l.recounted|floatformat:'-3' }}{% else %}{{ l.counted|floatformat:'-3' }}{% endif %}">{% else %}{{ l.final|qty|default:'—' }}{% if l.recounted is not None %}<small class="ord-hint">first count {{ l.counted|qty }}</small>{% endif %}{% endif %}</div>
+        <div class="ord-cell ord-gst" data-label="Variance">{% if show_system and l.variance is not None %}<span class="{% if l.variance < 0 %}led-late{% endif %}">{% if l.variance > 0 %}+{% endif %}{{ l.variance|qty }} · {{ l.variance_value|rupees }}</span>{% endif %}</div>
+        <div class="ord-cell" data-label="Reason">{% if entering %}<input class="form-control" name="reason_{{ l.pk }}" maxlength="150" value="{{ l.reason }}">{% else %}{{ l.reason|default:'—' }}{% endif %}</div>
+      </div>{% endfor %}</div>
+  </section>
+  {% if entering %}<div class="org-actions"><span>Save as you go; submit when every item is counted.</span><div class="org-actions-buttons"><button class="org-btn is-light" type="submit">Save</button><button class="org-btn is-primary" type="submit" formaction="{% url 'count_action' c.pk 'submit' %}">Submit</button></div></div>
+  {% elif reviewing %}<section class="org-card" style="margin-top:16px"><header><h2>Review</h2><p>Approving posts each variance as a count adjustment at today's stock.</p></header>
+    <div class="org-field"><label class="form-label" for="cn-n">Why the variance is accepted</label><input class="form-control" id="cn-n" name="note" maxlength="200"></div>
+    <div class="inf-log-actions"><button class="org-btn is-light" type="submit" formaction="{% url 'count_action' c.pk 'recount' %}">Recount ticked items</button><button class="org-btn is-primary" type="submit">Approve &amp; post</button></div></section>
+  {% elif c.status == 'submitted' %}<section class="org-card" style="margin-top:16px"><p class="acc-muted">Waiting for a user other than {{ c.submitted_by.get_full_name|default:c.submitted_by.username }} to approve.</p></section>{% endif %}
+  </form>
+  <section class="org-card ord-items" style="margin-top:16px"><header class="acc-card-head"><h2>History</h2></header>{% include 'erp/_history.html' %}</section>
+</div>
+{% endblock %}

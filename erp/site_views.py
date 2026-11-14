@@ -56,7 +56,7 @@ def sites(request):
 def site_detail(request, pk):
     permitted(request.user, 'view_site')
     site = get_object_or_404(visible_sites(request.user).select_related('manager'), pk=pk)
-    balances = StockBalance.objects.filter(site=site, quantity__gt=0).select_related('product').order_by('product__category', 'product__name')
+    balances = StockBalance.objects.filter(site=site, quantity__gt=0, status='available').select_related('product').order_by('product__category', 'product__name')
     can_docs = request.user.has_perm('erp.view_organization') or request.user.has_perm('erp.change_organization')
     documents = OrganizationDocument.objects.filter(site=site).defer('file').order_by('valid_until') if can_docs else []
     usage = site_usage(site)

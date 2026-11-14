@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Damaged stock</h1><p>Torn, wet, leaking or hardened bags and damaged bars. Reported stock leaves available immediately; a different user decides how much is recovered (re-packed) and how much is scrapped.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'damage_new' %}"><svg><use href="#ic-plus"/></svg>Report damage</a></div>{% endif %}</div>
+  {% include 'erp/_inv_tabs.html' with tab='damage' %}
+  <div class="inf-kpis is-three" role="list">
+    <a role="listitem" class="inf-kpi{% if open %} is-warn{% endif %}" href="?status=reported"><span>Waiting disposition</span><strong>{{ open }}</strong><small>Reports</small></a>
+    <div role="listitem" class="inf-kpi{% if open_value %} is-danger{% endif %}"><span>Value at risk</span><strong>₹{{ open_value|indian }}</strong><small>At average cost</small></div>
+    <a role="listitem" class="inf-kpi" href="?status=decided"><span>Decided</span><strong>{{ reports|length|add:'0' }}</strong><small>Shown below</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Reports</h2><p>{{ reports|length }} shown</p></div>
+      <form method="get" class="doc-filter"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option><option value="reported"{% if status == 'reported' %} selected{% endif %}>Waiting disposition</option><option value="decided"{% if status == 'decided' %} selected{% endif %}>Decided</option></select></form></header>
+    {% if reports %}<ul class="mst-list prc-list pr-list">{% for d in reports %}
+      <li><a class="mst-main" href="{% url 'damage_detail' d.pk %}"><span class="mst-icon"><svg><use href="#ic-shield"/></svg></span><span><strong>{{ d.product.name }} · {{ d.quantity|qty }} {{ d.product.unit }}</strong><small>{{ d.number }} · {{ d.site.code }} · {{ d.location }}</small></span></a>
+        <div class="mst-cell"><small>Reason</small>{{ d.get_reason_display }}</div>
+        <div class="mst-cell"><small>Value</small>₹{{ d.value|indian }}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{% if d.status == 'reported' %}submitted{% else %}completed{% endif %}">● {{ d.get_status_display }}</span></div>
+        <div class="mst-cell"><small>Reported</small>{{ d.created_at|date:'d M Y' }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'damage_detail' d.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-shield"/></svg><strong>No damage reports</strong><span>Report torn, wet or hardened stock as soon as it is found.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

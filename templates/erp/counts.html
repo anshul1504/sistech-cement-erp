@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Stock counts</h1><p>Cycle and annual counts. System quantity is frozen when the count starts; a blind count hides it from the counters. A different user reviews the variance, can ask for a recount, and approves the adjustment.</p></div></div>
+  {% include 'erp/_inv_tabs.html' with tab='counts' %}
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if can_add %}<section class="org-card" style="margin-bottom:16px"><header><h2>Start a count</h2></header>
+    <form method="post" class="doc-form" novalidate>{% csrf_token %}<div class="org-grid">
+      <div class="org-field"><label class="form-label" for="c-s">Location <span class="required">*</span></label><select class="form-select" id="c-s" name="site"><option value="">Choose</option>{% for s in sites %}<option value="{{ s.pk }}">{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="c-c">Items</label><select class="form-select" id="c-c" name="category"><option value="">Everything with stock</option>{% for k, l in categories %}<option value="{{ k }}">{{ l }} (all items)</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="c-n">Note</label><input class="form-control" id="c-n" name="note" maxlength="200" placeholder="e.g. Month-end count, godown 2"></div>
+      <div class="org-field"><label class="org-check-label"><input class="form-check-input" type="checkbox" name="blind" checked><span>Blind count (hide system quantity)</span></label></div>
+    </div><div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Start count</button></div></form></section>{% endif %}
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Counts</h2><p>{{ counts|length }} shown</p></div></header>
+    {% if counts %}<ul class="mst-list prc-list pr-list">{% for c in counts %}
+      <li><a class="mst-main" href="{% url 'count_detail' c.pk %}"><span class="mst-icon"><svg><use href="#ic-clipboard"/></svg></span><span><strong>{{ c.number }}</strong><small>{{ c.site.code }} · {{ c.get_category_display|default:'All items with stock' }}{% if c.blind %} · blind{% endif %}</small></span></a>
+        <div class="mst-cell"><small>Items</small>{{ c.lines.all|length }}</div>
+        <div class="mst-cell"><small>Net variance</small>{% if c.status == 'counting' %}—{% else %}<span class="{% if c.net < 0 %}led-late{% endif %}">{{ c.net|rupees }}</span>{% endif %}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ c.badge }}">● {{ c.get_status_display }}</span></div>
+        <div class="mst-cell"><small>Started</small>{{ c.created_at|date:'d M Y' }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'count_detail' c.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-clipboard"/></svg><strong>No counts yet</strong><span>Start a cycle count for one location.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

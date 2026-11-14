@@ -219,7 +219,7 @@ def post(user, pk, rows, variance_reason=''):
         l.received, l.accepted, l.rejected, l.damaged, l.hold, l.reject_reason = r['received'], r['accepted'], r['rejected'], r['damaged'], r['hold'], (r.get('reason') or '').strip()[:150]
         l.save()
         if l.accepted:
-            move_stock(user, g.site, l.product, l.accepted, f'grn:{g.pk}:line:{l.pk}', 'Receipt', f'{g.number} · {g.supplier.name}')
+            move_stock(user, g.site, l.product, l.accepted, f'grn:{g.pk}:line:{l.pk}', 'Receipt', f'{g.number} · {g.supplier.name}', unit_cost=l.po_line.rate)
     g.status, g.posted_at, g.posted_by, g.variance_reason = 'posted', timezone.now(), user, variance_reason[:200]
     g.save()
     refresh_order(order)
@@ -244,7 +244,7 @@ def refresh_order(order):
 def release(user, line_pk, accept, reject, note):
     """Quality decision on held quantity. Accepted part enters stock; rejected part goes back to the supplier (debit note)."""
     _need(user, 'release_goodsreceipt')
-    l = GRNLine.objects.select_for_update().select_related('grn__site', 'grn__supplier', 'product').get(pk=line_pk)
+    l = GRNLine.objects.select_for_update().select_related('grn__site', 'grn__supplier', 'product', 'po_line').get(pk=line_pk)
     g = l.grn
     note = (note or '').strip()
     accept, reject = Decimal(accept or 0), Decimal(reject or 0)
@@ -261,7 +261,7 @@ def release(user, line_pk, accept, reject, note):
     l.qc_accepted, l.qc_rejected, l.qc_note, l.qc_by, l.qc_at = accept, reject, note[:200], user, timezone.now()
     l.save()
     if accept:
-        move_stock(user, g.site, l.product, accept, f'grn:{g.pk}:line:{l.pk}:qc', 'Receipt', f'{g.number} quality release')
+        move_stock(user, g.site, l.product, accept, f'grn:{g.pk}:line:{l.pk}:qc', 'Receipt', f'{g.number} quality release', unit_cost=l.po_line.rate)
     _log(user, g, 'Quality release', f'{l.product.code}: accepted {qtxt(accept)}, rejected {qtxt(reject)} · {note}')
     return l
 
