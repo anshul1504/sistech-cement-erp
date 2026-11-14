@@ -127,9 +127,12 @@ class StockTests(TestCase):
         r = self.client.post(reverse('damage_new'), {'site': self.plant.pk, 'product': self.opc.pk, 'quantity': '5', 'reason': 'torn', 'location': 'Bay 3', 'owner': 'Loader'})
         self.assertRedirects(r, reverse('damage_detail', args=[DamageReport.objects.get().pk]))
 
-    def test_unvalued_stock_takes_first_cost(self):
+    def test_unvalued_stock_keeps_zero_value_until_explicit_opening_adjustment(self):
         move_stock(self.a, self.depot, self.opc, D(100), 'legacy', 'Opening')  # before costing began
         move_stock(self.a, self.depot, self.opc, D(50), 'r1', 'Receipt', unit_cost=D(300))
-        self.assertEqual(StockBalance.objects.get(site=self.depot, product=self.opc).avg_cost, D('300'))
+        stock = StockBalance.objects.get(site=self.depot, product=self.opc)
+        self.assertEqual((stock.avg_cost, stock.value), (D('100'), D('15000')))
+        from . import gl
+        self.assertEqual(gl.subledger_check()[1]['diff'], 0)
         from .templatetags.erp_format import rupees
         self.assertEqual((rupees(D('-211.11')), rupees(D('1200'))), ('−₹211', '₹1,200'))

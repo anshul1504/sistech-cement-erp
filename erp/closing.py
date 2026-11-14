@@ -36,7 +36,7 @@ def historical_checks(as_of):
     receipts = Receipt.objects.filter(date__lte=as_of).filter(Q(status='posted') | Q(status='bounced', bounced_on__gt=as_of))
     ar = _sum(Invoice.objects.filter(date__lte=as_of), 'grand_total') - _sum(receipts, 'amount') - _sum(CreditNote.objects.filter(date__lte=as_of), 'total')
     movements = StockMovement.objects.filter(created_at__date__lte=as_of, kind__in=gl.STOCK_MAP)
-    inventory = sum(((m.quantity * (m.unit_cost or ZERO)).quantize(CENT) for m in movements), ZERO)
+    inventory = sum((m.value for m in movements), ZERO)
     payments = SupplierPayment.objects.filter(date__lte=as_of).filter(Q(status='paid') | Q(status='failed', returned_on__gt=as_of))
     paid = PaymentAllocation.objects.filter(payment__in=payments)
     ap = (_sum(SupplierInvoice.objects.filter(invoice_date__lte=as_of, status__in=['matched', 'approved']), 'billed_total')
@@ -72,7 +72,7 @@ def source_gaps(as_of):
     ]:
         expected.extend((f'{prefix}:{pk}', label) for pk, label in model.objects.filter(**query).values_list('pk', 'code' if model is FixedAsset else 'bill_number' if model is FreightBill else 'number'))
     for movement in StockMovement.objects.filter(created_at__date__lte=as_of, kind__in=gl.STOCK_MAP).exclude(unit_cost=None):
-        if (abs(movement.quantity) * (movement.unit_cost or ZERO)).quantize(CENT):
+        if movement.value:
             expected.append((f'stk:{movement.pk}', movement.source))
     for asset in FixedAsset.objects.filter(status='disposed', disposed_on__lte=as_of):
         expected.append((f'fad:{asset.pk}', asset.code))

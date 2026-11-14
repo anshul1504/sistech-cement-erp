@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from .gst import next_number, qtxt, inr
 from .models import Recipe, RecipeLine, Production, MaterialIssue, ShiftLog, PackingRun, Product, AuditEvent, GoodsReceipt, Organization
-from .services import move_stock
+from .services import move_stock, require_site
 
 ZERO = Decimal('0')
 PACK_TOLERANCE = Decimal('0.5')
@@ -76,15 +76,16 @@ def approve_recipe(user, pk):
         raise ValidationError('Only draft recipes can be approved.')
     if r.created_by_id == user.pk:
         raise ValidationError('The person who drafted the recipe cannot approve it (maker-checker).')
-    Recipe.objects.filter(product=r.product, status='approved').update(status='retired')
+    if r.effective_from <= timezone.localdate():
+        Recipe.objects.filter(product=r.product, status='approved', effective_from__lte=timezone.localdate()).update(status='retired')
     r.status, r.approved_by, r.approved_at = 'approved', user, timezone.now()
     r.save()
     _log(user, None, 'Recipe approved', f'{r.product.code} v{r.version}', 'Earlier versions retired')
     return r
 
 
-def current_recipe(product):
-    return Recipe.objects.filter(product=product, status='approved').prefetch_related('lines__material').first()
+def current_recipe(product, on=None):
+    return Recipe.objects.filter(product=product, status='approved', effective_from__lte=on or timezone.localdate()).order_by('-effective_from', '-version').prefetch_related('lines__material').first()
 
 
 def standard(production, output=None):
@@ -109,6 +110,7 @@ def next_batch(site, shift, day=None):
 @transaction.atomic
 def create_order(user, site, product, planned_quantity, shift, line='', planned_date=None, batch='', notes=''):
     _need(user, 'add_production')
+    require_site(user, site)
     problems = []
     planned_quantity = Decimal(planned_quantity or 0)
     if planned_quantity <= 0:
@@ -118,9 +120,9 @@ def create_order(user, site, product, planned_quantity, shift, line='', planned_
     batch = (batch or '').strip().upper()
     if batch and Production.objects.filter(batch=batch).exists():
         problems.append(f'Batch {batch} already exists.')
-    recipe = current_recipe(product)
+    recipe = current_recipe(product, planned_date)
     if not recipe and Recipe.objects.filter(product=product).exists():
-        problems.append(f'{product.name} has recipe drafts but no approved version — approve one first.')
+        problems.append(f'{product.name} has no approved version effective for the planned date — approve the appropriate recipe first.')
     if problems:
         raise ValidationError(problems)
     p = Production.objects.create(site=site, product=product, planned_quantity=planned_quantity, shift=shift, line=(line or '')[:40], recipe=recipe,
@@ -130,14 +132,16 @@ def create_order(user, site, product, planned_quantity, shift, line='', planned_
     return p
 
 
-def _lock(pk):
-    return Production.objects.select_for_update().select_related('site', 'product', 'recipe').get(pk=pk)
+def _lock(pk, user):
+    obj = Production.objects.select_for_update().select_related('site', 'product', 'recipe').get(pk=pk)
+    require_site(user, obj.site)
+    return obj
 
 
 @transaction.atomic
 def issue(user, pk, material, quantity, source='', grn=None):
     _need(user, 'complete_production')
-    p = _lock(pk)
+    p = _lock(pk, user)
     if p.status not in ('Planned', 'In progress'):
         raise ValidationError(f'{p.batch} is {p.status.lower()} — material can no longer be issued.')
     quantity = Decimal(str(quantity or 0)).quantize(Decimal('0.001'))
@@ -149,7 +153,7 @@ def issue(user, pk, material, quantity, source='', grn=None):
         raise ValidationError(f'{grn.number} did not bring {material.name} to {p.site.code}.')
     n = p.issues.count() + 1
     m = move_stock(user, p.site, material, -quantity, f'prd:{p.pk}:issue:{n}', 'Consumption', f'{p.batch} · {source or "store"}')
-    i = MaterialIssue.objects.create(production=p, material=material, quantity=quantity, source=(source or '')[:60], grn=grn, unit_cost=m.unit_cost or 0, issued_by=user)
+    i = MaterialIssue.objects.create(production=p, material=material, quantity=quantity, source=(source or '')[:60], grn=grn, unit_cost=m.unit_cost or 0, cost_value=abs(m.value), issued_by=user)
     if p.status == 'Planned':
         p.status, p.started_at = 'In progress', timezone.now()
         p.save(update_fields=['status', 'started_at'])
@@ -177,7 +181,7 @@ def variance(p, output):
 def complete(user, pk, output=None, scrap=0, note=''):
     """Record good output and scrap; check material variance; fix the batch's actual cost. Batch goes to quality hold."""
     _need(user, 'complete_production')
-    p = _lock(pk)
+    p = _lock(pk, user)
     if p.status not in ('Planned', 'In progress'):
         raise ValidationError('Only planned or running batches can be completed.')
     output = Decimal(output if output is not None else p.actual_quantity)
@@ -205,7 +209,7 @@ def complete(user, pk, output=None, scrap=0, note=''):
 @transaction.atomic
 def cancel(user, pk, note):
     _need(user, 'add_production')
-    p = _lock(pk)
+    p = _lock(pk, user)
     if p.status != 'Planned' or p.issues.exists():
         raise ValidationError('Only planned batches with no material issued can be cancelled.')
     if not (note or '').strip():
@@ -220,6 +224,7 @@ def cancel(user, pk, note):
 
 def save_shift_log(user, data):
     _need(user, 'add_shiftlog')
+    require_site(user, data['site'])
     problems = []
     if not (data.get('line') or '').strip(): problems.append('Enter the line / mill.')
     if not (data.get('supervisor') or '').strip(): problems.append('Enter the shift supervisor.')
@@ -249,11 +254,16 @@ def bag_kg(product):
 def pack(user, site, data):
     """data: date, shift, packer, bulk_product, bag_product, batch, bulk_issued, bags_packed, bags_burst, spillage_kg, downtime_minutes, empty_bags, difference_reason."""
     _need(user, 'add_packingrun')
+    require_site(user, site)
+    if data.get('batch'):
+        data = {**data, 'batch': Production.objects.select_for_update().get(pk=data['batch'].pk)}
     bulk, bag = data['bulk_product'], data['bag_product']
     problems = []
     if bulk.unit != 'MT': problems.append(f'{bulk.name} must be stocked in MT.')
     if bag.unit != 'BAG': problems.append(f'{bag.name} must be stocked in bags.')
     if data['bags_packed'] <= 0: problems.append('Enter the bags packed.')
+    if data.get('batch') and (data['batch'].site_id != site.pk or data['batch'].product_id != bulk.pk):
+        problems.append('Choose a bulk batch of this product at this plant.')
     if data.get('batch') and data['batch'].status != 'Released': problems.append(f'Batch {data["batch"].batch} is not released by quality.')
     if problems:
         raise ValidationError(problems)
@@ -266,13 +276,13 @@ def pack(user, site, data):
                                     **{k: data.get(k) for k in ('date', 'shift', 'packer', 'bulk_product', 'bag_product', 'batch', 'bulk_issued', 'bags_packed',
                                                                 'bags_burst', 'spillage_kg', 'downtime_minutes', 'empty_bags')})
     out = move_stock(user, site, bulk, -Decimal(data['bulk_issued']), f'pck:{run.pk}:bulk', 'Consumption', f'{run.number} · {run.packer}')
-    cost = Decimal(data['bulk_issued']) * (out.unit_cost or 0)
+    cost = abs(out.value)
     if data.get('empty_bags'):
         e = move_stock(user, site, data['empty_bags'], -Decimal(data['bags_packed'] + (data.get('bags_burst') or 0)), f'pck:{run.pk}:bags', 'Consumption', run.number)
-        cost += Decimal(data['bags_packed'] + (data.get('bags_burst') or 0)) * (e.unit_cost or 0)
+        cost += abs(e.value)
     run.unit_cost = (cost / data['bags_packed']).quantize(Decimal('0.0001')) if cost else ZERO
     run.save(update_fields=['unit_cost'])
     move_stock(user, site, bag, Decimal(data['bags_packed']), f'pck:{run.pk}:out', 'Production', f'{run.number}' + (f' · batch {data["batch"].batch}' if data.get('batch') else ''),
-               unit_cost=run.unit_cost or None)
+               unit_cost=run.unit_cost or None, value=cost)
     _log(user, site, 'Packing recorded', run.number, f'{data["bags_packed"]} bags, {data.get("bags_burst") or 0} burst, bulk {qtxt(data["bulk_issued"])} MT, difference {qtxt(diff)} MT')
     return run

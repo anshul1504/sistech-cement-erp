@@ -17,8 +17,7 @@ from django.utils import timezone
 from accounts.roles import order_permission
 from .gst import next_number, summarise, in_words
 from .models import Invoice, InvoiceLine, Order, Organization, Partner, Site, AuditEvent, INDIAN_STATES
-from .services import scope, permitted
-
+from .services import scope, permitted, require_site
 
 class TransportForm(forms.Form):
     vehicle_number = forms.CharField(label='Vehicle no.', max_length=20, required=False, widget=forms.TextInput(attrs={'placeholder': 'e.g. MP04 GA 1234', 'style': 'text-transform:uppercase'}))
@@ -71,8 +70,18 @@ class _Billable:
         self.line, self.product, self.quantity, self.rate, self.gst_rate, self.hsn = line, line.product, quantity, line.rate, line.gst_rate, line.hsn
 
 
+@transaction.atomic
 def create_invoice(user, order, billables, transport, dispatch=None):
-    """Snapshot seller, buyer, lines and GST into a posted invoice, then settle any advance. Caller holds the transaction."""
+    """Atomically snapshot an authorized sale and settle its customer advances."""
+    permitted(user, 'post_invoice')
+    order = Order.objects.select_for_update().select_related('site', 'partner').get(pk=order.pk)
+    require_site(user, order.site)
+    if dispatch is None:
+        problems = invoice_blockers(order)
+        if problems:
+            raise ValidationError(problems)
+    elif dispatch.order_id != order.pk or dispatch.site_id != order.site_id:
+        raise ValidationError('Dispatch does not belong to this order and site.')
     org = Organization.objects.defer('logo', 'icon').filter(pk=1).first() or Organization()
     tax = summarise(billables, order.is_interstate)
     today = timezone.localdate()
@@ -100,7 +109,9 @@ def create_invoice(user, order, billables, transport, dispatch=None):
 @transaction.atomic
 def post_invoice(user, order_pk, transport):
     """Whole-order invoice for plants that dispatch without the weighbridge flow."""
+    permitted(user, 'post_invoice')
     order = Order.objects.select_for_update().select_related('site', 'partner').get(pk=order_pk)
+    require_site(user, order.site)
     problems = invoice_blockers(order)
     if problems:
         raise ValidationError(problems)

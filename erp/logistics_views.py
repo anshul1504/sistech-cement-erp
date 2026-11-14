@@ -161,7 +161,7 @@ def dispatch_board(request):
              'pod_due': base.filter(status='gate_out').count()}
     ready = scope(Order.objects.filter(kind='Sale', status__in=['Approved', 'Part dispatched'], site__uses_weighbridge=True), request.user).select_related('partner', 'site')[:20]
     return render(request, 'erp/dispatch_board.html', {'title': 'Gate & dispatch', 'columns': columns, 'done': done, 'stats': stats, 'q': q, 'site': site,
-                                                       'sites': Site.objects.filter(active=True, uses_weighbridge=True),
+                                                       'sites': Site.objects.filter(active=True, uses_weighbridge=True) if request.user.is_superuser else Site.objects.filter(active=True, uses_weighbridge=True, siteaccess__user=request.user),
                                                        'ready': ready if request.user.has_perm('erp.add_dispatch') else []})
 
 

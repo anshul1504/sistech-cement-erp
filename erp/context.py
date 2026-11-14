@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.11.1'
+ASSET_VERSION = '0.12.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -90,7 +90,7 @@ NAV_GROUPS = [
 
 
 def _can_see(user, item):
-    if item['route'] in ('journals', 'payments') and not user.has_perm('erp.access_company_finance'):
+    if item['route'] in ('journals', 'payments', 'receipts', 'outstanding') and not user.has_perm('erp.access_company_finance'):
         return False
     if item['soon']:
         return True
@@ -171,7 +171,7 @@ def navigation(request):
         quick_create.append(('Vehicle', reverse('vehicle_new'), 'truck'))
     if user.has_perm('erp.add_journalentry') and user.has_perm('erp.access_company_finance'):
         quick_create.append(('Journal voucher', reverse('voucher_new'), 'book'))
-    if user.has_perm('erp.add_receipt'):
+    if user.has_perm('erp.add_receipt') and user.has_perm('erp.access_company_finance'):
         quick_create.append(('Receipt', reverse('receipt_new'), 'book'))
     if user.has_perm('erp.add_pricerule'):
         quick_create.append(('Price', reverse('prices_new'), 'receipt'))

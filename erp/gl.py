@@ -305,14 +305,24 @@ STOCK_MAP = {  # kind: (contra account key when stock comes IN, contra key when 
 
 def post_stock(user, m):
     """Value every stock movement at its unit cost. State moves within a site (damage / recovery) do not change the ledger."""
-    if m.kind not in STOCK_MAP or not m.unit_cost:
+    if m.kind not in STOCK_MAP:
         return None
-    value = (abs(m.quantity) * m.unit_cost).quantize(CENT)
+    value = abs(m.value)
     if not value:
         return None
     inv_acct = inventory_account(m.product)
     contra = acct(STOCK_MAP[m.kind][0 if m.quantity > 0 else 1])
     lines = [(inv_acct, value, 0, None, ''), (contra, 0, value, None, '')] if m.quantity > 0 else [(contra, value, 0, None, ''), (inv_acct, 0, value, None, '')]
+    if m.kind == 'PurchaseReturn' and m.quantity < 0 and m.source.startswith('dn:'):
+        from .models import DebitNoteLine
+        parts = m.source.split(':')
+        line = DebitNoteLine.objects.filter(note_id=parts[1], grn_line_id=parts[-1], from_stock=True).first()
+        if line:
+            po_value = (abs(m.quantity) * line.rate).quantize(CENT)
+            lines = [(contra, po_value, 0, None, 'Returned quantity at PO cost'), (inv_acct, 0, value, None, '')]
+            difference = value - po_value
+            if difference:
+                lines.append((acct('ppv'), difference if difference > 0 else 0, -difference if difference < 0 else 0, None, 'Return valuation difference'))
     return post(user, f'stk:{m.pk}', timezone.localdate(m.created_at), m.site, f'{m.get_kind_display()} · {m.product.code} {m.quantity.normalize():f} {m.uom} · {m.source}', lines)
 
 

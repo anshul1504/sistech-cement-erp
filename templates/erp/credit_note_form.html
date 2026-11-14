@@ -5,7 +5,7 @@
   <div class="org-head"><div><div class="eyebrow"><a href="{% url 'invoice_detail' inv.pk %}">← {{ inv.number }}</a></div><h1>Credit note</h1>
     <p>Against invoice {{ inv.number }} ({{ inv.date|date:'d M Y' }}) for {{ inv.buyer_name }}. GST is reversed at the invoice's rates ({% if inv.interstate %}IGST{% else %}CGST + SGST{% endif %}).</p></div></div>
   {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
-  <form method="post" class="doc-form" novalidate data-cn-form>{% csrf_token %}
+  <form method="post" class="doc-form" novalidate data-cn-form>{% csrf_token %}<input type="hidden" name="submission_key" value="{{ submission_key }}">
     <section class="org-card">
       <header><h2>Reason</h2><p>"Goods returned" also adds the quantity back to stock at {{ inv.site.code }}.</p></header>
       <div class="org-grid">

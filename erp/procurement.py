@@ -21,6 +21,8 @@ from .gst import next_number, qtxt
 from .models import (PurchaseRequest, PurchaseRequestLine, RFQ, RFQLine, SupplierQuote, SupplierQuoteLine, Order, OrderLine, Partner,
                      Product, StockBalance, AuditEvent, Organization)
 
+from .services import require_site
+
 ZERO = Decimal('0')
 OPEN_PO = ['Draft', 'Submitted', 'Approved', 'Part received']
 
@@ -92,6 +94,10 @@ def _clean_lines(lines):
 def save_request(user, site, needed_by, source, priority, purpose, lines, pr=None):
     """Create a draft request, or replace the lines of an existing draft. lines: [(Product, qty, est_rate|None, spec)]."""
     _need(user, 'add_purchaserequest' if not pr else 'change_purchaserequest')
+    require_site(user, site)
+    if pr:
+        pr = PurchaseRequest.objects.select_for_update().get(pk=pr.pk)
+        require_site(user, pr.site)
     lines, problems = _clean_lines(lines)
     if not (purpose or '').strip():
         problems.append('Say what the material is for.')
@@ -117,6 +123,7 @@ def save_request(user, site, needed_by, source, priority, purpose, lines, pr=Non
 @transaction.atomic
 def request_action(user, pk, action, note=''):
     pr = PurchaseRequest.objects.select_for_update().get(pk=pk)
+    require_site(user, pr.site)
     note = (note or '').strip()
     if action == 'submit':
         _need(user, 'add_purchaserequest')
@@ -180,6 +187,7 @@ def create_rfq(user, pr, suppliers, quotes_due, terms, quantities):
     """quantities: {PurchaseRequestLine: qty}."""
     _need(user, 'add_rfq')
     pr = PurchaseRequest.objects.select_for_update().get(pk=pr.pk)
+    require_site(user, pr.site)
     problems = []
     if pr.status != 'approved': problems.append('Only approved purchase requests can go for quotation.')
     if pr.rfqs.filter(status='open').exists(): problems.append(f'{pr.rfqs.filter(status="open").first().number} is already open for this request.')
@@ -208,6 +216,7 @@ def save_quote(user, rfq, supplier, data, rates):
     """data: reference, quote_date, valid_until, freight, lead_time_days, payment_terms_days, notes. rates: {RFQLine: (rate, gst)}."""
     _need(user, 'add_rfq')
     rfq = RFQ.objects.select_for_update().get(pk=rfq.pk)
+    require_site(user, rfq.site)
     problems = []
     if rfq.status != 'open': problems.append('This RFQ is no longer collecting quotes.')
     if not rfq.suppliers.filter(pk=supplier.pk).exists(): problems.append(f'{supplier.name} was not invited to {rfq.number}.')
@@ -292,6 +301,7 @@ def _po_lines_from(quote):
 def award(user, rfq_pk, quote_pk, reason='', tolerance=ZERO, delivery_terms=''):
     _need(user, 'award_rfq')
     rfq = RFQ.objects.select_for_update().select_related('request', 'site').get(pk=rfq_pk)
+    require_site(user, rfq.site)
     if rfq.status != 'open':
         raise ValidationError('This RFQ has already been awarded or cancelled.')
     quote = rfq.quotes.select_related('supplier').get(pk=quote_pk)
@@ -321,6 +331,7 @@ def award(user, rfq_pk, quote_pk, reason='', tolerance=ZERO, delivery_terms=''):
 def cancel_rfq(user, pk, note):
     _need(user, 'add_rfq')
     rfq = RFQ.objects.select_for_update().get(pk=pk)
+    require_site(user, rfq.site)
     if rfq.status != 'open':
         raise ValidationError('Only open RFQs can be cancelled.')
     if not (note or '').strip():
@@ -337,6 +348,7 @@ def direct_po(user, pr, supplier, reason, quantities, rates):
     if not user.has_perm('erp.create_purchase_order'):
         raise PermissionDenied
     pr = PurchaseRequest.objects.select_for_update().get(pk=pr.pk)
+    require_site(user, pr.site)
     problems = []
     if pr.status != 'approved': problems.append('Only approved purchase requests can be ordered.')
     if supplier.kind != 'Supplier' or not supplier.active: problems.append('Choose an active supplier.')

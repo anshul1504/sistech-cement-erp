@@ -1,6 +1,7 @@
 """Receivables: receipts (with cheque bounce), GST credit notes (with goods return), customer ledger and outstanding / ageing."""
 import csv
 import re
+from uuid import uuid4
 from .gst import inr
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -22,6 +23,9 @@ from .ledger import allocate, balance, open_invoices, ageing, ledger_rows, expos
 from .models import (Receipt, CreditNote, CreditNoteLine, Invoice, InvoiceLine, Partner, Settlement, AuditEvent, StockMovement, Organization,
                      RECEIPT_MODES, CREDIT_REASONS, CASH_LIMIT, CUSTOMER_KINDS, INDIAN_STATES)
 from .services import permitted, scope, move_stock
+from .finance_access import require_company_finance
+from .submissions import metadata, replay
+from . import gl
 
 
 def _styled(form):
@@ -33,6 +37,7 @@ def _styled(form):
 # ---------- Receipts ----------
 
 class ReceiptForm(forms.ModelForm):
+    submission_key = forms.UUIDField(required=False, initial=uuid4, widget=forms.HiddenInput)
     class Meta:
         model = Receipt
         fields = ['partner', 'date', 'amount', 'mode', 'reference', 'instrument_date', 'drawn_on', 'deposited_to', 'notes']
@@ -66,6 +71,7 @@ class ReceiptForm(forms.ModelForm):
 
 @login_required
 def receipts(request):
+    require_company_finance(request.user)
     permitted(request.user, 'view_receipt')
     qs = Receipt.objects.select_related('partner')
     q, mode, status = request.GET.get('q', '').strip(), request.GET.get('mode', ''), request.GET.get('status', '')
@@ -83,25 +89,46 @@ def receipts(request):
 
 
 @login_required
+@transaction.atomic
 def receipt_new(request):
+    require_company_finance(request.user)
     permitted(request.user, 'add_receipt')
     initial = {}
     if request.GET.get('partner', '').isdigit():
         initial['partner'] = request.GET['partner']
     form = ReceiptForm(request.POST or None, initial=initial)
-    if request.method == 'POST' and form.is_valid():
-        with transaction.atomic():
-            r = form.save(commit=False)
-            r.number, r.created_by = next_number('RCT'), request.user
-            r.save()
-            from .gl import post_receipt
-            post_receipt(request.user, r)
-            allocate(r.partner)
-            AuditEvent.objects.create(actor=request.user, action='Receipt posted', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {r.get_mode_display()}')
-        r.refresh_from_db()
-        adj = r.allocated
-        messages.success(request, f'{r.number}: ₹{inr(r.amount, 2)} received — ₹{inr(adj, 2)} adjusted against invoices' + (f', ₹{inr(r.unallocated, 2)} kept as advance.' if r.unallocated else '.'))
-        return redirect('receipt_detail', pk=r.pk)
+    if request.method == 'POST':
+        gl.lock_finance()
+        try:
+            key, fingerprint = metadata(request)
+            # Serialize retry/reference checks and allocations for the customer.
+            raw_partner = request.POST.get('partner', '')
+            if raw_partner.isdigit():
+                Partner.objects.select_for_update().filter(pk=raw_partner).first()
+            existing = replay(Receipt, request.user, key, fingerprint)
+        except ValidationError as e:
+            form.add_error(None, e)
+        else:
+            if existing:
+                messages.info(request, f'{existing.number} was already posted; the original receipt is shown.')
+                return redirect('receipt_detail', pk=existing.pk)
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        r = form.save(commit=False)
+                        r.number, r.created_by = next_number('RCT'), request.user
+                        r.submission_key, r.submission_fingerprint = key, fingerprint
+                        r.save()
+                        from .gl import post_receipt
+                        post_receipt(request.user, r)
+                        allocate(r.partner)
+                        AuditEvent.objects.create(actor=request.user, action='Receipt posted', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {r.get_mode_display()}')
+                except ValidationError as e:
+                    form.add_error(None, e)
+                else:
+                    r.refresh_from_db()
+                    messages.success(request, f'{r.number}: ₹{inr(r.amount, 2)} received — ₹{inr(r.allocated, 2)} adjusted against invoices' + (f', ₹{inr(r.unallocated, 2)} kept as advance.' if r.unallocated else '.'))
+                    return redirect('receipt_detail', pk=r.pk)
     pk = initial.get('partner') or request.POST.get('partner') or ''
     partner = form.fields['partner'].queryset.filter(pk=pk).first() if str(pk).isdigit() else None
     bal = balance(partner) if partner else None
@@ -111,6 +138,7 @@ def receipt_new(request):
 
 @login_required
 def receipt_detail(request, pk):
+    require_company_finance(request.user)
     permitted(request.user, 'view_receipt')
     r = get_object_or_404(Receipt.objects.select_related('partner', 'created_by'), pk=pk)
     return render(request, 'erp/receipt_detail.html', {'title': r.number, 'r': r, 'settlements': r.settlements.select_related('invoice'),
@@ -120,21 +148,27 @@ def receipt_detail(request, pk):
 @login_required
 @require_POST
 def receipt_bounce(request, pk):
+    require_company_finance(request.user)
     """Cheque / DD returned unpaid: undo its settlements, show it as a debit on the ledger, re-settle what is left."""
     permitted(request.user, 'bounce_receipt')
-    with transaction.atomic():
-        r = get_object_or_404(Receipt.objects.select_for_update(), pk=pk)
-        if r.mode not in ('cheque', 'dd') or r.status != 'posted':
-            messages.error(request, 'Only a posted cheque or DD can be marked as bounced.')
-            return redirect('receipt_detail', pk=pk)
-        reason = (request.POST.get('reason') or 'Returned unpaid').strip()[:120]
-        r.settlements.all().delete()
-        r.status, r.bounced_on, r.bounce_reason = 'bounced', timezone.localdate(), reason
-        r.save(update_fields=['status', 'bounced_on', 'bounce_reason'])
-        from .gl import reverse_source
-        reverse_source(request.user, f'rct:{r.pk}', reason=f'Cheque bounced: {reason}')
-        allocate(r.partner)
-        AuditEvent.objects.create(actor=request.user, action='Cheque bounced', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {reason}')
+    try:
+        with transaction.atomic():
+            gl.lock_finance()
+            r = get_object_or_404(Receipt.objects.select_for_update(), pk=pk)
+            if r.mode not in ('cheque', 'dd') or r.status != 'posted':
+                messages.error(request, 'Only a posted cheque or DD can be marked as bounced.')
+                return redirect('receipt_detail', pk=pk)
+            reason = (request.POST.get('reason') or 'Returned unpaid').strip()[:120]
+            r.settlements.all().delete()
+            r.status, r.bounced_on, r.bounce_reason = 'bounced', timezone.localdate(), reason
+            r.save(update_fields=['status', 'bounced_on', 'bounce_reason'])
+            from .gl import reverse_source
+            reverse_source(request.user, f'rct:{r.pk}', reason=f'Cheque bounced: {reason}')
+            allocate(r.partner)
+            AuditEvent.objects.create(actor=request.user, action='Cheque bounced', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {reason}')
+    except ValidationError as e:
+        messages.error(request, ' '.join(e.messages))
+        return redirect('receipt_detail', pk=pk)
     messages.warning(request, f'{r.number} marked bounced. ₹{inr(r.amount, 2)} is outstanding again for {r.partner.name}.')
     return redirect('receipt_detail', pk=pk)
 
@@ -147,12 +181,45 @@ def credit_room(line):
     return line.taxable - (done['t'] or 0), line.quantity - (done['q'] or 0)
 
 
+def return_valuation(invoice, line, quantity):
+    """Allocate actual dispatch value; the final return restores the remaining paisa."""
+    prefix = f'dispatch:{invoice.dispatch_id}:line:' if invoice.dispatch_id else f'order:{invoice.order_id}:line:'
+    originals = StockMovement.objects.filter(site=invoice.site, product=line.product, kind='Dispatch', source__startswith=prefix)
+    total_qty = sum((abs(m.quantity) for m in originals), Decimal(0))
+    total_value = sum((abs(m.value) for m in originals), Decimal(0))
+    if not total_qty:
+        return None, None  # Legacy records without a dispatch-cost snapshot.
+    product_qty = invoice.lines.filter(product=line.product).aggregate(t=Sum('quantity'))['t'] or 0
+    budget = (total_value * product_qty / total_qty).quantize(Decimal('.01'))
+    sources = [f'cn:{cn_id}:line:{line_id}' for cn_id, line_id in CreditNoteLine.objects.filter(
+        invoice_line__invoice=invoice, invoice_line__product=line.product, credit_note__returns_stock=True).values_list('credit_note_id', 'invoice_line_id')]
+    returned = StockMovement.objects.filter(source__in=sources, kind='Return')
+    done_qty = sum((m.quantity for m in returned), Decimal(0))
+    done_value = sum((m.value for m in returned), Decimal(0))
+    value = budget - done_value if done_qty + quantity == product_qty else (total_value * quantity / total_qty).quantize(Decimal('.01'))
+    return total_value / total_qty, min(max(value, Decimal(0)), max(budget - done_value, Decimal(0)))
+
+
 @login_required
+@transaction.atomic
 def credit_note_new(request, pk):
     permitted(request.user, 'add_creditnote')
     inv = get_object_or_404(scope(Invoice.objects.select_related('partner', 'site'), request.user), pk=pk)
-    lines = list(inv.lines.select_related('product'))
     rows, errors = [], []
+    key, fingerprint = None, ''
+    if request.method == 'POST':
+        gl.lock_finance()
+        Partner.objects.select_for_update().get(pk=inv.partner_id)
+        inv = Invoice.objects.select_for_update().get(pk=inv.pk)
+        try:
+            key, fingerprint = metadata(request)
+            existing = replay(CreditNote, request.user, key, fingerprint)
+            if existing:
+                messages.info(request, f'{existing.number} was already posted; the original credit note is shown.')
+                return redirect('credit_note_detail', pk=existing.pk)
+        except ValidationError as e:
+            errors += e.messages
+    lines = list(inv.lines.select_related('product'))
     reason = request.POST.get('reason', 'rate')
     for l in lines:
         room_value, room_qty = credit_room(l)
@@ -167,6 +234,8 @@ def credit_note_new(request, pk):
             try:
                 qty = Decimal(row['qty'] or '0')
                 value = money(row['value'] or '0')
+                if not qty.is_finite() or not value.is_finite():
+                    raise InvalidOperation
             except InvalidOperation:
                 errors.append(f'{l.description}: enter numbers only.'); continue
             if reason == 'return' and qty:
@@ -182,33 +251,39 @@ def credit_note_new(request, pk):
         if not picked and not errors:
             errors.append('Enter a quantity or value on at least one line.')
         if not errors:
-            with transaction.atomic():
-                cn = CreditNote(invoice=inv, partner=inv.partner, reason=reason, notes=request.POST.get('notes', '')[:200], created_by=request.user,
-                                returns_stock=reason == 'return' and any(q for _, q, _ in picked), taxable=0, cgst=0, sgst=0, igst=0, round_off=0, total=0)
-                cn.number = next_number('CN', inv.site)
-                cn.save()
-                for l, qty, value in picked:
-                    c, s, i = line_tax(value, l.gst_rate, inv.interstate)
-                    CreditNoteLine.objects.create(credit_note=cn, invoice_line=l, quantity=qty, taxable=value, gst_rate=l.gst_rate, cgst=c, sgst=s, igst=i)
-                    cn.taxable += value; cn.cgst += c; cn.sgst += s; cn.igst += i
-                    if qty and cn.returns_stock:
-                        move_stock(request.user, inv.site, l.product, qty, f'cn:{cn.pk}:line:{l.pk}', 'Return', f'{cn.number} against {inv.number}')
-                exact = cn.taxable + cn.cgst + cn.sgst + cn.igst
-                cn.total = exact.quantize(Decimal('1'))
-                cn.round_off = cn.total - exact
-                cn.save()
-                from .gl import post_credit_note
-                post_credit_note(request.user, cn)
-                # A credit note first reduces its own invoice; anything left settles other invoices or stays as credit.
-                own = min(cn.total, inv.outstanding)
-                if own > 0:
-                    Settlement.objects.create(invoice=inv, credit_note=cn, amount=own)
-                allocate(inv.partner)
-                AuditEvent.objects.create(actor=request.user, site=inv.site, action='Credit note posted', reference=cn.number, detail=f'{inv.number} · {cn.get_reason_display()} · ₹{cn.total}')
-            messages.success(request, f'Credit note {cn.number} for ₹{inr(cn.total, 0)} posted against {inv.number}.' + (' Returned stock added back.' if cn.returns_stock else ''))
-            return redirect('credit_note_detail', pk=cn.pk)
+            try:
+                with transaction.atomic():
+                    cn = CreditNote(invoice=inv, partner=inv.partner, reason=reason, notes=request.POST.get('notes', '')[:200], created_by=request.user,
+                                    returns_stock=reason == 'return' and any(q for _, q, _ in picked), taxable=0, cgst=0, sgst=0, igst=0, round_off=0, total=0)
+                    cn.number = next_number('CN', inv.site)
+                    cn.submission_key, cn.submission_fingerprint = key, fingerprint
+                    cn.save()
+                    for l, qty, value in picked:
+                        c, s, i = line_tax(value, l.gst_rate, inv.interstate)
+                        CreditNoteLine.objects.create(credit_note=cn, invoice_line=l, quantity=qty, taxable=value, gst_rate=l.gst_rate, cgst=c, sgst=s, igst=i)
+                        cn.taxable += value; cn.cgst += c; cn.sgst += s; cn.igst += i
+                        if qty and cn.returns_stock:
+                            cost, stock_value = return_valuation(inv, l, qty)
+                            move_stock(request.user, inv.site, l.product, qty, f'cn:{cn.pk}:line:{l.pk}', 'Return', f'{cn.number} against {inv.number}', unit_cost=cost, value=stock_value)
+                    exact = cn.taxable + cn.cgst + cn.sgst + cn.igst
+                    cn.total = exact.quantize(Decimal('1'))
+                    cn.round_off = cn.total - exact
+                    cn.save()
+                    from .gl import post_credit_note
+                    post_credit_note(request.user, cn)
+                    # A credit note first reduces its own invoice; anything left settles other invoices or stays as credit.
+                    own = min(cn.total, inv.outstanding)
+                    if own > 0:
+                        Settlement.objects.create(invoice=inv, credit_note=cn, amount=own)
+                    allocate(inv.partner)
+                    AuditEvent.objects.create(actor=request.user, site=inv.site, action='Credit note posted', reference=cn.number, detail=f'{inv.number} · {cn.get_reason_display()} · ₹{cn.total}')
+            except ValidationError as e:
+                errors += e.messages
+            else:
+                messages.success(request, f'Credit note {cn.number} for ₹{inr(cn.total, 0)} posted against {inv.number}.' + (' Returned stock added back.' if cn.returns_stock else ''))
+                return redirect('credit_note_detail', pk=cn.pk)
     return render(request, 'erp/credit_note_form.html', {'title': f'Credit note · {inv.number}', 'inv': inv, 'rows': rows, 'errors': errors,
-                                                         'reasons': CREDIT_REASONS, 'reason': reason, 'notes': request.POST.get('notes', '')})
+                                                         'submission_key': request.POST.get('submission_key') or uuid4(), 'reasons': CREDIT_REASONS, 'reason': reason, 'notes': request.POST.get('notes', '')})
 
 
 @login_required
@@ -234,9 +309,15 @@ def credit_note_detail(request, pk):
 
 @login_required
 def partner_ledger(request, pk):
+    require_company_finance(request.user)
     permitted(request.user, 'view_receipt')
     partner = get_object_or_404(Partner, pk=pk, kind__in=CUSTOMER_KINDS)
-    parse = lambda v: date.fromisoformat(v) if re.fullmatch(r'\d{4}-\d{2}-\d{2}', v or '') else None
+    def parse(value):
+        try:
+            return date.fromisoformat(value) if value else None
+        except ValueError:
+            messages.error(request, 'Choose a valid date for the ledger filter.')
+            return None
     start, end = parse(request.GET.get('from')), parse(request.GET.get('to'))
     opening, rows = ledger_rows(partner, start, end)
     if request.GET.get('export') == 'csv':
@@ -260,6 +341,7 @@ def partner_ledger(request, pk):
 
 @login_required
 def outstanding(request):
+    require_company_finance(request.user)
     permitted(request.user, 'view_receipt')
     invs = open_invoices()
     by_partner = {}

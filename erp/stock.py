@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from .gst import next_number, qtxt, inr
 from .models import (StockBalance, StockTransfer, StockTransferLine, DamageReport, Product, OrderLine, GRNLine, Production, AuditEvent, Organization)
-from .services import move_stock, transfer_state
+from .services import require_site, move_stock, transfer_state
 
 ZERO = Decimal('0')
 
@@ -99,6 +99,7 @@ def _state(t, *allowed):
 def request_transfer(user, from_site, to_site, reason, lines, needed_by=None):
     """lines: [(Product, qty)]"""
     _need(user, 'add_stocktransfer')
+    require_site(user, from_site)
     problems = []
     if not from_site or not to_site or from_site == to_site:
         problems.append('Choose two different locations.')
@@ -128,6 +129,7 @@ def request_transfer(user, from_site, to_site, reason, lines, needed_by=None):
 def decide_transfer(user, pk, approve, note=''):
     _need(user, 'approve_stocktransfer')
     t = _lock(pk)
+    require_site(user, t.from_site)
     _state(t, 'requested')
     if t.created_by_id == user.pk:
         raise ValidationError('The person who requested the transfer cannot approve it (maker-checker).')
@@ -145,6 +147,7 @@ def dispatch_transfer(user, pk, quantities, vehicle, driver='', lr='', eway=''):
     """quantities: {line_pk: qty}. Stock leaves the source at its average cost and is in transit until received."""
     _need(user, 'dispatch_stocktransfer')
     t = _lock(pk)
+    require_site(user, t.from_site)
     _state(t, 'approved')
     vehicle = ''.join(ch for ch in (vehicle or '').upper() if ch.isalnum())
     problems = []
@@ -168,7 +171,7 @@ def dispatch_transfer(user, pk, quantities, vehicle, driver='', lr='', eway=''):
         l.dispatched = q
         if q:
             m = move_stock(user, t.from_site, l.product, -q, f'trf:{t.pk}:line:{l.pk}:out', 'TransferOut', f'{t.number} → {t.to_site.code} · {vehicle}')
-            l.unit_cost = m.unit_cost
+            l.unit_cost, l.cost_value = m.unit_cost, abs(m.value)
         l.save()
     t.status, t.vehicle_number, t.driver_name, t.lr_number, t.eway_bill = 'in_transit', vehicle, (driver or '')[:80], (lr or '')[:30], eway
     t.dispatched_by, t.dispatched_at = user, timezone.now()
@@ -182,6 +185,7 @@ def receive_transfer(user, pk, received, damaged):
     """received / damaged: {line_pk: qty}. Good quantity goes to available, damaged to the damaged state; shortage opens a case."""
     _need(user, 'receive_stocktransfer')
     t = _lock(pk)
+    require_site(user, t.to_site)
     _state(t, 'in_transit')
     if t.dispatched_by_id == user.pk:
         raise ValidationError('The person who dispatched cannot also confirm receipt.')
@@ -195,13 +199,15 @@ def receive_transfer(user, pk, received, damaged):
         raise ValidationError(problems)
     for l in lines:
         l.save()
+        good_value = (l.received_cost * l.received / (l.received + l.damaged)).quantize(Decimal('0.01')) if l.received + l.damaged else ZERO
+        damaged_value = l.received_cost - good_value
         if l.received:
-            move_stock(user, t.to_site, l.product, l.received, f'trf:{t.pk}:line:{l.pk}:in', 'TransferIn', f'{t.number} from {t.from_site.code}', unit_cost=l.unit_cost)
+            move_stock(user, t.to_site, l.product, l.received, f'trf:{t.pk}:line:{l.pk}:in', 'TransferIn', f'{t.number} from {t.from_site.code}', unit_cost=l.unit_cost, value=good_value)
         if l.damaged:
-            move_stock(user, t.to_site, l.product, l.damaged, f'trf:{t.pk}:line:{l.pk}:dmg', 'TransferIn', f'{t.number} damaged in transit', status='damaged', unit_cost=l.unit_cost)
+            move_stock(user, t.to_site, l.product, l.damaged, f'trf:{t.pk}:line:{l.pk}:dmg', 'TransferIn', f'{t.number} damaged in transit', status='damaged', unit_cost=l.unit_cost, value=damaged_value)
             DamageReport.objects.create(number=next_number('DMG', t.to_site), site=t.to_site, product=l.product, quantity=l.damaged, reason='torn',
                                         location=f'Received on {t.number}', incident_owner=t.vehicle_number or 'Transporter',
-                                        description=f'Damaged in transit from {t.from_site.code}', unit_cost=l.unit_cost or 0, created_by=user)
+                                        description=f'Damaged in transit from {t.from_site.code}', unit_cost=l.unit_cost or 0, cost_value=damaged_value, created_by=user)
     short = [l for l in lines if l.shortage > 0 or l.damaged > 0]
     t.status = 'discrepancy' if short else 'received'
     t.received_by, t.received_at = user, timezone.now()
@@ -215,13 +221,14 @@ def resolve_transfer(user, pk, note):
     """Close the discrepancy case: the shortage stays written off as transit loss (stock already left the source) with an explanation."""
     _need(user, 'approve_stocktransfer')
     t = _lock(pk)
+    require_site(user, t.to_site)
     _state(t, 'discrepancy')
     if user.pk in (t.received_by_id, t.dispatched_by_id):
         raise ValidationError('Someone not involved in dispatch or receipt must resolve the discrepancy.')
     note = (note or '').strip()
     if not note:
         raise ValidationError('Record the finding (e.g. transporter recovery, weighbridge difference, theft complaint).')
-    loss = sum((l.shortage * (l.unit_cost or 0) for l in t.lines.all()), ZERO)
+    loss = sum((l.loss_value for l in t.lines.all()), ZERO)
     t.status, t.resolved_by, t.resolution = 'received', user, note[:200]
     t.save()
     from .gl import post_transit_loss
@@ -234,6 +241,7 @@ def resolve_transfer(user, pk, note):
 def cancel_transfer(user, pk, note):
     _need(user, 'add_stocktransfer')
     t = _lock(pk)
+    require_site(user, t.from_site)
     _state(t, 'requested', 'approved')
     if not (note or '').strip():
         raise ValidationError('Give the reason for cancelling.')
@@ -244,7 +252,7 @@ def cancel_transfer(user, pk, note):
 
 
 def transit_loss(t):
-    return sum((l.shortage * (l.unit_cost or 0) for l in t.lines.all()), ZERO).quantize(Decimal('0.01'))
+    return sum((l.loss_value for l in t.lines.all()), ZERO).quantize(Decimal('0.01'))
 
 
 # ---------- Damaged stock ----------
@@ -252,6 +260,7 @@ def transit_loss(t):
 @transaction.atomic
 def report_damage(user, site, product, quantity, reason, location, owner, description='', photo=None):
     _need(user, 'add_damagereport')
+    require_site(user, site)
     quantity = Decimal(quantity or 0)
     problems = []
     if quantity <= 0: problems.append('Enter the damaged quantity.')
@@ -266,7 +275,7 @@ def report_damage(user, site, product, quantity, reason, location, owner, descri
     if photo:
         d.photo, d.photo_type = photo
     m = transfer_state(user, site, product, quantity, f'dmg:{d.pk}', 'Damage', 'Damage', 'available', 'damaged', f'{d.number} · {d.get_reason_display()}')
-    d.unit_cost = m.unit_cost or 0
+    d.unit_cost, d.cost_value = m.unit_cost or 0, abs(m.value)
     d.save()
     _log(user, site, 'Damage reported', d.number, f'{product.code} {qtxt(quantity)} {product.unit} · {d.get_reason_display()} · {d.location} · ₹{inr(d.value)}')
     return d
@@ -276,6 +285,7 @@ def report_damage(user, site, product, quantity, reason, location, owner, descri
 def decide_damage(user, pk, recovered, scrapped, note):
     _need(user, 'decide_damagereport')
     d = DamageReport.objects.select_for_update().select_related('site', 'product').get(pk=pk)
+    require_site(user, d.site)
     recovered, scrapped = Decimal(recovered or 0), Decimal(scrapped or 0)
     note = (note or '').strip()
     if d.status != 'reported':
@@ -308,6 +318,7 @@ def _count_lock(pk):
 @transaction.atomic
 def start_count(user, site, category='', blind=True, note=''):
     _need(user, 'add_stockcount')
+    require_site(user, site)
     open_counts = StockCount.objects.filter(site=site, status__in=['counting', 'submitted', 'recount'])
     if (open_counts if not category else open_counts.filter(category__in=[category, ''])).exists():
         raise ValidationError(f'A count is already open at {site.code} for these items — finish it first.')
@@ -334,6 +345,7 @@ def save_count(user, pk, counted, reasons, submit=False):
     """counted: {line_pk: qty or None}. In 'recount' only flagged lines are re-entered (into recounted)."""
     _need(user, 'add_stockcount')
     c = _count_lock(pk)
+    require_site(user, c.site)
     if c.status not in ('counting', 'recount'):
         raise ValidationError('This count is not open for entry.')
     for l in c.lines.all():
@@ -363,6 +375,7 @@ def review_count(user, pk, action, recount_lines=(), note=''):
     """action 'recount' sends chosen lines back; 'approve' posts each variance as a Count adjustment."""
     _need(user, 'approve_stockcount')
     c = _count_lock(pk)
+    require_site(user, c.site)
     if c.status != 'submitted':
         raise ValidationError('Only submitted counts can be reviewed.')
     if user.pk in (c.submitted_by_id,):

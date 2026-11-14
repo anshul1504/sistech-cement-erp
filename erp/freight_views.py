@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from . import freight as F
 from .influencer_views import district_options
 from .models import FreightRate, FreightBill, Partner, Site, Dispatch, AuditEvent, clean_place
-from .services import permitted
+from .services import permitted, scope
 
 
 class FreightRateForm(forms.ModelForm):
@@ -55,7 +55,7 @@ class FreightRateForm(forms.ModelForm):
 @login_required
 def freight_rates(request):
     permitted(request.user, 'view_freightrate')
-    qs = FreightRate.objects.select_related('origin', 'transporter').annotate(trips=Count('dispatches'))
+    qs = scope(FreightRate.objects.select_related('origin', 'transporter').annotate(trips=Count('dispatches')), request.user, 'origin')
     q = request.GET.get('q', '').strip()
     if q: qs = qs.filter(Q(destination__icontains=q) | Q(transporter__name__icontains=q) | Q(origin__code__icontains=q))
     today = timezone.localdate()
@@ -70,7 +70,7 @@ def freight_rates(request):
 @login_required
 def freight_rate_form(request, pk=None):
     permitted(request.user, 'change_freightrate' if pk else 'add_freightrate')
-    obj = get_object_or_404(FreightRate, pk=pk) if pk else None
+    obj = get_object_or_404(scope(FreightRate.objects.all(), request.user, 'origin'), pk=pk) if pk else None
     if obj and obj.dispatches.exists() and request.method == 'POST':
         # Used on trips: only the end date / active flag may change, so history stays true.
         form = FreightRateForm(request.POST, instance=obj)
@@ -83,6 +83,7 @@ def freight_rate_form(request, pk=None):
             for name in form.fields:
                 if name not in ('valid_to', 'active'):
                     form.fields[name].disabled = True
+    form.fields['origin'].queryset = (Site.objects.filter(active=True) if request.user.is_superuser else Site.objects.filter(active=True, siteaccess__user=request.user))
     if request.method == 'POST' and form.is_valid():
         r = form.save(commit=False)
         if not pk: r.created_by = request.user
@@ -100,14 +101,16 @@ def freight_rate_form(request, pk=None):
 @login_required
 def freight_bills(request):
     permitted(request.user, 'view_freightbill')
-    qs = FreightBill.objects.select_related('transporter', 'created_by', 'checked_by')
+    base = F.visible_bills(FreightBill.objects.select_related('transporter', 'created_by', 'checked_by'), request.user)
+    qs = base
     status = request.GET.get('status', '')
     if status in ('submitted', 'approved', 'rejected'): qs = qs.filter(status=status)
     pending = Dispatch.objects.filter(status__in=['gate_out', 'delivered'], freight_payable_by='company', freight_line__isnull=True, transporter__isnull=False)
+    pending = scope(pending, request.user)
     by_transporter = pending.values('transporter', 'transporter__name').annotate(n=Count('id'), amount=Sum('freight_amount')).order_by('transporter__name')
     return render(request, 'erp/freight_bills.html', {'title': 'Freight bills', 'bills': qs[:200], 'status': status, 'unbilled': by_transporter,
-                                                      'totals': FreightBill.objects.filter(status='approved').aggregate(p=Sum('payable')),
-                                                      'waiting': FreightBill.objects.filter(status='submitted').count(),
+                                                      'totals': base.filter(status='approved').aggregate(p=Sum('payable')),
+                                                      'waiting': base.filter(status='submitted').count(),
                                                       'can_add': request.user.has_perm('erp.add_freightbill')})
 
 
@@ -115,7 +118,7 @@ def freight_bills(request):
 def freight_bill_new(request, transporter_pk):
     permitted(request.user, 'add_freightbill')
     transporter = get_object_or_404(Partner, pk=transporter_pk, kind='Transporter')
-    trips = list(F.billable_trips(transporter))
+    trips = list(scope(F.billable_trips(transporter), request.user))
     for t in trips:
         t.recovery = F.shortage_value(t)
         t.f = {k: request.POST.get(f'{k}_{t.pk}', '') for k in ['pick', 'claimed', 'days', 'extra', 'reason']}
@@ -149,7 +152,7 @@ def freight_bill_new(request, transporter_pk):
 @login_required
 def freight_bill_detail(request, pk):
     permitted(request.user, 'view_freightbill')
-    bill = get_object_or_404(FreightBill.objects.select_related('transporter', 'created_by', 'checked_by'), pk=pk)
+    bill = get_object_or_404(F.visible_bills(FreightBill.objects.select_related('transporter', 'created_by', 'checked_by'), request.user), pk=pk)
     return render(request, 'erp/freight_bill_detail.html', {'title': f'Freight bill {bill.bill_number}', 'bill': bill,
                                                             'lines': bill.lines.select_related('dispatch__vehicle', 'dispatch__order__partner', 'dispatch__freight_rate'),
                                                             'can_decide': request.user.has_perm('erp.approve_freightbill') and bill.status == 'submitted' and bill.created_by_id != request.user.pk})
@@ -158,6 +161,10 @@ def freight_bill_detail(request, pk):
 @login_required
 @require_POST
 def freight_bill_decide(request, pk, decision):
+    if decision not in ('approve', 'reject'):
+        from django.http import Http404
+        raise Http404
+    get_object_or_404(F.visible_bills(FreightBill.objects.all(), request.user), pk=pk)
     try:
         bill = F.decide(request.user, pk, decision == 'approve', request.POST.get('note', ''))
         messages.success(request, f'Bill {bill.bill_number} {bill.get_status_display().lower()}.')

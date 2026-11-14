@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from .gst import next_number, qtxt
 from .models import GoodsReceipt, GRNLine, Weighment, Order, OrderLine, AuditEvent
-from .services import move_stock
+from .services import move_stock, require_site
 
 ZERO = Decimal('0')
 RECEIVABLE = ('Approved', 'Part received')
@@ -34,8 +34,10 @@ def _log(user, g, action, detail=''):
     AuditEvent.objects.create(actor=user, site=g.site, action=action, reference=g.number, detail=detail[:250])
 
 
-def _lock(pk):
-    return GoodsReceipt.objects.select_for_update().select_related('site', 'order', 'supplier').get(pk=pk)
+def _lock(pk, user):
+    obj = GoodsReceipt.objects.select_for_update().select_related('site', 'order', 'supplier').get(pk=pk)
+    require_site(user, obj.site)
+    return obj
 
 
 def _state(g, *allowed):
@@ -69,6 +71,7 @@ def gate_in(user, order, data, challan_qty, photo=None):
     """data: vehicle_number, driver_name, driver_mobile, transporter_name, challan_number, challan_date, eway_bill, notes. challan_qty: {OrderLine: qty}."""
     _need(user, 'add_goodsreceipt')
     order = Order.objects.select_for_update().select_related('site', 'partner').get(pk=order.pk)
+    require_site(user, order.site)
     problems = []
     if order.kind != 'Purchase' or order.status not in RECEIVABLE:
         problems.append('Only approved purchase orders can receive material.')
@@ -119,7 +122,7 @@ def gate_in(user, order, data, challan_qty, photo=None):
 def weigh(user, pk, kind, weight_kg, source='manual', reason=''):
     """Inbound trucks come loaded: gross first, then tare after unloading. A second reading of the same kind is a reweigh."""
     _need(user, 'weigh_dispatch')
-    g = _lock(pk)
+    g = _lock(pk, user)
     if not g.site.uses_weighbridge:
         raise ValidationError(f'{g.site.code} does not use a weighbridge.')
     reason = (reason or '').strip()
@@ -174,7 +177,7 @@ def suggested_received(g):
 def post(user, pk, rows, variance_reason=''):
     """rows: {GRNLine: {'received', 'accepted', 'rejected', 'damaged', 'hold', 'reason'}} — all Decimals except reason."""
     _need(user, 'post_goodsreceipt')
-    g = _lock(pk)
+    g = _lock(pk, user)
     _state(g, 'unloaded')
     order = Order.objects.select_for_update().get(pk=g.order_id)
     if order.status not in RECEIVABLE:
@@ -245,6 +248,7 @@ def release(user, line_pk, accept, reject, note):
     """Quality decision on held quantity. Accepted part enters stock; rejected part goes back to the supplier (debit note)."""
     _need(user, 'release_goodsreceipt')
     l = GRNLine.objects.select_for_update().select_related('grn__site', 'grn__supplier', 'product', 'po_line').get(pk=line_pk)
+    require_site(user, l.grn.site)
     g = l.grn
     note = (note or '').strip()
     accept, reject = Decimal(accept or 0), Decimal(reject or 0)
@@ -269,7 +273,7 @@ def release(user, line_pk, accept, reject, note):
 @transaction.atomic
 def cancel(user, pk, reason):
     _need(user, 'add_goodsreceipt')
-    g = _lock(pk)
+    g = _lock(pk, user)
     _state(g, 'gate_in', 'weighed', 'unloaded')
     reason = (reason or '').strip()
     if not reason:

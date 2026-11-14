@@ -45,6 +45,8 @@ class LogisticsTests(TestCase):
         cls.sup = user_with('sup', 'approve_weight_exception', 'weigh_dispatch')
         cls.acct = user_with('acct', 'post_invoice')
         cls.pod = user_with('podu', 'pod_dispatch')
+        for actor in [cls.planner, cls.gate, cls.wb, cls.loader, cls.sup, cls.acct, cls.pod]:
+            SiteAccess.objects.create(user=actor, site=cls.site)
 
     def setUp(self):
         StockBalance.objects.create(site=self.site, product=self.cement, quantity=1000)
@@ -137,6 +139,7 @@ class LogisticsTests(TestCase):
         with self.assertRaisesMessage(ValidationError, 'cannot approve'):
             L.approve_exception(self.sup, d.pk, 'ok')
         other = user_with('sup2', 'approve_weight_exception')
+        SiteAccess.objects.create(user=other, site=self.site)
         with self.assertRaisesMessage(ValidationError, 'Write why'):
             L.approve_exception(other, d.pk, '  ')
         L.approve_exception(other, d.pk, '12 bags checked at 50.5 kg')
@@ -186,6 +189,7 @@ class LogisticsTests(TestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'Completed')
         # Gate user sees the board only for plants they can access
+        SiteAccess.objects.filter(user=self.gate).delete()  # simulate access revocation
         self.client.force_login(self.gate)
         self.assertEqual(self.client.get(reverse('dispatch_detail', args=[d.pk])).status_code, 404)
         SiteAccess.objects.create(user=self.gate, site=self.site)

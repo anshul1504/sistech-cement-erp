@@ -11,9 +11,22 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import FreightRate, FreightBill, FreightBillLine, Dispatch, AuditEvent, clean_place
+from .services import require_site
+from .models import Site, FreightRate, FreightBill, FreightBillLine, Dispatch, AuditEvent, clean_place
 
 ZERO = Decimal('0.00')
+
+def visible_bills(queryset, user):
+    """A consolidated bill is visible only if every trip is in scope.
+
+    Finance-wide access is explicit. Rejected bills have no trip lines, and
+    remain visible to their creator and central finance only.
+    """
+    if user.is_superuser or user.has_perm('erp.access_company_finance'):
+        return queryset
+    forbidden = Site.objects.exclude(siteaccess__user=user)
+    return queryset.exclude(lines__dispatch__site__in=forbidden).filter(Q(lines__isnull=False) | Q(created_by=user)).distinct()
+
 
 
 def destination_of(dispatch):
@@ -87,6 +100,7 @@ def create_bill(user, transporter, bill_number, bill_date, rows, advance=0, note
     open_trips = {d.pk: d for d in billable_trips(transporter)}
     if not rows: problems.append('Tick at least one trip.')
     for d, row in rows.items():
+        require_site(user, d.site)
         if d.pk not in open_trips: problems.append(f'{d.number} is not billable for {transporter.name}.')
         if row['claimed'] < 0 or row['extra'] < 0: problems.append(f'{d.number}: amounts cannot be negative.')
         if row['extra'] and not row['reason'].strip(): problems.append(f'{d.number}: give the reason for the extra charge.')
@@ -119,6 +133,9 @@ def decide(user, pk, approve, note):
     if not user.has_perm('erp.approve_freightbill'):
         raise PermissionDenied
     bill = FreightBill.objects.select_for_update().get(pk=pk)
+    if not user.has_perm('erp.access_company_finance'):
+        for line in bill.lines.select_related('dispatch__site'):
+            require_site(user, line.dispatch.site)
     if bill.status != 'submitted':
         raise ValidationError('This bill has already been decided.')
     if bill.created_by_id == user.pk:

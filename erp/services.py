@@ -10,45 +10,64 @@ def audit(user, action, obj, detail=''):
 def permitted(user, permission):
     if not user.has_perm('erp.' + permission): raise PermissionDenied
 
+def require_site(user, site):
+    """Service-layer site boundary; a module grant never implies access to every plant."""
+    from .models import SiteAccess
+    if site is None:
+        raise ValidationError('Choose a plant or depot.')
+    if not user.is_active or (not user.is_superuser and not SiteAccess.objects.filter(user=user, site_id=site.pk).exists()):
+        raise PermissionDenied
+
+
 def scope(queryset, user, field='site'):
     return queryset if user.is_superuser else queryset.filter(**{field + '__siteaccess__user': user})
 
 @transaction.atomic
-def move_stock(user, site, product, quantity, source, kind, notes='', status='available', unit_cost=None):
-    """The only way stock changes (FR-INV-003/004). Row-locked, never negative, one movement per unique source.
+def move_stock(user, site, product, quantity, source, kind, notes='', status='available', unit_cost=None, value=None):
+    """The stock/GL value is exact currency; rounded average cost is only a display rate.
 
-    Incoming quantity with a cost updates the weighted-average cost; incoming without a cost keeps the current average;
-    outgoing quantity is valued at the current average. Each movement keeps its unit, cost and resulting balance.
+    Explicit incoming value preserves production/transfer cost. Outgoing value is
+    allocated from the carrying amount; a final issue takes every remaining paisa.
     """
+    require_site(user, site)
     quantity = Decimal(quantity)
+    if not quantity.is_finite():
+        raise ValidationError('Stock quantity must be a finite number.')
     StockBalance.objects.get_or_create(site=site, product=product, status=status)
     balance = StockBalance.objects.select_for_update().get(site=site, product=product, status=status)
     if quantity < 0 and balance.quantity < -quantity:
         label = '' if status == 'available' else f' ({status})'
         raise ValidationError(f'Insufficient available stock for {product.name}{label} at {site.code}: {balance.quantity.normalize():f} on hand.')
-    if quantity > 0 and unit_cost is not None:
-        unit_cost = Decimal(unit_cost)
-        total = balance.quantity + quantity
-        if balance.avg_cost == 0:
-            balance.avg_cost = unit_cost  # stock taken on before costing began is valued at the first real cost
-        else:
-            balance.avg_cost = ((balance.quantity * balance.avg_cost + quantity * unit_cost) / total).quantize(Decimal('0.0001')) if total else unit_cost
-        cost = unit_cost
-    else:
+    before = balance.value
+    if quantity > 0:
+        cost = Decimal(unit_cost) if unit_cost is not None else balance.avg_cost
+        if not cost.is_finite() or cost < 0:
+            raise ValidationError('Unit cost must be a finite, nonnegative number.')
+        incoming = Decimal(value) if value is not None else quantity * cost
+        if not incoming.is_finite() or incoming < 0:
+            raise ValidationError('Stock value must be a finite, nonnegative number.')
+        delta = incoming.quantize(Decimal('0.01'))
+    elif quantity < 0:
+        delta = -before if -quantity == balance.quantity else (before * quantity / balance.quantity).quantize(Decimal('0.01'))
         cost = balance.avg_cost
+    else:
+        delta, cost = Decimal('0'), balance.avg_cost
     balance.quantity += quantity
-    balance.save(update_fields=['quantity', 'avg_cost'])
-    m = StockMovement.objects.create(site=site, product=product, quantity=quantity, source=source, kind=kind, created_by=user, notes=notes,
-                                     status=status, uom=product.unit, unit_cost=cost, balance_after=balance.quantity)
+    balance.carrying_value = before + delta
+    balance.avg_cost = (balance.carrying_value / balance.quantity).quantize(Decimal('0.0001')) if balance.quantity else Decimal('0')
+    balance.save(update_fields=['quantity', 'avg_cost', 'carrying_value'])
+    movement = StockMovement.objects.create(site=site, product=product, quantity=quantity, source=source, kind=kind, created_by=user, notes=notes,
+        status=status, uom=product.unit, unit_cost=cost, balance_after=balance.quantity, value_delta=delta)
     from .gl import post_stock
-    post_stock(user, m)
-    return m
+    post_stock(user, movement)
+    return movement
 
 
+@transaction.atomic
 def transfer_state(user, site, product, quantity, source, kind_out, kind_in, from_status, to_status, notes=''):
     """Move quantity between stock states at one site (e.g. available → damaged) at the current average cost."""
     out = move_stock(user, site, product, -Decimal(quantity), source + ':out', kind_out, notes, status=from_status)
-    return move_stock(user, site, product, Decimal(quantity), source + ':in', kind_in, notes, status=to_status, unit_cost=out.unit_cost)
+    return move_stock(user, site, product, Decimal(quantity), source + ':in', kind_in, notes, status=to_status, unit_cost=out.unit_cost, value=abs(out.value))
 
 
 @transaction.atomic

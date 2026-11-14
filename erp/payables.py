@@ -21,7 +21,7 @@ from django.utils import timezone
 
 from .gst import next_number, qtxt, inr
 from .models import SupplierInvoice, SupplierInvoiceLine, DebitNote, DebitNoteLine, GRNLine, AuditEvent, Organization
-from .services import move_stock
+from .services import move_stock, require_site
 
 ZERO = Decimal('0')
 CENT = Decimal('0.01')
@@ -155,6 +155,7 @@ def create_invoice(user, supplier, header, rows, notes=''):
             raise ValidationError('Item is not from a posted receipt of this supplier.')
         if rate is None or rate < 0 or gst is None or gst < 0 or gst > 28:
             problems.append(f'{gl.product.name}: enter the billed rate and GST %.')
+        require_site(user, gl.grn.site)
         sites.add(gl.grn.site_id)
     if len(sites) > 1:
         problems.append('One supplier invoice is for one plant (GST registration). Enter receipts of each plant separately.')
@@ -186,6 +187,7 @@ def create_invoice(user, supplier, header, rows, notes=''):
 def decide(user, pk, decision, note):
     _need(user, 'approve_supplierinvoice')
     inv = SupplierInvoice.objects.select_for_update().select_related('supplier', 'site').get(pk=pk)
+    require_site(user, inv.site)
     note = (note or '').strip()
     if inv.status != 'exception':
         raise ValidationError('Only invoices in the exception queue need a decision.')
@@ -231,7 +233,8 @@ def decide(user, pk, decision, note):
 def create_debit_note(user, grn, reason, remarks, quantities, vehicle=''):
     """quantities: {GRNLine: qty}. reason 'return' sends accepted stock back; others are value claims on what was received."""
     _need(user, 'add_debitnote')
-    grn = type(grn).objects.select_related('site', 'supplier').get(pk=grn.pk)
+    grn = type(grn).objects.select_for_update().select_related('site', 'supplier').get(pk=grn.pk)
+    require_site(user, grn.site)
     remarks = (remarks or '').strip()
     problems = []
     if grn.status != 'posted':

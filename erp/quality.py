@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from .gst import qtxt
 from .models import Production, QualitySpec, QualityResult, LabEquipment, AuditEvent, MaterialIssue, DispatchLine
-from .services import move_stock
+from .services import move_stock, require_site
 
 
 def _need(user, perm):
@@ -50,6 +50,7 @@ def evidence(production):
 def record_result(user, production_pk, spec, value, equipment=None, sample_ref='', remarks='', retest_reason=''):
     _need(user, 'add_qualitytest')
     p = Production.objects.select_for_update().select_related('site', 'product').get(pk=production_pk)
+    require_site(user, p.site)
     if p.status in ('Planned', 'Cancelled', 'Rejected'):
         raise ValidationError(f'{p.batch} is {p.status.lower()} — results cannot be recorded.')
     if spec.product_id != p.product_id or not spec.active:
@@ -58,6 +59,8 @@ def record_result(user, production_pk, spec, value, equipment=None, sample_ref='
         value = Decimal(str(value))
     except Exception:
         raise ValidationError('Enter the measured value as a number.')
+    if not value.is_finite():
+        raise ValidationError('Measured value must be a finite number.')
     if equipment:
         if equipment.site_id != p.site_id or not equipment.active:
             raise ValidationError(f'{equipment} is not active equipment at {p.site.code}.')
@@ -84,6 +87,7 @@ def release(user, pk, decision='release', note=''):
     """decision: 'release' (all required results pass), 'deviation' (out of spec, justified) or 'reject'."""
     _need(user, 'release_production')
     p = Production.objects.select_for_update().select_related('site', 'product').get(pk=pk)
+    require_site(user, p.site)
     note = (note or '').strip()
     if p.status != 'Quality hold':
         raise ValidationError('Batch must be on quality hold.')
@@ -112,7 +116,7 @@ def release(user, pk, decision='release', note=''):
             raise ValidationError('Release under deviation needs specification results.')
     if decision == 'deviation' and not note:
         raise ValidationError('Release under deviation needs a justification (e.g. customer approval, end use).')
-    move_stock(user, p.site, p.product, p.actual_quantity, f'production:{p.pk}', 'Production', p.batch, unit_cost=p.unit_cost)
+    move_stock(user, p.site, p.product, p.actual_quantity, f'production:{p.pk}', 'Production', p.batch, unit_cost=p.unit_cost, value=p.material_cost)
     p.status, p.disposition, p.disposition_note, p.released_by, p.released_at = 'Released', decision, note[:200], user, timezone.now()
     p.save()
     _log(user, p.site, 'Production release' if decision == 'release' else 'Released under deviation', p.batch,
@@ -123,6 +127,7 @@ def release(user, pk, decision='release', note=''):
 @transaction.atomic
 def save_equipment(user, site, code, name, due, last=None, certificate='', pk=None):
     _need(user, 'add_labequipment')
+    require_site(user, site)
     code = (code or '').strip().upper()
     if not code or not (name or '').strip() or not due:
         raise ValidationError('Enter code, name and calibration due date.')
@@ -131,6 +136,8 @@ def save_equipment(user, site, code, name, due, last=None, certificate='', pk=No
     if LabEquipment.objects.filter(site=site, code=code).exclude(pk=pk).exists():
         raise ValidationError(f'{code} already exists at {site.code}.')
     eq = LabEquipment.objects.get(pk=pk) if pk else LabEquipment(site=site)
+    if pk:
+        require_site(user, eq.site)
     eq.code, eq.name, eq.calibration_due, eq.last_calibrated, eq.certificate, eq.site = code[:30], name.strip()[:100], due, last, (certificate or '')[:60], site
     eq.save()
     _log(user, site, 'Lab equipment calibration' if pk else 'Lab equipment added', eq.code, f'due {due:%d %b %Y}' + (f' · cert {certificate}' if certificate else ''))

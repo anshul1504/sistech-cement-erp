@@ -23,6 +23,10 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 | Freight (Step 3b) | Lane rate cards, contracted freight frozen at gate-out, transporter bill check with caps, recovery and maker-checker |
 | Web shell | Responsive app shell, toasts, Indian number formats, My account, Administration, System settings |
 
+## Verification milestone before CRM
+
+Purchase, production/quality, sales, returns, collections and traceability have been exercised together with fictional records and ordinary site-assigned users. Service-layer site checks, atomic loading rollback, exact inventory values and financial-form replay protection were strengthened during this pass. See [Baseline verification](BASELINE_VERIFICATION.md). CRM development follows this developer-verified milestone; business sign-off and production rollout gates remain separate.
+
 ## Build sequence
 
 ### Step 1d — Masons & contractors (influencer network) — requested by Sistech ✅ done

@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from .gst import next_number, qtxt
 from .models import Dispatch, DispatchLine, Weighment, Order, AuditEvent, StockMovement
-from .services import move_stock
+from .services import move_stock, require_site
 
 GATE_CHECKS = [('licence', 'Driver licence seen'), ('rc', 'RC & permit in vehicle'), ('puc', 'PUC certificate'), ('tarpaulin', 'Tarpaulin / cover available'),
                ('safety', 'Driver has safety shoes & helmet'), ('clean', 'Body clean, dry, no leftover material'), ('no_passengers', 'No unauthorised passengers')]
@@ -39,8 +39,10 @@ def _state(d, *allowed):
         raise ValidationError(f'{d.number} is "{d.get_status_display()}" — this step is not possible now.')
 
 
-def _lock(pk):
-    return Dispatch.objects.select_for_update().select_related('site', 'order', 'vehicle', 'driver', 'order__partner').get(pk=pk)
+def _lock(pk, user):
+    obj = Dispatch.objects.select_for_update().select_related('site', 'order', 'vehicle', 'driver', 'order__partner').get(pk=pk)
+    require_site(user, obj.site)
+    return obj
 
 
 # ---------- Planning ----------
@@ -62,6 +64,7 @@ def plan(user, order, vehicle, driver, quantities, transporter=None, bay='', pla
     """quantities: {OrderLine: qty}. Creates the dispatch advice and its queue token."""
     _need(user, 'add_dispatch')
     order = Order.objects.select_for_update().select_related('site').get(pk=order.pk)
+    require_site(user, order.site)
     if order.kind != 'Sale' or order.status not in ('Approved', 'Part dispatched'):
         raise ValidationError('Only approved sales orders can be dispatched.')
     if not order.site.uses_weighbridge:
@@ -96,7 +99,7 @@ def plan(user, order, vehicle, driver, quantities, transporter=None, bay='', pla
 @transaction.atomic
 def gate_in(user, pk, checklist):
     _need(user, 'gate_dispatch')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'planned')
     problems = vehicle_problems(d.vehicle, exclude=d.pk)
     if not d.driver.licence_valid: problems.append(f"{d.driver.name}'s licence has expired.")
@@ -117,7 +120,7 @@ def gate_in(user, pk, checklist):
 def weigh(user, pk, kind, weight_kg, source='manual', reason=''):
     """Record tare or gross. If a current reading exists this is a reweigh: new row, old one linked, reason required."""
     _need(user, 'weigh_dispatch')
-    d = _lock(pk)
+    d = _lock(pk, user)
     reason = (reason or '').strip()
     try:
         weight = int(Decimal(str(weight_kg)))
@@ -183,7 +186,7 @@ def check_weight(d):
 @transaction.atomic
 def approve_exception(user, pk, note):
     _need(user, 'approve_weight_exception')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'weighed')
     if not d.exception:
         raise ValidationError('There is no weight exception to approve.')
@@ -202,7 +205,7 @@ def approve_exception(user, pk, note):
 @transaction.atomic
 def start_loading(user, pk, bay=''):
     _need(user, 'load_dispatch')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'tared')
     d.status, d.loading_started_at = 'loading', timezone.now()
     if bay: d.bay = bay[:30]
@@ -219,10 +222,11 @@ def batches_for(site, product):
     return Production.objects.filter(site=site, status='Released').filter(Q(product=product) | Q(packing_runs__bag_product=product)).distinct().order_by('-released_at')
 
 
+@transaction.atomic
 def complete_loading(user, pk, quantities, seal='', team='', damaged_bags=0, notes='', batches=None):
     """quantities: {DispatchLine.pk: actual qty}. Actual may be lower than planned, never higher. batches: {DispatchLine.pk: Production.pk} (optional)."""
     _need(user, 'load_dispatch')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'loading')
     problems = []
     lines = list(d.lines.select_related('order_line__product'))
@@ -272,7 +276,7 @@ def post_stock(user, d):
 @transaction.atomic
 def invoice(user, pk, eway_bill=''):
     _need(user, 'post_invoice')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'weighed')
     if hasattr(d, 'invoice'):
         raise ValidationError(f'Already invoiced as {d.invoice.number}.')
@@ -293,7 +297,7 @@ def invoice(user, pk, eway_bill=''):
 @transaction.atomic
 def gate_out(user, pk):
     _need(user, 'gate_dispatch')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'weighed')
     if d.exception_open:
         raise ValidationError('Weight exception is not approved.')
@@ -331,7 +335,7 @@ def refresh_order(order):
 @transaction.atomic
 def deliver(user, pk, received_by, receiver_mobile='', shortage=0, damaged=0, notes='', file=None):
     _need(user, 'pod_dispatch')
-    d = _lock(pk)
+    d = _lock(pk, user)
     _state(d, 'gate_out')
     if not (received_by or '').strip():
         raise ValidationError("Enter the receiver's name.")
@@ -352,7 +356,7 @@ def deliver(user, pk, received_by, receiver_mobile='', shortage=0, damaged=0, no
 
 @transaction.atomic
 def cancel(user, pk, reason):
-    d = _lock(pk)
+    d = _lock(pk, user)
     if not (user.has_perm('erp.add_dispatch') or user.has_perm('erp.gate_dispatch')):
         raise PermissionDenied
     _state(d, *OPEN_STATES)
@@ -363,8 +367,8 @@ def cancel(user, pk, reason):
     if d.stock_posted:  # stock was issued at load-complete: put it back with its own source id
         for l in d.lines.select_related('order_line__product'):
             if l.quantity:
-                out = StockMovement.objects.filter(source=f'dispatch:{d.pk}:line:{l.pk}').values_list('unit_cost', flat=True).first()
-                move_stock(user, d.site, l.order_line.product, l.quantity, f'dispatch:{d.pk}:line:{l.pk}:unload', 'Return', f'{d.number} cancelled', unit_cost=out)
+                out = StockMovement.objects.filter(source=f'dispatch:{d.pk}:line:{l.pk}').first()
+                move_stock(user, d.site, l.order_line.product, l.quantity, f'dispatch:{d.pk}:line:{l.pk}:unload', 'Return', f'{d.number} cancelled', unit_cost=out.unit_cost if out else None, value=abs(out.value) if out else None)
         d.stock_posted = False
     d.status, d.cancel_reason = 'cancelled', reason.strip()[:150]
     d.save()

@@ -7,7 +7,8 @@
     <form method="post" class="org-card" novalidate data-receipt-form>{% csrf_token %}
       <header><h2>Payment</h2><p>UTR / cheque number is checked for duplicates.</p></header>
       {% if form.non_field_errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>{% for e in form.non_field_errors %}{{ e }} {% endfor %}</span></div>{% endif %}
-      <div class="org-grid">{% for field in form %}<div class="org-field{% if field.name == 'notes' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}" data-field="{{ field.name }}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
+      {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+      <div class="org-grid">{% for field in form.visible_fields %}<div class="org-field{% if field.name == 'notes' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}" data-field="{{ field.name }}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
       <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Post receipt</button></div>
     </form>
     <section class="org-card">

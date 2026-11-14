@@ -349,12 +349,13 @@ class StockBalance(models.Model):
     status = models.CharField(max_length=10, choices=STOCK_STATUSES, default='available')
     quantity = models.DecimalField(max_digits=16, decimal_places=3, default=0)
     avg_cost = models.DecimalField('Average cost (₹ per unit)', max_digits=14, decimal_places=4, default=0)
+    carrying_value = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, editable=False)
     class Meta:
         constraints = [models.UniqueConstraint(fields=['site', 'product', 'status'], name='unique_stock_balance_status'), models.CheckConstraint(condition=models.Q(quantity__gte=0), name='stock_nonnegative')]
 
     @property
     def value(self):
-        return (self.quantity * self.avg_cost).quantize(Decimal('0.01'))
+        return self.carrying_value if self.carrying_value is not None else (self.quantity * self.avg_cost).quantize(Decimal('0.01'))
 
 STOCK_KINDS = [('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output'),
                ('Return', 'Sales return'), ('PurchaseReturn', 'Return to supplier'), ('TransferOut', 'Transfer out'), ('TransferIn', 'Transfer in'),
@@ -371,8 +372,14 @@ class StockMovement(Document):
     uom = models.CharField('Unit', max_length=12, blank=True)
     unit_cost = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
     balance_after = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    value_delta = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, editable=False)
     class Meta(Document.Meta):
         permissions = [('post_opening', 'Post opening stock'), ('export_stockmovement', 'Export stock ledger')]
+
+    @property
+    def value(self):
+        return self.value_delta if self.value_delta is not None else (self.quantity * (self.unit_cost or Decimal('0'))).quantize(Decimal('0.01'))
+
 
 SHIFTS = [('A', 'Shift A'), ('B', 'Shift B'), ('C', 'Shift C')]
 PRODUCTION_STATUSES = ['Planned', 'In progress', 'Quality hold', 'Released', 'Rejected', 'Cancelled']
@@ -895,6 +902,8 @@ CASH_LIMIT = Decimal('200000')  # Income-tax Act s.269ST: no cash receipt of ₹
 
 
 class Receipt(models.Model):
+    submission_key = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+    submission_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
     number = models.CharField(max_length=20, unique=True, editable=False)
     date = models.DateField(default=timezone.localdate)
     partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='receipts', verbose_name='Received from')
@@ -932,6 +941,8 @@ CREDIT_REASONS = [('rate', 'Rate difference / discount'), ('return', 'Goods retu
 
 class CreditNote(models.Model):
     """GST credit note against one posted invoice. Tax follows the invoice (same rates, same CGST/SGST or IGST)."""
+    submission_key = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+    submission_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
     number = models.CharField(max_length=16, unique=True, editable=False)
     date = models.DateField(default=timezone.localdate)
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='credit_notes')
@@ -1645,11 +1656,25 @@ class StockTransferLine(models.Model):
     dispatched = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     received = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     damaged = models.DecimalField('Received damaged', max_digits=14, decimal_places=3, default=0)
+    cost_value = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, editable=False)
     unit_cost = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
 
     @property
     def shortage(self):
         return max(self.dispatched - self.received - self.damaged, Decimal('0'))
+
+
+    @property
+    def total_cost(self):
+        return self.cost_value if self.cost_value is not None else (self.dispatched * (self.unit_cost or Decimal('0'))).quantize(Decimal('0.01'))
+
+    @property
+    def received_cost(self):
+        return (self.total_cost * (self.received + self.damaged) / self.dispatched).quantize(Decimal('0.01')) if self.dispatched else Decimal('0')
+
+    @property
+    def loss_value(self):
+        return self.total_cost - self.received_cost
 
 
 DAMAGE_REASONS = [('torn', 'Torn / burst bags'), ('wet', 'Wet / water damage'), ('leaking', 'Leaking bags'), ('hardened', 'Hardened / lumped cement'),
@@ -1668,6 +1693,7 @@ class DamageReport(models.Model):
     description = models.CharField(max_length=200, blank=True)
     photo = models.BinaryField(null=True, blank=True, editable=False)
     photo_type = models.CharField(max_length=40, blank=True, editable=False)
+    cost_value = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, editable=False)
     unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=0, editable=False)
     status = models.CharField(max_length=10, default='reported', choices=[('reported', 'Waiting disposition'), ('decided', 'Decided')])
     recovered = models.DecimalField('Recovered (back to available)', max_digits=14, decimal_places=3, default=0)
@@ -1686,7 +1712,7 @@ class DamageReport(models.Model):
 
     @property
     def value(self):
-        return (self.quantity * self.unit_cost).quantize(Decimal('0.01'))
+        return self.cost_value if self.cost_value is not None else (self.quantity * self.unit_cost).quantize(Decimal('0.01'))
 
 
 # ---------- Stock count (Step 5b, FR-INV-006) ----------
@@ -1782,6 +1808,7 @@ class MaterialIssue(models.Model):
     quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
     source = models.CharField('Source silo / lot', max_length=60, blank=True)
     grn = models.ForeignKey('GoodsReceipt', null=True, blank=True, on_delete=models.PROTECT, related_name='issues', verbose_name='From receipt (lot)')
+    cost_value = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, editable=False)
     unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     issued_at = models.DateTimeField(auto_now_add=True)
@@ -1791,7 +1818,7 @@ class MaterialIssue(models.Model):
 
     @property
     def value(self):
-        return (self.quantity * self.unit_cost).quantize(Decimal('0.01'))
+        return self.cost_value if self.cost_value is not None else (self.quantity * self.unit_cost).quantize(Decimal('0.01'))
 
 
 DOWNTIME_REASONS = [('', 'No downtime'), ('mechanical', 'Mechanical breakdown'), ('electrical', 'Electrical / power'), ('material', 'No material / feed'),
@@ -1879,8 +1906,8 @@ class QualitySpec(models.Model):
     @property
     def limit_text(self):
         u = f' {self.unit}' if self.unit else ''
-        lo = f'{self.min_value.normalize():f}' if self.min_value is not None else None
-        hi = f'{self.max_value.normalize():f}' if self.max_value is not None else None
+        lo = f'{Decimal(self.min_value).normalize():f}' if self.min_value is not None else None
+        hi = f'{Decimal(self.max_value).normalize():f}' if self.max_value is not None else None
         if lo and hi: return f'{lo}–{hi}{u}'
         if lo: return f'≥ {lo}{u}'
         if hi: return f'≤ {hi}{u}'

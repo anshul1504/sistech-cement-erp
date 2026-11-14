@@ -105,3 +105,23 @@ class FreightTests(TestCase):
         r = self.client.post(reverse('freight_rate_edit', args=[self.lane.pk]), {'valid_to': timezone.localdate().isoformat(), 'active': 'on'})
         self.lane.refresh_from_db()
         self.assertEqual((self.lane.rate, self.lane.valid_to), (Decimal('600.00'), timezone.localdate()))
+
+    def test_other_site_cannot_read_or_decide_bill_with_module_grant_only(self):
+        from django.contrib.auth.models import Permission
+        from django.core.exceptions import PermissionDenied
+        from .models import SiteAccess
+        dispatch = self.trip(self.truck, self.driver, 100)
+        bill = F.create_bill(self.admin, self.trans, 'SCOPE-BILL', timezone.localdate(), {
+            dispatch: {'claimed': dispatch.freight_amount, 'days': 0, 'extra': Decimal(0), 'reason': ''}})
+        other_site = Site.objects.create(code='OTHER-FR', name='Other freight site', kind='Depot')
+        actor = User.objects.create_user('freight-site-reviewer')
+        actor.user_permissions.set(Permission.objects.filter(content_type__app_label='erp', codename__in=['view_freightbill', 'approve_freightbill']))
+        SiteAccess.objects.create(user=actor, site=other_site)
+        with self.assertRaises(PermissionDenied):
+            F.decide(actor, bill.pk, True, '')
+        self.client.force_login(actor)
+        self.assertEqual(self.client.get(reverse('freight_bill_detail', args=[bill.pk])).status_code, 404)
+        self.assertNotContains(self.client.get(reverse('freight_bills')), 'SCOPE-BILL')
+        SiteAccess.objects.create(user=actor, site=self.site)
+        self.assertEqual(self.client.get(reverse('freight_bill_detail', args=[bill.pk])).status_code, 200)
+        F.decide(actor, bill.pk, True, '')

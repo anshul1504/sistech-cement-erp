@@ -46,12 +46,12 @@ class BrowserFlowTests(StaticLiveServerTestCase):
             page.goto(self.live_server_url + '/accounts/login/')
             page.locator('#id_username').fill('admin')
             page.locator('#id_password').fill(password)
-            page.get_by_role('button', name='Sign in to workspace', exact=True).click()
+            page.get_by_role('button', name='Sign in to Sistech ERP', exact=True).click()
             page.wait_for_url(self.live_server_url + '/accounts/otp/verify/')
             capture('otp', '/accounts/otp/verify/')
             code = re.search(r'code is: (\d{6})', mail.outbox[-1].body).group(1)
             page.locator('#id_code').fill(code)
-            page.get_by_role('button', name='Verify & sign in', exact=True).click()
+            # Completing six digits auto-submits; wait for the authenticated redirect.
             page.wait_for_url(self.live_server_url + '/')
             for name, path in [
                 ('dashboard', '/'), ('sales', '/sales/'), ('inventory', '/inventory/'),
@@ -62,6 +62,7 @@ class BrowserFlowTests(StaticLiveServerTestCase):
             ]:
                 capture(name, path)
             page.goto(self.live_server_url + '/')
+            page.get_by_role('button', name='Account menu', exact=True).click()
             page.get_by_role('button', name='Sign out', exact=True).click()
             page.wait_for_url(self.live_server_url + '/accounts/signed-out/')
             self.assertFalse(errors)
