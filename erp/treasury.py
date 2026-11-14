@@ -195,7 +195,7 @@ def fail(user, pk, reason):
     if not (reason or '').strip():
         raise ValidationError('Give the bank\'s return reason.')
     gl.reverse_source(user, f'pay:{pay.pk}', reason=f'Payment returned: {reason}')
-    pay.status, pay.note = 'failed', reason.strip()[:200]
+    pay.status, pay.note, pay.returned_on = 'failed', reason.strip()[:200], timezone.localdate()
     pay.save()
     _log(user, 'Payment failed', pay.number, reason)
     return pay
@@ -236,6 +236,7 @@ def import_statement(user, bank, raw):
     _need(user, 'add_bankstatementline')
     if not bank or not bank.active or not bank.is_bank or bank.system_key == 'cash':
         raise ValidationError('Choose an active bank account.')
+    gl.lock_finance()
     rows = list(csv.reader(io.StringIO(raw)))
     if rows and not any(ch.isdigit() for ch in (rows[0][0] if rows[0] else '')):
         rows = rows[1:]
@@ -254,9 +255,14 @@ def import_statement(user, bank, raw):
             raise ValidationError(f'Row {i}: amounts must be finite numbers.')
         if wd < 0 or dp < 0 or (wd and dp) or (not wd and not dp):
             raise ValidationError(f'Row {i}: each row is either a withdrawal or a deposit.')
+        on = _date(r[0])
+        if BankStatementLine.objects.filter(bank=bank, date=on, description=r[1].strip()[:200], reference=r[2].strip()[:60], withdrawal=wd, deposit=dp).exists():
+            skipped += 1
+            continue
+        gl.check_open(on)
         try:
             with transaction.atomic():
-                BankStatementLine.objects.create(bank=bank, date=_date(r[0]), description=r[1].strip()[:200], reference=r[2].strip()[:60], withdrawal=wd, deposit=dp,
+                BankStatementLine.objects.create(bank=bank, date=on, description=r[1].strip()[:200], reference=r[2].strip()[:60], withdrawal=wd, deposit=dp,
                                                  balance=bal, imported_by=user)
             made += 1
         except IntegrityError:
@@ -276,8 +282,10 @@ def candidates(st, days=5):
 @transaction.atomic
 def auto_match(user, bank):
     _need(user, 'change_bankstatementline')
+    gl.lock_finance()
     n = 0
     for st in BankStatementLine.objects.select_for_update().filter(bank=bank, matched_line__isnull=True).order_by('date'):
+        gl.check_open(st.date)
         cands = list(candidates(st))
         ref = (st.reference or '').strip().upper()
         exact = [c for c in cands if ref and ref in {c.narration.strip().upper(), c.entry.source or ''}]
@@ -294,7 +302,9 @@ def auto_match(user, bank):
 @transaction.atomic
 def match(user, st_pk, line_pk):
     _need(user, 'change_bankstatementline')
+    gl.lock_finance()
     st = BankStatementLine.objects.select_for_update().get(pk=st_pk)
+    gl.check_open(st.date)
     if line_pk is None:
         st.matched_line = None
         st.matched_by = st.matched_at = None

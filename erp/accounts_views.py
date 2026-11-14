@@ -65,7 +65,8 @@ def journal_detail(request, pk):
     permitted(request.user, 'view_journalentry')
     je = get_object_or_404(JournalEntry.objects.select_related('site', 'created_by', 'approved_by', 'reversal_of'), pk=pk)
     u = request.user
-    return render(request, 'erp/journal_detail.html', {'title': je.number, 'je': je, 'lines': je.lines.select_related('account', 'partner'),
+    from .journal_sources import document_link
+    return render(request, 'erp/journal_detail.html', {'title': je.number, 'je': je, 'source_document': document_link(je, u), 'lines': je.lines.select_related('account', 'partner'),
                                                        'reversed_by': getattr(je, 'reversed_by', None),
                                                        'can_decide': je.kind == 'manual' and je.status == 'draft' and u.has_perm('erp.approve_journalentry') and je.created_by_id != u.pk,
                                                        'can_reverse': je.kind == 'manual' and je.source is None and je.status == 'posted' and not hasattr(je, 'reversed_by') and je.reversal_of_id is None and u.has_perm('erp.add_journalentry') and u.has_perm('erp.approve_journalentry')})
@@ -145,7 +146,7 @@ def trial_balance(request):
             w.writerow([r['account'].code, r['account'].name, r['account'].group, r['opening'], r['debit'], r['credit'], r['closing']])
         AuditEvent.objects.create(actor=request.user, action='Trial balance exported', reference='CSV', detail=f'{start} – {end}')
         return response
-    return render(request, 'erp/trial_balance.html', _ctx(request, title='Trial balance', tb=tb, start=start, end=end, checks=gl.subledger_check()))
+    return render(request, 'erp/trial_balance.html', _ctx(request, title='Trial balance', tb=tb, start=start, end=end, checks=gl.subledger_check(end)))
 
 
 @login_required
@@ -221,8 +222,8 @@ def period_action(request, pk, action):
         raise Http404
     p = get_object_or_404(FinancialPeriod, pk=pk)
     try:
-        gl.set_period(request.user, p.start, action == 'close')
+        gl.set_period(request.user, p.start, action == 'close', request.POST.get('reason', ''))
         messages.success(request, f'{p} {"closed" if action == "close" else "reopened"}.')
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
-    return redirect('periods')
+    return redirect('period_detail', pk=pk)

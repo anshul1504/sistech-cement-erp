@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
-  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Accounts &amp; ledgers</h1><p>Review Sistech’s accounting entries, track approvals and create journal vouchers.</p></div>
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Accounts &amp; ledgers</h1><p>Journal entries, approvals and financial records for Sistech.</p></div>
     {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'voucher_new' %}"><svg><use href="#ic-plus"/></svg>Journal voucher</a></div>{% endif %}</div>
   {% include 'erp/_acc_tabs.html' with tab='journals' %}
   {% if drafts %}<ul class="ord-checks"><li class="is-warn">{{ drafts }} journal voucher{{ drafts|pluralize }} waiting for approval. <a href="?status=draft&amp;from=2000-01-01">Show</a></li></ul>{% endif %}
@@ -10,10 +10,10 @@
     <header class="doc-list-head"><div><h2>Vouchers</h2><p>{{ page.paginator.count }} from {{ start|date:'d M Y' }} to {{ end|date:'d M Y' }}</p></div>
       </header>
       <form method="get" class="doc-filter acc-filter acc-journal-filter" aria-label="Filter vouchers">
-        <div class="acc-filter-field acc-filter-search"><label for="journal-search">Search vouchers</label><input class="form-control" id="journal-search" type="search" name="q" value="{{ q }}" placeholder="Number, narration or reference"></div>
+        <div class="acc-filter-field acc-filter-search"><label for="journal-search">Search vouchers</label><input class="form-control" id="journal-search" type="search" name="q" value="{{ q }}" placeholder="Number or description"></div>
         <div class="acc-filter-field"><label for="journal-from">From date</label><input class="form-control" id="journal-from" type="date" name="from" value="{{ start|date:'Y-m-d' }}"></div>
         <div class="acc-filter-field"><label for="journal-to">To date</label><input class="form-control" id="journal-to" type="date" name="to" value="{{ end|date:'Y-m-d' }}"></div>
-        <div class="acc-filter-field"><label for="journal-kind">Entry type</label><select class="form-select" id="journal-kind" name="kind"><option value="">All types</option><option value="auto"{% if kind == 'auto' %} selected{% endif %}>System postings</option><option value="manual"{% if kind == 'manual' %} selected{% endif %}>Journal vouchers</option></select></div>
+        <div class="acc-filter-field"><label for="journal-kind">Entry type</label><select class="form-select" id="journal-kind" name="kind"><option value="">All types</option><option value="auto"{% if kind == 'auto' %} selected{% endif %}>System postings</option><option value="manual"{% if kind == 'manual' %} selected{% endif %}>Journal vouchers</option><option value="yearend"{% if kind == 'yearend' %} selected{% endif %}>Year-end entries</option></select></div>
         <div class="acc-filter-field"><label for="journal-status">Status</label><select class="form-select" id="journal-status" name="status"><option value="">Any status</option><option value="posted"{% if status == 'posted' %} selected{% endif %}>Posted</option><option value="draft"{% if status == 'draft' %} selected{% endif %}>Waiting approval</option><option value="rejected"{% if status == 'rejected' %} selected{% endif %}>Rejected</option></select></div>
         <button class="org-btn is-primary" type="submit">Apply filters</button>
       </form>

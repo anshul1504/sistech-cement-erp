@@ -1,0 +1,10 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Year-end carry-forward</h1><p>Transfer reviewed profit or loss to retained earnings after all twelve months are closed.</p></div></div>
+  {% include 'erp/_acc_tabs.html' with tab='year' %}
+  {% if can_prepare %}<section class="org-card org-view"><header><h2>Prepare a year close</h2><p>A different authorized user must approve the proposal.</p></header><form method="post" class="close-review-form">{% csrf_token %}<div class="org-field"><label class="form-label" for="year-on">Date within the financial year</label><input class="form-control" type="date" name="on" id="year-on" value="{{ previous_end|date:'Y-m-d' }}" required></div><div class="org-field"><label class="form-label" for="year-note">Review evidence</label><textarea class="form-control" id="year-note" name="note" rows="3" maxlength="4000" required></textarea></div><button class="org-btn is-primary" type="submit">Prepare for approval</button></form></section>{% endif %}
+  <section class="org-card org-view"><header><h2>Financial years</h2></header><ul class="mst-order-list">{% for y in years %}<li><a href="{% url 'year_detail' y.pk %}"><strong>{{ y }}</strong><small>Prepared by {{ y.prepared_by|who }} · revision {{ y.revision }}</small></a><span></span><span class="org-chip">{{ y.get_status_display }}</span></li>{% empty %}<li>No year-end proposals yet. Review monthly close evidence before preparing the first one.</li>{% endfor %}</ul></section>
+</div>
+{% endblock %}

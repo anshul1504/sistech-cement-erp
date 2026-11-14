@@ -128,21 +128,25 @@ class FinanceControlsTests(TestCase):
         rec = TR.reconciliation(self.bank, today - timedelta(days=1))
         self.assertEqual(list(rec['unpresented']), [entry.lines.get(account=self.bank)])
 
-    def test_period_button_posts_close_and_unknown_action_is_404(self):
+    def test_period_button_opens_review_and_unknown_action_is_404(self):
+        from .closing import prepare_period
+        last = timezone.localdate().replace(day=1) - timedelta(days=1)
+        period = gl.period_for(last)
         self.client.force_login(self.checker)
         page = self.client.get(reverse('periods'))
-        period = FinancialPeriod.objects.get(start=timezone.localdate().replace(day=1))
-        self.assertContains(page, reverse('period_action', args=[period.pk, 'close']))
+        self.assertContains(page, reverse('period_detail', args=[period.pk]))
+        prepare_period(self.maker, last, 'Tax, stock and bank reviewed', tax_reviewed=True, stock_reviewed=True, bank_reviewed=True)
         self.client.post(reverse('period_action', args=[period.pk, 'close']))
         period.refresh_from_db()
         self.assertEqual(period.status, 'closed')
         self.assertEqual(self.client.post(reverse('period_action', args=[period.pk, 'unknown'])).status_code, 404)
 
     def test_unmatched_statement_prevents_period_close(self):
-        today = timezone.localdate()
-        TR.import_statement(self.maker, self.bank, f'{today},Deposit,UNMATCHED,,100,100\n')
+        from .closing import prepare_period
+        last = timezone.localdate().replace(day=1) - timedelta(days=1)
+        TR.import_statement(self.maker, self.bank, f'{last},Deposit,UNMATCHED,,100,100\n')
         with self.assertRaisesMessage(ValidationError, 'outstanding bank statement'):
-            gl.set_period(self.checker, today, True)
+            prepare_period(self.maker, last, 'Review evidence', tax_reviewed=True, stock_reviewed=True, bank_reviewed=True)
 
     def test_system_posting_cannot_be_reversed_from_journal_screen(self):
         entry = self.deposit()

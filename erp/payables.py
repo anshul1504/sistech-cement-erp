@@ -160,6 +160,8 @@ def create_invoice(user, supplier, header, rows, notes=''):
         problems.append('One supplier invoice is for one plant (GST registration). Enter receipts of each plant separately.')
     if problems:
         raise ValidationError(problems)
+    from .gl import check_open
+    check_open(date)
     header = {**header, 'supplier_gstin': (header.get('supplier_gstin') or '').strip().upper()}
     results, issues, m_taxable, m_tax = _match(supplier, header, rows)
     first = next(iter(rows))

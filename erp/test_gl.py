@@ -111,6 +111,8 @@ class LedgerTests(TestCase):
         with self.assertRaisesMessage(ValidationError, 'maker-checker'):
             gl.decide_voucher(self.a, je.pk, True)
         last = TODAY().replace(day=1) - timedelta(days=1)
+        from .closing import prepare_period
+        prepare_period(self.a, last, 'Tax, stock and bank evidence reviewed', tax_reviewed=True, stock_reviewed=True, bank_reviewed=True)
         gl.set_period(self.b, last, True)
         with self.assertRaisesMessage(ValidationError, 'closed for posting'):
             gl.post(self.a, 'test:closed', last, None, 'x', [(power, D(1), 0, None, ''), (cash, 0, D(1), None, '')])
@@ -118,6 +120,7 @@ class LedgerTests(TestCase):
         self.assertEqual(bal('power'), D('50000.00'))
         rev = gl.reverse(self.a, JournalEntry.objects.get(pk=je.pk), reason='Booked twice')
         self.assertEqual((bal('power'), rev.reversal_of_id), (0, je.pk))
+        gl.set_period(self.b, last, False, 'Reopen for asset posting test')
         # Fixed asset: capitalise, depreciate once per month, dispose with loss
         a = TR.capitalise(self.a, {'code': 'vrm-1', 'name': 'VRM gearbox', 'category': 'fa_plant', 'site': self.site, 'supplier': self.sup, 'put_to_use': TODAY() - timedelta(days=70),
                                    'cost': D(1200000), 'salvage': D(0), 'method': 'slm', 'life_years': D(10)}, 'ap')

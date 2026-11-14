@@ -9,6 +9,7 @@
     <div class="org-hero-side"><small>Amount</small><span class="mst-total">₹{{ je.total|indian:2 }}</span><small>By {{ je.created_by.get_full_name|default:je.created_by.username }}{% if je.approved_by and je.kind == 'manual' %} · approved by {{ je.approved_by.get_full_name|default:je.approved_by.username }}{% endif %}</small></div></section>
   {% if je.reversal_of %}<ul class="ord-checks"><li class="is-info">Reverses <a href="{% url 'journal_detail' je.reversal_of.pk %}">{{ je.reversal_of.number }}</a>.</li></ul>{% endif %}
   {% if reversed_by %}<ul class="ord-checks"><li class="is-warn">Reversed by <a href="{% url 'journal_detail' reversed_by.pk %}">{{ reversed_by.number }}</a>.</li></ul>{% endif %}
+  {% if source_document %}<div class="doc-head-actions" style="margin-bottom:16px"><a class="org-btn is-light" href="{{ source_document.url }}">Open {{ source_document.label }}</a></div>{% endif %}
   <div class="acc-grid">
     <section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Lines</h2></header>
       <div class="ord-table jl-table" role="table"><div class="ord-tr ord-th" role="row"><span>Account</span><span>Party</span><span>Debit</span><span>Credit</span></div>

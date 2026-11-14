@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.10.1'
+ASSET_VERSION = '0.11.1'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -65,7 +65,7 @@ NAV_GROUPS = [
         _item('debit_notes', 'Debit notes', 'receipt', 'view_debitnote', match=('dn_new', 'dn_detail')),
         _item('journals', 'Accounts & ledgers', 'book', 'view_journalentry',
               match=('voucher_new', 'journal_detail', 'trial_balance', 'profit_loss', 'balance_sheet', 'account_ledger', 'chart', 'periods', 'bank_rec', 'gst_summary',
-                     'fixed_assets', 'cash_flow')),
+                     'fixed_assets', 'cash_flow', 'period_detail', 'year_closes', 'year_detail')),
         _item('payments', 'Payments', 'book', 'view_supplierpayment', match=('payment_new', 'payment_detail')),
     ]),
     ('Masters', [

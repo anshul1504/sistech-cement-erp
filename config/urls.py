@@ -225,3 +225,11 @@ urlpatterns += [
     path('accounts-ledger/assets/', trv.fixed_assets, name='fixed_assets'),
     path('accounts-ledger/cash-flow/', trv.cash_flow, name='cash_flow'),
 ]
+
+from erp import closing_views as clv
+urlpatterns += [
+    path('accounts-ledger/periods/<int:pk>/', clv.period_detail, name='period_detail'),
+    path('accounts-ledger/year-end/', clv.years, name='year_closes'),
+    path('accounts-ledger/year-end/<int:pk>/', clv.year_detail, name='year_detail'),
+    path('accounts-ledger/year-end/<int:pk>/<str:action>/', clv.year_action, name='year_action'),
+]

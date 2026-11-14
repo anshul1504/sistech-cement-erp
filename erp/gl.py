@@ -126,33 +126,26 @@ def period_for(on):
     return p
 
 
+def lock_finance():
+    from .models import FinancePostingLock
+    FinancePostingLock.objects.get_or_create(pk=1)
+    return FinancePostingLock.objects.select_for_update().get(pk=1)
+
+
 def check_open(on):
+    lock_finance()
+    cutoff = FinancialPeriod.objects.filter(status='closed', end__gte=on).order_by('-end').first()
+    if cutoff:
+        raise ValidationError(f'{cutoff} is closed for posting. Reopen that month before changing earlier books.')
     period = period_for(on)
     p = FinancialPeriod.objects.select_for_update().get(pk=period.pk)
     if p and p.status == 'closed':
         raise ValidationError(f'{p} is closed for posting. Date the entry in an open period or ask finance to reopen {p}.')
 
 
-@transaction.atomic
-def set_period(user, start, close):
-    require_company_finance(user)
-    if not user.has_perm('erp.close_period'):
-        raise PermissionDenied
-    p = period_for(start)
-    p = FinancialPeriod.objects.select_for_update().get(pk=p.pk)
-    if close and JournalEntry.objects.filter(kind='manual', status='draft', date__range=(p.start, p.end)).exists():
-        raise ValidationError(f'Approve or reject the draft journal vouchers dated in {p} before closing it.')
-    if close:
-        differences = [c['name'] for c in subledger_check() if c['diff']]
-        if differences:
-            raise ValidationError('Reconcile control accounts before closing: ' + ', '.join(differences) + '.')
-        from .models import BankStatementLine
-        if BankStatementLine.objects.filter(date__lte=p.end, matched_line__isnull=True).exists():
-            raise ValidationError('Match outstanding bank statement rows before closing.')
-    p.status, p.closed_by, p.closed_at = ('closed', user, timezone.now()) if close else ('open', None, None)
-    p.save()
-    AuditEvent.objects.create(actor=user, action='Period closed' if close else 'Period reopened', reference=str(p), detail=f'{p.start} – {p.end}')
-    return p
+def set_period(user, start, close, reason=''):
+    from .closing import decide_period
+    return decide_period(user, start, close, reason)
 
 
 # ---------- Posting ----------
@@ -176,7 +169,8 @@ def _clean(lines):
 
 
 @transaction.atomic
-def post(user, source, on, site, narration, lines, kind='auto', status='posted', reversal_of=None):
+def post(user, source, on, site, narration, lines, kind='auto', status='posted', reversal_of=None, year_close=None):
+    lock_finance()
     if source:
         existing = JournalEntry.objects.filter(source=source).first()
         if existing:
@@ -188,11 +182,17 @@ def post(user, source, on, site, narration, lines, kind='auto', status='posted',
         raise ValidationError(f'Voucher does not balance: debit ₹{inr(dr)} vs credit ₹{inr(cr)}.')
     if not clean:
         return None
-    if status == 'posted':
+    if kind == 'yearend':
+        require_company_finance(user)
+        if not user.has_perm('erp.approve_yearclose'):
+            raise PermissionDenied
+        if not year_close or year_close.status not in ('proposed', 'reopen_requested') or on != year_close.end:
+            raise ValidationError('Year-end entries require the independent year-close workflow.')
+    else:
         check_open(on)
     period_for(on)
     je = JournalEntry.objects.create(number=next_number('JV', site, on), date=on, site=site, source=source, kind=kind, status=status, narration=narration[:250],
-                                     reversal_of=reversal_of, created_by=user, approved_by=user if kind == 'auto' else None)
+                                     reversal_of=reversal_of, year_close=year_close, created_by=user, approved_by=user if kind in ('auto', 'yearend') else None)
     for aid, pid, d, c, narr in clean:
         JournalLine.objects.create(entry=je, account_id=aid, partner_id=pid, debit=d, credit=c, narration=narr)
     return je
@@ -201,6 +201,8 @@ def post(user, source, on, site, narration, lines, kind='auto', status='posted',
 @transaction.atomic
 def reverse(user, entry, on=None, reason=''):
     entry = JournalEntry.objects.select_for_update().get(pk=entry.pk)
+    if entry.kind == 'yearend':
+        raise ValidationError('Use the year-end reopening workflow to reverse carry-forward entries.')
     if entry.status != 'posted':
         raise ValidationError('Only posted vouchers can be reversed.')
     if hasattr(entry, 'reversed_by'):
@@ -405,7 +407,7 @@ def _grouped(rows, sign):
 
 
 def profit_and_loss(start, end, site=None):
-    sums = {r['account']: r['d'] - r['c'] for r in _posted(start, end, site).filter(account__type__in=['income', 'expense']).values('account').annotate(d=Sum('debit'), c=Sum('credit'))}
+    sums = {r['account']: r['d'] - r['c'] for r in _posted(start, end, site).exclude(entry__kind='yearend').filter(account__type__in=['income', 'expense']).values('account').annotate(d=Sum('debit'), c=Sum('credit'))}
     accts = {a.pk: a for a in Account.objects.filter(pk__in=sums)}
     income = _grouped([(accts[k], v) for k, v in sums.items() if accts[k].type == 'income'], -1)
     expense = _grouped([(accts[k], v) for k, v in sums.items() if accts[k].type == 'expense'], 1)
@@ -439,7 +441,10 @@ def account_ledger(account, start, end, partner=None, site=None):
     return {'opening': opening, 'rows': rows, 'closing': running}
 
 
-def subledger_check():
+def subledger_check(as_of=None):
+    if as_of is not None:
+        from .closing import historical_checks
+        return historical_checks(as_of)
     """Control accounts vs their subledgers (FR-FIN-003)."""
     from .models import Partner, StockBalance
     from . import ledger

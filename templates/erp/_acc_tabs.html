@@ -12,5 +12,6 @@
   {% if perms.erp.view_bankstatementline %}<a class="org-tab{% if tab == 'bank' %} is-active{% endif %}"{% if tab == 'bank' %} aria-current="page"{% endif %} href="{% url 'bank_rec' %}">Bank reconciliation</a>{% endif %}
   {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'gst' %} is-active{% endif %}"{% if tab == 'gst' %} aria-current="page"{% endif %} href="{% url 'gst_summary' %}">GST summary</a>{% endif %}
   {% if perms.erp.view_fixedasset %}<a class="org-tab{% if tab == 'assets' %} is-active{% endif %}"{% if tab == 'assets' %} aria-current="page"{% endif %} href="{% url 'fixed_assets' %}">Fixed assets</a>{% endif %}
+  {% if perms.erp.view_financialyearclose %}<a class="org-tab{% if tab == 'year' %} is-active{% endif %}"{% if tab == 'year' %} aria-current="page"{% endif %} href="{% url 'year_closes' %}">Year-end close</a>{% endif %}
 </nav>
 </details>

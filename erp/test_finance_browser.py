@@ -12,7 +12,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from . import gl, treasury as TR
+from . import closing, gl, treasury as TR
 from .models import Partner, Site
 
 
@@ -34,9 +34,22 @@ class FinanceBrowserTests(StaticLiveServerTestCase):
                         [(bank, Decimal(1000), 0, None, 'TEST-REF'), (gl.acct('capital'), 0, Decimal(1000), None, '')])
         TR.import_statement(user, bank, f'{today},Capital,TEST-REF,,1000,1000\n{today},Bank charges,,10,,990\n')
         TR.auto_match(user, bank)
+        checker = User.objects.create_superuser('finance-browser-checker', 'checker@example.com', 'Browser-Test-Password-816!')
+        current_start, _ = closing.year_bounds(today)
+        from datetime import timedelta
+        year_start, year_end = closing.year_bounds(current_start - timedelta(days=1))
+        cursor = year_start
+        while cursor <= year_end:
+            closing.prepare_period(user, cursor, 'Browser fixture review evidence', tax_reviewed=True, stock_reviewed=True, bank_reviewed=True)
+            gl.set_period(checker, cursor, True)
+            cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+        year = closing.prepare_year(user, year_end, 'Browser year review evidence')
+        period = gl.period_for(today.replace(day=1) - timedelta(days=1))
         self.client.force_login(user)
         routes = {route: reverse(route) for route in ['journals', 'voucher_new', 'trial_balance', 'profit_loss', 'balance_sheet', 'chart', 'periods',
-                                                      'payments', 'bank_rec', 'gst_summary', 'fixed_assets', 'cash_flow']}
+                                                      'payments', 'bank_rec', 'gst_summary', 'fixed_assets', 'cash_flow', 'year_closes']}
+        routes['period_detail'] = reverse('period_detail', args=[period.pk])
+        routes['year_detail'] = reverse('year_detail', args=[year.pk])
         routes['journals_empty'] = reverse('journals') + '?q=no-matching-test-voucher'
         routes.update(journal_detail=reverse('journal_detail', args=[entry.pk]), account_ledger=reverse('account_ledger', args=[bank.pk]),
                       payment_new=reverse('payment_new', args=[supplier.pk]), payment_detail=reverse('payment_detail', args=[pay.pk]))
@@ -49,13 +62,15 @@ class FinanceBrowserTests(StaticLiveServerTestCase):
             page = context.new_page()
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
-            for size, width, height in [('small-phone', 320, 720), ('phone', 390, 844), ('tablet', 768, 1024), ('desktop', 1440, 900)]:
+            for size, width, height in [('small-phone', 320, 720), ('phone', 390, 844), ('tablet', 768, 1024), ('desktop', 1440, 900), ('desktop-collapsed', 1470, 834)]:
                 page.set_viewport_size({'width': width, 'height': height})
                 for name, path in routes.items():
                     with self.subTest(size=size, route=name):
                         response = page.goto(self.live_server_url + path)
                         self.assertEqual(response.status, 200)
                         page.evaluate('document.fonts.ready')
+                        if size.endswith('collapsed'):
+                            page.evaluate("document.documentElement.classList.add('sb-collapsed')")
                         nav = page.locator('[data-section-navigation]')
                         if nav.count():
                             if width < 768:
@@ -65,6 +80,9 @@ class FinanceBrowserTests(StaticLiveServerTestCase):
                             self.assertTrue(page.get_by_role('link', name='Fixed assets', exact=True).is_visible())
                             if width < 768:
                                 nav.locator('summary').click()
+                        if name.startswith('journals') and width <= 320:
+                            for field in page.locator('.acc-journal-filter input[type=date]').all():
+                                self.assertGreaterEqual(field.bounding_box()['width'], 150, 'Date value is squeezed on a small phone')
                         self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'{name} overflows at {width}px')
                         page.screenshot(path=str(output / f'{name}-{size}.png'), full_page=True, animations='disabled')
             self.assertEqual(errors, [])

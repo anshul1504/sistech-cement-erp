@@ -4,15 +4,15 @@
 <div class="org-page acc-page adm-page mst-page ord-page">
   <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Periods &amp; close</h1><p>Close a month once its checks are done; nothing can then be posted with a date in it. Reopening is recorded in the audit trail.</p></div></div>
   {% include 'erp/_acc_tabs.html' with tab='periods' %}
-  <section class="org-card" style="margin-bottom:16px"><header><h2>Close checklist</h2><p>Subledger balances must agree with their ledger control accounts (FR-FIN-010).</p></header>
+  <section class="org-card" style="margin-bottom:16px"><header><h2>Close checklist</h2><p>Open a month to review historical balances, bank evidence and independent close approval. The summary below shows current balances.</p></header>
     <ul class="mst-order-list">{% for c in checks %}<li><span><strong>{{ c.name }}</strong><small>Ledger ₹{{ c.gl|indian:2 }} · subledger ₹{{ c.sub|indian:2 }}</small></span><span></span>{% if c.diff %}<span class="doc-badge is-danger">Differs {{ c.diff|rupees:2 }}</span>{% else %}<span class="doc-badge is-ok">Agrees</span>{% endif %}</li>{% endfor %}
       <li><span><strong>Draft journal vouchers</strong><small>Approve or reject before closing</small></span><span></span><span class="doc-badge is-ok">Checked per month below</span></li>
-      <li><span><strong>Bank reconciliation, GST review, stock count</strong><small>See Bank reconciliation, GST summary and Stock counts</small></span><span></span><span class="doc-badge">Manual</span></li></ul></section>
+      <li><span><strong>Bank reconciliation, GST review, stock count</strong><small>See Bank reconciliation, GST summary and Stock counts</small></span><span></span><span class="doc-badge">Evidence required</span></li></ul></section>
   <section class="org-card doc-list-card"><ul class="mst-list prc-list pr-list sinv-list">{% for p in periods %}
     <li><span class="mst-main"><span class="mst-icon"><svg><use href="#ic-book"/></svg></span><span><strong>{{ p }}</strong><small>{{ p.start|date:'d M' }} – {{ p.end|date:'d M Y' }}</small></span></span>
       <div class="mst-cell"><small>Vouchers</small>{{ p.vouchers }}</div><div class="mst-cell"><small>Drafts</small>{{ p.drafts }}</div>
       <div class="mst-cell"><span class="org-chip ord-status is-{% if p.status == 'closed' %}completed{% else %}approved{% endif %}">● {{ p.get_status_display }}</span></div>
       <div class="mst-cell"><small>Closed by</small>{{ p.closed_by|who }}</div>
-      {% if can_close %}<form method="post" action="{% if p.status == 'closed' %}{% url 'period_action' p.pk 'reopen' %}{% else %}{% url 'period_action' p.pk 'close' %}{% endif %}" class="mst-open">{% csrf_token %}<button class="org-btn is-light is-sm" type="submit">{% if p.status == 'closed' %}Reopen{% else %}Close{% endif %}</button></form>{% endif %}</li>{% endfor %}</ul></section>
+      <a class="org-btn is-light is-sm mst-open" href="{% url 'period_detail' p.pk %}">{% if p.status == 'closed' %}Review{% else %}Review &amp; close{% endif %}</a></li>{% endfor %}</ul></section>
 </div>
 {% endblock %}

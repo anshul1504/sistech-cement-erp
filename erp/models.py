@@ -1982,9 +1982,10 @@ class JournalEntry(models.Model):
     date = models.DateField()
     site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, related_name='journals', verbose_name='Plant / branch')
     source = models.CharField(max_length=60, unique=True, null=True, blank=True, editable=False, help_text='Document that created it, e.g. inv:12.')
-    kind = models.CharField(max_length=7, choices=[('auto', 'System posting'), ('manual', 'Journal voucher')], default='auto')
+    kind = models.CharField(max_length=7, choices=[('auto', 'System posting'), ('manual', 'Journal voucher'), ('yearend', 'Year-end carry-forward')], default='auto')
     status = models.CharField(max_length=10, default='posted', choices=[('draft', 'Waiting approval'), ('posted', 'Posted'), ('rejected', 'Rejected')])
     narration = models.CharField(max_length=250)
+    year_close = models.ForeignKey('FinancialYearClose', null=True, blank=True, on_delete=models.PROTECT, related_name='entries')
     reversal_of = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='reversed_by')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -2040,6 +2041,7 @@ class SupplierPayment(models.Model):
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
     paid_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
     paid_at = models.DateTimeField(null=True, blank=True)
+    returned_on = models.DateField(null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ['-created_at']
@@ -2143,3 +2145,71 @@ class DepreciationEntry(models.Model):
     class Meta:
         ordering = ['month']
         constraints = [models.UniqueConstraint(fields=['asset', 'month'], name='one_depreciation_per_month')]
+
+
+class PeriodCloseReview(models.Model):
+    period = models.ForeignKey(FinancialPeriod, on_delete=models.PROTECT, related_name='reviews')
+    prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    prepared_at = models.DateTimeField(auto_now=True)
+    tax_reviewed = models.BooleanField(default=False)
+    stock_reviewed = models.BooleanField(default=False)
+    bank_reviewed = models.BooleanField(default=False)
+    note = models.TextField()
+    snapshot = models.JSONField(default=dict)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        permissions = [('prepare_periodclose', 'Prepare month-end close review')]
+
+
+class PeriodBankConfirmation(models.Model):
+    period = models.ForeignKey(FinancialPeriod, on_delete=models.PROTECT, related_name='bank_confirmations')
+    bank = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='+')
+    closing_balance = models.DecimalField(max_digits=16, decimal_places=2)
+    statement_reference = models.CharField(max_length=200)
+    prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    prepared_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['period', 'bank'], name='one_period_bank_confirmation')]
+
+
+class FinancialYearClose(models.Model):
+    start = models.DateField(unique=True)
+    end = models.DateField()
+    status = models.CharField(max_length=16, default='proposed', choices=[('proposed', 'Waiting approval'), ('closed', 'Closed'), ('reopen_requested', 'Reopen requested'), ('reopened', 'Reopened'), ('rejected', 'Rejected')])
+    revision = models.PositiveIntegerField(default=1)
+    prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    prepared_at = models.DateTimeField(auto_now=True)
+    note = models.TextField()
+    snapshot = models.JSONField(default=dict)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    reopen_requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    reopen_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-start']
+        permissions = [('prepare_yearclose', 'Prepare year-end carry-forward'), ('approve_yearclose', 'Approve year-end close and reopen')]
+
+    def __str__(self):
+        return f'{self.start:%d %b %Y} – {self.end:%d %b %Y}'
+
+
+class FinancePostingLock(models.Model):
+    """Single transactional lock shared by posting, reconciliation and close."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+
+
+class FinancialYearCloseHistory(models.Model):
+    year_close = models.ForeignKey(FinancialYearClose, on_delete=models.PROTECT, related_name='history')
+    revision = models.PositiveIntegerField()
+    action = models.CharField(max_length=30)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    note = models.TextField()
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']

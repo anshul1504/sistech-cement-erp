@@ -67,11 +67,12 @@ bag ↔ MT equivalents, ageing / slow-moving / min-max. Lot/batch balances move 
 ### Step 7 — Finance (SRS Phase 3, §5.10, §9) — core implemented, production controls/UAT pending
 Chart of accounts, double-entry posting engine (invoices, receipts, GRN, payments post automatically), AR/AP ageing,
 payments with maker-checker, bank reconciliation, trial balance, P&L, balance sheet, cash flow, fixed assets,
-basic period close checklist, GST summaries for reconciliation.
+historical month-close review, year-end carry-forward/reopening, GST summaries for reconciliation.
 
 Implemented with explicit company-wide finance scope, independent approvals, beneficiary snapshots, credit-asset payments,
 AR/inventory/AP control reconciliation and permissioned bank matching. See [Finance operations](FINANCE.md).
-Remaining: historical close completeness, year-end carry-forward, statutory filing/connectors, budgets and finance UAT.
+Month close now retains independent review evidence, cutoff balances and bank confirmations; year close posts/reverses retained earnings with independent approval.
+Remaining: external evidence verification, statutory filing/connectors, budgets, PostgreSQL concurrency validation and finance UAT.
 
 ### Step 8 — Dealer network, schemes & service (§5.1, §5.3, §5.12)
 Leads and project pipeline, dealer onboarding approval, territories/targets, schemes and commissions with
