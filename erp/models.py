@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 POSITIVE = [MinValueValidator(Decimal('0.001'))]
@@ -2392,3 +2392,78 @@ class SalesTarget(models.Model):
         ordering = ['-month', 'site__code', 'owner__username']
         constraints = [models.UniqueConstraint(fields=['site', 'owner', 'month'], name='unique_monthly_sales_target')]
         permissions = [('manage_salestarget', 'Set salesperson monthly targets'), ('view_crmperformance', 'View scoped sales performance')]
+
+
+# ---------- Versioned dealer incentives: rules and retained calculation previews ----------
+class IncentiveScheme(models.Model):
+    code = models.CharField(max_length=30, unique=True)
+    name = models.CharField(max_length=120)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='incentive_schemes')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['code']
+
+    def __str__(self): return f'{self.code} · {self.name}'
+
+
+class SchemeVersion(models.Model):
+    scheme = models.ForeignKey(IncentiveScheme, on_delete=models.PROTECT, related_name='versions')
+    revision = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=12, choices=[('draft', 'Draft'), ('submitted', 'Review pending'), ('approved', 'Approved'), ('rejected', 'Rejected')], default='draft')
+    starts_on = models.DateField()
+    ends_on = models.DateField()
+    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    partner = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    customer_kind = models.CharField(max_length=15, blank=True, choices=[(k, k) for k in CUSTOMER_KINDS])
+    district = models.CharField(max_length=80, blank=True)
+    territory = models.CharField(max_length=100, blank=True)
+    basis = models.CharField(max_length=12, choices=[('net_sales', 'Net taxable sales'), ('settled', 'Fully settled net taxable sales')], default='net_sales')
+    dealer_cap = models.DecimalField('Maximum incentive per dealer (₹)', max_digits=16, decimal_places=2, null=True, blank=True, validators=MONEY)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decision_note = models.TextField(blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    contributors = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='+', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-revision']
+        constraints = [models.UniqueConstraint(fields=['scheme', 'revision'], name='unique_incentive_revision'),
+                       models.UniqueConstraint(fields=['scheme'], condition=models.Q(status__in=['draft', 'submitted']), name='one_open_incentive_revision')]
+        permissions = [('submit_schemeversion', 'Submit incentive scheme rules'), ('approve_schemeversion', 'Approve incentive scheme rules')]
+
+    def __str__(self): return f'{self.scheme.code} · v{self.revision}'
+
+
+class SchemeSlab(models.Model):
+    version = models.ForeignKey(SchemeVersion, on_delete=models.CASCADE, related_name='slabs')
+    minimum_sales = models.DecimalField('Minimum eligible sales (₹)', max_digits=16, decimal_places=2, validators=MONEY)
+    percentage = models.DecimalField('Incentive (%)', max_digits=5, decimal_places=2, validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('100'))])
+
+    class Meta:
+        ordering = ['minimum_sales']
+        constraints = [models.UniqueConstraint(fields=['version', 'minimum_sales'], name='unique_incentive_slab')]
+
+
+class SchemeEvaluation(models.Model):
+    version = models.ForeignKey(SchemeVersion, on_delete=models.PROTECT, related_name='evaluations')
+    starts_on = models.DateField()
+    ends_on = models.DateField()
+    submission_key = models.UUIDField(unique=True, editable=False)
+    snapshot = models.JSONField(default=dict, editable=False)
+    source_digest = models.CharField(max_length=64, editable=False)
+    total = models.DecimalField(max_digits=16, decimal_places=2)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        permissions = [('export_schemeevaluation', 'Export incentive calculation previews')]
+
+    def __str__(self): return f'CALC-{self.pk:06d}'

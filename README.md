@@ -86,6 +86,12 @@ Changes are audited. Plant-level addresses, GST registrations and factory licenc
 
 See [CRM workflow, access and reporting definitions](docs/CRM.md). Migration `0029` preserves existing partners and history. `setup_roles` creates missing presets, including Sales manager; **existing customized Sales executive/Finance controller groups require explicit new CRM grants in the role matrix**. Policy defaults to PAN and agreement evidence, with conditional GST/bank evidence. Reviews are manual. Territory hierarchy, unified project pipeline, schemes, commissions and complaints/CAPA remain pending.
 
+## Schemes & incentives — rule and calculation stage
+
+**Sales → Schemes & incentives** (`/schemes/`) includes site-scoped, versioned scheme rules; product/customer/type/district/territory eligibility; percentage slabs and dealer caps; independent approval; and retained dealer-wise calculation previews. Net taxable sales exclude GST and deduct related credit notes through the calculation date. An optional fully settled mode checks current whole-invoice allocations. Retained source evidence, current-source drift checks, private JSON and audited CSV exports support review.
+
+See [Scheme rules and calculation definitions](docs/SCHEMES.md). These are **previews, not accrued or paid rewards**. Payout approvals, accounting, post-payout reversals, quantity schemes and campaign exclusions remain pending. Upgrade migration `0030` adds tables without changing existing business records. Existing role groups need explicit scheme/calculation permissions in the role matrix.
+
 ## Masons & contractors (influencer network)
 
 `/influencers/` (Sales → Masons & contractors) records masons/mistris, contractors, site engineers, architects and builders: mobile (normalised to 10 digits and **unique — duplicates are blocked with a link to the existing record**), district / tehsil / village (spelling normalised so reports group correctly), main dealer plus other dealers, specialisation, experience, monthly cement bags and TMT, current brand, and payout KYC (only the last 4 Aadhaar digits, PAN, UPI). Monthly bags set the tier (Bronze < 100 ≤ Silver < 400 ≤ Gold < 1,000 ≤ Platinum).
@@ -216,7 +222,7 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | Production and quality | Versioned recipes, process orders, material issue, variance and actual costing, shift log, packing reconciliation, IS-standard specifications, immutable results, calibration control, release / deviation / reject, COA and batch traceability. Production planning against demand, PLC/SCADA data and CAPA remain. |
 | Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |
 | Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journal approvals, bank reconciliation, assets/depreciation, statements, historical close review and year-end retained-earnings carry-forward/reopening are implemented. E-invoice/e-way bill connectors, statutory filing, budgets, external bank evidence validation and finance UAT remain. |
-| Schemes and claims | Not implemented. Versioned incentive rules, commissions, returns, complaints and settlements remain. |
+| Schemes and claims | Versioned, independently approved dealer incentive rules and retained calculation previews implemented. Payout batches/accounting/reversals, commissions, campaign exclusions, complaints/CAPA and claim settlements remain. |
 | Android and integrations | Not implemented. Scoped APIs, employee/dealer/driver apps, offline drafts, notifications, GST/bank/GPS/hardware integrations remain. |
 | Production operations | PostgreSQL migration, concurrent workload testing, audit retention hardening, monitoring, backups/restore, secure hosting and UAT remain. |
 
@@ -236,6 +242,8 @@ python manage.py test
 For repeatable desktop/mobile visual checks, install the optional Playwright package and Chromium, then run `python scripts/browser_smoke.py`. It creates an isolated test database and local test server, uses fictional accounts and in-memory email, completes the two-step login, and captures authentication/access/ERP pages into ignored `test-results/`. No real email is sent and no production credentials are used.
 
 The CRM milestone verification ran 276 tests (272 passed, four opt-in browser tests skipped), then all four browser tests passed separately. Reproduce the browser run with `RUN_BROWSER_TESTS=1 python manage.py test erp.test_crm_browser erp.test_business_browser erp.test_finance_browser accounts.test_browser`.
+
+The subsequent scheme milestone ran 302 tests (297 passed, five opt-in browser tests skipped), with all five browser tests also passing explicitly. Include `erp.test_schemes_browser` in the browser command above for scheme coverage.
 
 Tests exercise authentication, throttling, password recovery and token expiry/single-use, session invalidation, role/permission injection, Sales/Purchase isolation, disabled users, site isolation, maker-checker, stock rollback, credit limits, quality release and HTTP pages.
 

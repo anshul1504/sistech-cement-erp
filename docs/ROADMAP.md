@@ -84,7 +84,11 @@ Remaining: external evidence verification, statutory filing/connectors, budgets,
 independent onboarding/credit/final activation, existing-customer amendments, monthly targets and performance
 with source drill-down. See [Dealer CRM](CRM.md) for upgrade grants, definitions and limits.
 
-Next: versioned schemes/incentive rules, reproducible eligibility/accrual, independent payout batches and reversals;
+✅ Step 8b stage 1: versioned incentive rules, scoped sales slabs/caps, independent rule approval,
+current-source eligibility previews and retained invoice/return/settlement evidence with drift checks and exports.
+See [Scheme rules and calculations](SCHEMES.md). No accrual, entitlement approval or payout is posted yet.
+
+Next: reviewed accrual/entitlement and independent payout batches with unique earning allocation, posting and reversals;
 then complaints/returns with CAPA. Territory hierarchy, unified project pipeline and dealer portal remain pending.
 
 ### Step 9 — Dashboards & reports (§11)

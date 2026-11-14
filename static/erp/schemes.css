@@ -1,0 +1,22 @@
+.scheme-filters { grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr)) auto; }
+.scheme-list-row { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto; align-items:center; gap:16px; padding:18px 0; color:#34445c; text-decoration:none; font-size:13px; }
+.scheme-list-row > span { min-width:0; overflow-wrap:anywhere; }
+.scheme-list-row small { display:block; font-size:12px; color:#657389; }
+.scheme-slabs { display:grid; gap:12px; margin:18px 0; }
+.scheme-slab { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) auto; gap:14px; align-items:end; padding:16px; border:1px solid #dce3ee; border-radius:10px; background:#f7f9fc; }
+.scheme-slab > * { min-width:0; }
+.scheme-remove { display:flex; align-items:center; gap:8px; font-size:12px; min-height:44px; cursor:pointer; }
+.scheme-remove input[type=checkbox] { flex:0 0 18px; width:18px; height:18px; margin:0; accent-color:#073777; }
+.scheme-notice { padding:16px 20px; border:1px solid #e1e6ee; border-left:3px solid #f5bd22; border-radius:10px; margin-bottom:20px; background:#fff; font-size:13px; color:#34445c; }
+.scheme-notice p { margin:6px 0 0; font-size:12px; color:#657389; }
+.scheme-total { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.scheme-total > div { min-width:0; }
+.scheme-total small { display:block; font-size:12px; color:#657389; }
+.scheme-total strong { display:block; margin-top:6px; font-size:clamp(18px,2vw,25px); color:#082859; overflow-wrap:anywhere; }
+.scheme-amounts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:16px 0; }
+.scheme-amounts dt { font-size:12px; font-weight:400; color:#657389; }
+.scheme-amounts dd { margin:4px 0 0; font-weight:600; color:#082859; overflow-wrap:anywhere; }
+.scheme-source { padding:14px; background:#f7f9fc; border-radius:10px; }
+.scheme-digest { overflow-wrap:anywhere; margin-top:14px; }
+@container crm (max-width:700px) { .scheme-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .scheme-list-row { grid-template-columns:minmax(0,1fr) auto; } .scheme-list-row .crm-main { grid-column:1/-1; } .scheme-slab { grid-template-columns:repeat(2,minmax(0,1fr)); } .scheme-remove { grid-column:1/-1; } .scheme-total { grid-template-columns:minmax(0,1fr); } }
+@container crm (max-width:400px) { .scheme-filters, .scheme-slab, .scheme-amounts { grid-template-columns:minmax(0,1fr); } }

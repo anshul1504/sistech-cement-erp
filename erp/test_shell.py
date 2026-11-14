@@ -35,7 +35,7 @@ class AppShellTests(TestCase):
         soon = [i for g in response.context['nav_groups'] for i in g['items'] if i['soon']]
         self.assertTrue(soon)
         self.assertTrue(all(i['url'] is None for i in soon))
-        self.assertContains(response, 'Schemes &amp; claims')
+        self.assertContains(response, 'Quotations')
 
     def test_breadcrumb_marks_active_section_for_sub_pages(self):
         self.client.force_login(self.admin)

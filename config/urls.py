@@ -251,3 +251,14 @@ urlpatterns += [
     path('crm/reviews/<int:pk>/', cv.review_detail, name='crm_review_detail'),
     path('crm/performance/<int:site_pk>/<int:owner_pk>/', cv.performance_detail, name='crm_performance_detail'),
 ]
+
+from erp import scheme_views as sv
+urlpatterns += [
+    path('schemes/', sv.index, name='schemes'),
+    path('schemes/new/', sv.edit, name='scheme_new'),
+    path('schemes/versions/<int:pk>/', sv.detail, name='scheme_detail'),
+    path('schemes/versions/<int:pk>/edit/', sv.edit, name='scheme_edit'),
+    path('schemes/versions/<int:pk>/<str:action>/', sv.action, name='scheme_action'),
+    path('schemes/calculations/<int:pk>/', sv.evaluation, name='scheme_evaluation'),
+    path('schemes/calculations/<int:pk>/check/', sv.check_sources, name='scheme_check_sources'),
+]
