@@ -20,6 +20,7 @@
 .crm-filters > div { display:grid; gap:5px; min-width:0; }
 .crm-filters label { font-size:11.5px; color:#56657b; font-weight:600; }
 .crm-filters .form-control, .crm-filters .form-select { width:100%; min-width:0; height:42px; font-size:13px; }
+.crm-filters .form-select { padding-right:34px; background-position:right 10px center; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
 .crm-list { list-style:none; margin:0; padding:0; }
 .crm-list > li + li { border-top:1px solid #e7ecf3; }
 .crm-lead-row, .crm-performance-row { display:grid; grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto; align-items:center; gap:16px; padding:16px 0; color:#26364d; text-decoration:none; font-size:13px; }
