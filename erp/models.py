@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -2912,3 +2912,64 @@ class CollectionFollowUp(models.Model):
         ordering = ['-on', '-created_at']
 
     def __str__(self): return f'{self.partner} · {self.get_kind_display()} · {self.on}'
+
+
+# ---------- Customer returns / RMA (FR-SVC-004/005, FR-TAX-008) ----------
+
+RETURN_REASONS = [('damaged', 'Damaged / wet / torn bags'), ('wrong', 'Wrong product or grade'), ('quality', 'Quality problem'), ('excess', 'Excess / not ordered'),
+                  ('expired', 'Old stock / hardened'), ('other', 'Other')]
+RETURN_STATUSES = [('requested', 'Waiting approval'), ('approved', 'Approved · pickup due'), ('rejected', 'Rejected'), ('transit', 'Picked up · on the way back'),
+                   ('inspected', 'Inspected · credit due'), ('credited', 'Credited'), ('closed', 'Closed · nothing accepted'), ('cancelled', 'Cancelled')]
+
+
+class ReturnRequest(models.Model):
+    """Return of goods from a customer against one tax invoice: request → approval (different user) → pickup → inspection at the
+    plant (good / damaged / not accepted) → credit note by finance. Inspected goods stay in quarantine until the credit note posts
+    them back to stock (good → available, damaged → damaged)."""
+    submission_key = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+    submission_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='returns')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='returns')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='returns')
+    complaint = models.ForeignKey('Complaint', null=True, blank=True, on_delete=models.PROTECT, related_name='returns')
+    reason = models.CharField(max_length=8, choices=RETURN_REASONS)
+    description = models.CharField(max_length=300)
+    status = models.CharField(max_length=10, choices=RETURN_STATUSES, default='requested')
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decision_note = models.CharField(max_length=200, blank=True)
+    pickup_on = models.DateField(null=True, blank=True)
+    vehicle_number = models.CharField(max_length=15, blank=True)
+    lr_number = models.CharField('LR / challan no.', max_length=30, blank=True)
+    inspected_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    inspected_at = models.DateTimeField(null=True, blank=True)
+    credit_note = models.OneToOneField(CreditNote, null=True, blank=True, on_delete=models.PROTECT, related_name='return_request')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        permissions = [('approve_returnrequest', 'Approve or reject customer returns'), ('inspect_returnrequest', 'Receive and inspect returned goods')]
+
+    def __str__(self): return self.number
+
+    @property
+    def badge(self):
+        return {'requested': 'submitted', 'approved': 'approved', 'transit': 'approved', 'inspected': 'submitted', 'credited': 'completed', 'closed': 'completed'}.get(self.status, 'cancelled')
+
+
+class ReturnLine(models.Model):
+    request = models.ForeignKey(ReturnRequest, on_delete=models.CASCADE, related_name='lines')
+    invoice_line = models.ForeignKey(InvoiceLine, on_delete=models.PROTECT, related_name='return_lines')
+    quantity = models.DecimalField('Requested qty', max_digits=14, decimal_places=3, validators=POSITIVE)
+    received = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    good = models.DecimalField('Good (resaleable)', max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    damaged = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    note = models.CharField(max_length=150, blank=True)
+
+    @property
+    def not_accepted(self):
+        return max(self.received - self.good - self.damaged, Decimal('0'))
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['request', 'invoice_line'], name='unique_return_invoice_line')]

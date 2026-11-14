@@ -175,10 +175,11 @@ def receipt_bounce(request, pk):
 
 # ---------- Credit notes ----------
 
-def credit_room(line):
+def credit_room(line, exclude_return=None):
     """How much taxable value and quantity can still be credited on one invoice line."""
     done = line.credit_lines.aggregate(t=Sum('taxable'), q=Sum('quantity'))
-    return line.taxable - (done['t'] or 0), line.quantity - (done['q'] or 0)
+    from .returns import reserved
+    return max(line.taxable - (done['t'] or 0), Decimal(0)), max(line.quantity - (done['q'] or 0) - reserved(line, exclude_return), Decimal(0))
 
 
 def return_valuation(invoice, line, quantity):
@@ -191,8 +192,9 @@ def return_valuation(invoice, line, quantity):
         return None, None  # Legacy records without a dispatch-cost snapshot.
     product_qty = invoice.lines.filter(product=line.product).aggregate(t=Sum('quantity'))['t'] or 0
     budget = (total_value * product_qty / total_qty).quantize(Decimal('.01'))
-    sources = [f'cn:{cn_id}:line:{line_id}' for cn_id, line_id in CreditNoteLine.objects.filter(
-        invoice_line__invoice=invoice, invoice_line__product=line.product, credit_note__returns_stock=True).values_list('credit_note_id', 'invoice_line_id')]
+    sources = [f'cn:{cn_id}:line:{line_id}{suffix}' for cn_id, line_id in CreditNoteLine.objects.filter(
+        invoice_line__invoice=invoice, invoice_line__product=line.product, credit_note__returns_stock=True).values_list('credit_note_id', 'invoice_line_id')
+        for suffix in ('', ':damaged')]
     returned = StockMovement.objects.filter(source__in=sources, kind='Return')
     done_qty = sum((m.quantity for m in returned), Decimal(0))
     done_value = sum((m.value for m in returned), Decimal(0))
@@ -252,31 +254,8 @@ def credit_note_new(request, pk):
             errors.append('Enter a quantity or value on at least one line.')
         if not errors:
             try:
-                with transaction.atomic():
-                    cn = CreditNote(invoice=inv, partner=inv.partner, reason=reason, notes=request.POST.get('notes', '')[:200], created_by=request.user,
-                                    returns_stock=reason == 'return' and any(q for _, q, _ in picked), taxable=0, cgst=0, sgst=0, igst=0, round_off=0, total=0)
-                    cn.number = next_number('CN', inv.site)
-                    cn.submission_key, cn.submission_fingerprint = key, fingerprint
-                    cn.save()
-                    for l, qty, value in picked:
-                        c, s, i = line_tax(value, l.gst_rate, inv.interstate)
-                        CreditNoteLine.objects.create(credit_note=cn, invoice_line=l, quantity=qty, taxable=value, gst_rate=l.gst_rate, cgst=c, sgst=s, igst=i)
-                        cn.taxable += value; cn.cgst += c; cn.sgst += s; cn.igst += i
-                        if qty and cn.returns_stock:
-                            cost, stock_value = return_valuation(inv, l, qty)
-                            move_stock(request.user, inv.site, l.product, qty, f'cn:{cn.pk}:line:{l.pk}', 'Return', f'{cn.number} against {inv.number}', unit_cost=cost, value=stock_value)
-                    exact = cn.taxable + cn.cgst + cn.sgst + cn.igst
-                    cn.total = exact.quantize(Decimal('1'))
-                    cn.round_off = cn.total - exact
-                    cn.save()
-                    from .gl import post_credit_note
-                    post_credit_note(request.user, cn)
-                    # A credit note first reduces its own invoice; anything left settles other invoices or stays as credit.
-                    own = min(cn.total, inv.outstanding)
-                    if own > 0:
-                        Settlement.objects.create(invoice=inv, credit_note=cn, amount=own)
-                    allocate(inv.partner)
-                    AuditEvent.objects.create(actor=request.user, site=inv.site, action='Credit note posted', reference=cn.number, detail=f'{inv.number} · {cn.get_reason_display()} · ₹{cn.total}')
+                from .credits import create_credit_note
+                cn = create_credit_note(request.user, inv, reason, picked, request.POST.get('notes', ''), key, fingerprint)
             except ValidationError as e:
                 errors += e.messages
             else:

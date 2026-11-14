@@ -1,0 +1,20 @@
+.rma-page .ord-progress { table-layout:fixed; }
+.rma-page .ord-progress th, .rma-page .ord-progress td { overflow-wrap:anywhere; }
+.rma-page .ord-progress input { width:100%; min-width:0; font-size:13px; }
+.rma-page .sup-actions { display:grid; gap:16px; }
+.rma-page .sup-actions .ord-inline { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.rma-page .sup-actions .ord-inline > .form-control { flex:1 1 140px; width:auto; min-width:0; }
+.rma-page .org-hero-text, .rma-page .org-hero-side { min-width:0; overflow-wrap:anywhere; }
+.rma-page .mst-order-list small { overflow-wrap:anywhere; }
+@media (max-width:767.98px) {
+ .rma-page .ord-progress thead { display:none; }
+ .rma-page .ord-progress, .rma-page .ord-progress tbody, .rma-page .ord-progress tr { display:block; width:100%; }
+ .rma-page .ord-progress tr { padding:12px 0; border-bottom:1px solid #e1e6ee; }
+ .rma-page .ord-progress td { display:grid; grid-template-columns:minmax(0,0.8fr) minmax(0,1.2fr); gap:12px; align-items:center; text-align:left; border:0; padding:6px 0; }
+ .rma-page .ord-progress td::before { content:attr(data-label); font-size:12px; font-weight:600; color:#657389; }
+ .rma-page .ord-progress input { font-size:16px; max-width:100%!important; margin:0!important; }
+ .rma-page .sup-actions .org-btn { flex:1 1 140px; justify-content:center; }
+}
+
+.rma-page .rma-pending { font-size:16px; }
+.rma-page .rma-note small { display:block; margin-top:5px; color:#657389; font-size:11px; }

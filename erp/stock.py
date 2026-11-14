@@ -63,6 +63,9 @@ def position(sites, product_filter=None):
             rows[(l.order.site_id, l.product_id)]['reserved'] += l.pending_quantity
     for l in GRNLine.objects.filter(grn__status='posted', hold__gt=0, qc_at__isnull=True, grn__site_id__in=site_ids).select_related('grn'):
         rows[(l.grn.site_id, l.product_id)]['hold'] += l.hold
+    from .models import ReturnLine
+    for l in ReturnLine.objects.filter(request__status='inspected', request__site_id__in=site_ids).select_related('request', 'invoice_line'):
+        rows[(l.request.site_id, l.invoice_line.product_id)]['hold'] += l.good + l.damaged   # returned goods in quarantine until credited
     for p in Production.objects.filter(status='Quality hold', site_id__in=site_ids):
         rows[(p.site_id, p.product_id)]['hold'] += p.actual_quantity
     for l in StockTransferLine.objects.filter(transfer__status='in_transit', transfer__to_site_id__in=site_ids).select_related('transfer'):

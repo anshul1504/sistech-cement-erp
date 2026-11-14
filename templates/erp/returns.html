@@ -1,0 +1,23 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_return_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page rma-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · SERVICE</div><h1>Customer returns</h1><p>Goods coming back against a tax invoice: approved by a different user, picked up, inspected at the plant (good / damaged / not accepted) and credited by finance. Inspected goods stay in quarantine until the credit note puts them back in stock.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'return_new' %}"><svg><use href="#ic-plus"/></svg>New return</a></div>{% endif %}</div>
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi{% if kpi.requested %} is-warn{% endif %}" href="?status=requested"><span>Waiting approval</span><strong>{{ kpi.requested }}</strong><small>sales manager</small></a>
+    <a role="listitem" class="inf-kpi" href="?status=approved"><span>Pickup due</span><strong>{{ kpi.approved }}</strong><small>approved</small></a>
+    <a role="listitem" class="inf-kpi" href="?status=transit"><span>On the way back</span><strong>{{ kpi.transit }}</strong><small>inspect on arrival</small></a>
+    <a role="listitem" class="inf-kpi{% if kpi.inspected %} is-warn{% endif %}" href="?status=inspected"><span>Credit due</span><strong>{{ kpi.inspected }}</strong><small>goods in quarantine</small></a>
+  </div>
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>Returns</h2><p>{{ rows|length }} shown</p></div>
+    <form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Return, customer or invoice" aria-label="Search"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="open"{% if status == 'open' %} selected{% endif %}>Open</option><option value="arrival"{% if status == 'arrival' %} selected{% endif %}>Pickup / arrival due</option>{% for k, l in statuses %}<option value="{{ k }}"{% if status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}<option value="all"{% if status == 'all' %} selected{% endif %}>All</option></select></form></header>
+    {% if rows %}<ul class="ord-list">{% for r in rows %}<li>
+      <a class="ord-list-main" href="{% url 'return_detail' r.pk %}"><strong>{{ r.partner.name }}</strong><small>{{ r.number }} · {{ r.invoice.number }} · {{ r.site.code }}</small></a>
+      <div class="ord-list-cell"><small>Reason</small>{{ r.get_reason_display|truncatewords:3 }}</div>
+      <div class="ord-list-cell"><small>Raised</small>{{ r.created_at|date:'d M Y' }}</div>
+      <div class="ord-list-cell"><small>Credit note</small>{% if r.credit_note %}{{ r.credit_note.number }}{% else %}—{% endif %}</div>
+      <div class="ord-list-cell"><span class="org-chip ord-status is-{{ r.badge }}">● {{ r.get_status_display }}</span></div></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-truck"/></svg><strong>No returns here</strong><span>Raise a return against the customer's tax invoice.</span></div>{% endif %}{% include 'erp/_crm_pagination.html' with page=rows %}</section>
+</div>
+{% endblock %}

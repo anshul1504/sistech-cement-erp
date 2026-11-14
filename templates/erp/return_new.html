@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_return_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page rma-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'returns' %}">← Customer returns</a></div><h1>New customer return</h1><p>Find the tax invoice, enter what the customer wants to send back and why. Quantities already credited or on another open return are excluded.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="get" class="org-card ord-inline" style="padding:16px;margin-bottom:16px"><input class="form-control" name="invoice" value="{{ invoice_text }}" placeholder="Tax invoice number" aria-label="Invoice number" required><button class="org-btn is-light">Find invoice</button></form>
+  {% if inv %}<form method="post" class="org-card" style="padding:20px">{% csrf_token %}<input type="hidden" name="invoice" value="{{ inv.number }}"><input type="hidden" name="submission_key" value="{{ submission_key }}"><input type="hidden" name="save" value="1">
+    <p><strong>{{ inv.number }}</strong> · {{ inv.partner.name }} · {{ inv.date|date:'d M Y' }} · {{ inv.site.code }}</p>
+    <table class="ord-progress"><thead><tr><th>Product</th><th>Invoiced</th><th>Can return</th><th>Return qty</th></tr></thead><tbody>
+      {% for r in rows %}<tr><td data-label="Product">{{ r.line.description }}</td><td data-label="Invoiced">{{ r.line.quantity|qty }} {{ r.line.unit }}</td><td data-label="Can return">{{ r.room|qty }}</td><td data-label="Return quantity"><input class="form-control" style="max-width:120px;margin-left:auto" type="number" step="0.001" min="0" max="{{ r.room }}" name="qty_{{ r.line.pk }}" value="{{ r.qty }}" aria-label="Return quantity"></td></tr>{% endfor %}
+    </tbody></table>
+    <div class="org-grid" style="margin-top:16px">
+      <div class="org-field"><label class="form-label" for="r-reason">Reason</label><select id="r-reason" class="form-select" name="reason">{% for k, l in reasons %}<option value="{{ k }}"{% if post.reason == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="r-c">Linked complaint</label><select id="r-c" class="form-select" name="complaint"><option value="">None</option>{% for c in complaints %}<option value="{{ c.pk }}"{% if post.complaint == c.pk|stringformat:'s' %} selected{% endif %}>{{ c.number }} · {{ c.get_category_display|truncatewords:3 }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="r-d">Description</label><input id="r-d" class="form-control" name="description" required maxlength="300" value="{{ post.description }}" placeholder="e.g. 40 bags wet in transit, lying at dealer godown, Rewa"></div>
+    </div>
+    <div style="margin-top:16px"><button class="org-btn is-primary" type="submit">Raise return</button></div>
+  </form>{% endif %}
+</div>
+{% endblock %}

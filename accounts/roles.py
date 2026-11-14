@@ -17,6 +17,7 @@ MODULES = [
     ('sales_credit_override', 'Sales credit override', {'approve': 'override_credit_sales_order'}),
     ('sales_price_exception', 'Sales below list price', {'approve': 'approve_price_exception'}),
     ('sales_hold', 'Sales order hold / release', {'edit': 'hold_sales_order'}),
+    ('returns', 'Customer returns', {'view': 'view_returnrequest', 'create': 'add_returnrequest', 'approve': 'approve_returnrequest', 'post': 'inspect_returnrequest'}),
     ('complaints', 'Complaints', {'view': 'view_complaint', 'create': 'add_complaint', 'edit': 'change_complaint', 'approve': 'decide_complaint'}),
     ('capa', 'CAPA', {'view': 'view_capaaction', 'create': 'add_capaaction', 'edit': 'change_capaaction', 'approve': 'verify_capaaction'}),
     ('quotations', 'Quotations', {'view': 'view_quotation', 'create': 'add_quotation', 'edit': 'change_quotation', 'approve': 'approve_quotation'}),
@@ -111,7 +112,11 @@ PRESETS = {
 # Sales exceptions (FR-SLS-003, FR-AR-004): price below list for sales/operations approvers, credit override for finance only.
 PRESETS['Sales manager'] |= {'approve_sales_order', 'approve_price_exception', 'hold_sales_order'}
 PRESETS['Operations approver'] |= {'approve_price_exception', 'hold_sales_order'}
-PRESETS['Finance controller'] |= {'view_sales_order', 'override_credit_sales_order', 'hold_sales_order'}
+PRESETS['Finance controller'] |= {'view_sales_order', 'override_credit_sales_order', 'hold_sales_order', 'view_returnrequest'}
+PRESETS['Sales executive'] |= {'view_returnrequest', 'add_returnrequest'}
+PRESETS['Sales manager'] |= {'view_returnrequest', 'add_returnrequest', 'approve_returnrequest'}
+PRESETS['Warehouse operator'] |= {'view_returnrequest', 'inspect_returnrequest'}
+PRESETS['Quality manager'] |= {'view_returnrequest', 'inspect_returnrequest'}
 PRESETS['Support desk'] = {'handle_supportticket'}
 
 

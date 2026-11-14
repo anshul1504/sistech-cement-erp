@@ -292,6 +292,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 
 Quantities retain each SKU's base unit and pack weight. Bag/MT equivalents are available, while versioned alternate-UOM transaction entry remains pending. Order details show GST; the separate posted tax invoice is the frozen invoice record.
 
+## Customer returns / RMA
+
+**Sales → Customer returns** (`/returns/`) now covers invoice-based requests, independent approval, pickup, one-time inspection, quarantine and independent finance credit. Good and damaged quantities return to separate stock states at original dispatch value; partial returns preserve exact currency. Open RMAs reserve quantity against duplicate returns/manual credits. Browser request keys and linked credit notes prevent repeated posting; cancellation cannot discard picked-up/inspected goods. All-unaccepted receipts close without stock or credit. See [Customer returns, controls and migration verification](docs/CUSTOMER_RETURNS.md).
+
+Migrations `0036`–`0041` were applied locally after backup with existing business record counts preserved. Existing role groups require explicit new Customer returns grants; OTP defaults and customized roles were preserved.
+
 ## SRS implementation boundaries
 
 This is a working foundation, not completion of the full multi-phase SRS. The following are still required before an operational ERP rollout:
@@ -300,13 +306,13 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 | --- | --- |
 | Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Multiple legal entities/GST registration hierarchy, territory/dealer portal isolation and sensitive-action step-up authentication remain. Monthly accounting periods are implemented; email OTP is enabled by default. |
 | CRM and dealer network | Owner/site-scoped leads, follow-ups, versioned KYC, independent credit/onboarding approvals, reviewed amendments, monthly targets and source performance implemented. Territory hierarchy, unified project pipeline, handover/merging and dealer portal remain. |
-| Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, stock reservations/ATP and order revisions remain. |
+| Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, derived ATP/backorder validation, holds and order revisions implemented. Firm lot/bin reservations and the dealer portal remain. |
 | Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier invoices with three-way match, duplicate check, exception queue and debit notes / returns. Supplier payments are implemented; budget checks remain. |
 | Inventory | Stock states, weighted-average valuation, stock card, transfers with in-transit and discrepancy, damaged-stock disposition, blind cycle counts with recount and approval, ageing and slow-moving. Production lot traceability is implemented; bin locations and full inventory balances by lot remain. |
-| Production and quality | Versioned recipes, process orders, material issue, variance and actual costing, shift log, packing reconciliation, IS-standard specifications, immutable results, calibration control, release / deviation / reject, COA and batch traceability. Production planning against demand, PLC/SCADA data and CAPA remain. |
+| Production and quality | Versioned recipes, process orders, material issue, variance and actual costing, shift log, packing reconciliation, IS-standard specifications, immutable results, calibration control, release / deviation / reject, COA and batch traceability. Complaint-linked CAPA is implemented. Production planning against demand, PLC/SCADA data and full stock recall automation remain. |
 | Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |
 | Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journal approvals, bank reconciliation, assets/depreciation, statements, historical close review and year-end retained-earnings carry-forward/reopening are implemented. E-invoice/e-way bill connectors, statutory filing, budgets, external bank evidence validation and finance UAT remain. |
-| Schemes and claims | Versioned, independently approved dealer incentive rules and retained calculation previews implemented. Payout batches/accounting/reversals, commissions, campaign exclusions, complaints/CAPA and claim settlements remain. |
+| Schemes and claims | Versioned incentive rules, retained calculations, entitlements/accrual, approved dealer-credit/bank payouts, star programmes, complaints/CAPA and customer RMA implemented. Campaign exclusions, broader commissions, automated recoveries and external settlement integrations remain. |
 | Android and integrations | Not implemented. Scoped APIs, employee/dealer/driver apps, offline drafts, notifications, GST/bank/GPS/hardware integrations remain. |
 | Production operations | PostgreSQL migration, concurrent workload testing, audit retention hardening, monitoring, backups/restore, secure hosting and UAT remain. |
 

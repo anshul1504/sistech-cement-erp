@@ -62,4 +62,8 @@ Migrations `0027` and `0028` add nullable replay/valuation fields. Existing data
 - Signed bank-statement completeness, physical counts and tax reviews are human evidence; external bank/GST/weighbridge/GPS calls, hardware tests, backup restore drills, monitoring and deployment/security acceptance remain rollout work.
 - Browser retry keys currently protect receipt and credit-note forms. Reference/state/unique-source checks guard the other tested transactions; universal API/mobile idempotency is still part of the planned API phase.
 
-Dealer CRM/onboarding has subsequently been implemented and verified; see [CRM milestone](CRM.md). Versioned scheme rules and retained calculation previews have also been implemented; see [Schemes milestone](SCHEMES.md). Approved accruals/payouts are the next stage. Production use remains subject to the rollout gates above.
+Dealer CRM/onboarding has subsequently been implemented and verified; see [CRM milestone](CRM.md). Versioned scheme rules and retained calculation previews have also been implemented; see [Schemes milestone](SCHEMES.md). Entitlement/accrual and dealer payouts were subsequently added; current remaining work is tracked in the roadmap. Production use remains subject to the rollout gates above.
+
+## Customer-return handoff completion
+
+The later RMA handoff was completed with site checks, independent inspection/finance, quantity reservations, retained custody, exact good/damaged valuation, request/credit retries and closed-period rollback. See [Customer returns and migration evidence](CUSTOMER_RETURNS.md). On 14 November 2026 the full suite ran 350 tests (344 passed; six browser checks skipped by default), and all six browser tests passed explicitly. Migrations `0036`–`0041` were applied after a backup; recorded existing business row counts remained unchanged. This extends developer verification and does not replace production UAT or PostgreSQL concurrency validation.

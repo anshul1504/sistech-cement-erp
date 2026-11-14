@@ -104,7 +104,11 @@ ledger-credit or bank payouts with maker-checker, dealer scheme statement.
 
 ✅ Collections desk: follow-ups, promise-to-pay (kept/broken from receipts), disputes, daily chase list.
 
-Remaining in Step 8: territory hierarchy / beat plan, unified project pipeline, returns/RMA pickup, collection routes, dealer portal (with Step 10 apps).
+✅ Customer returns/RMA: reserved invoice quantities, independent approval, pickup, one-time inspection, quarantine,
+independent finance credit, good/damaged stock separation at exact original dispatch value, retry protection and scoped queues.
+See [Customer returns and migration verification](CUSTOMER_RETURNS.md).
+
+Remaining in Step 8: territory hierarchy / beat plan, unified project pipeline, collection routes, dealer portal (with Step 10 apps).
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.

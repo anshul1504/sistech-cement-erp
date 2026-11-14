@@ -597,6 +597,13 @@ def my_queue(user, sites=None):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
     if has('approve_freightbill'):
         add('Freight bills to check', FreightBill.objects.filter(status='submitted').exclude(created_by=user), reverse('freight_bills'), 'Against contracted freight')
+    from .models import ReturnRequest
+    if has('view_returnrequest') and has('approve_returnrequest'):
+        add('Customer returns to approve', ReturnRequest.objects.filter(status='requested', site__in=sites).exclude(created_by=user), reverse('returns') + '?status=requested', 'Before pickup')
+    if has('view_returnrequest') and has('inspect_returnrequest'):
+        add('Returned goods to inspect', ReturnRequest.objects.filter(status__in=['approved', 'transit'], site__in=sites), reverse('returns') + '?status=arrival', 'Good / damaged / not accepted')
+    if fin and has('view_returnrequest') and has('add_creditnote'):
+        add('Returns waiting for credit note', ReturnRequest.objects.filter(status='inspected', site__in=sites).exclude(created_by=user).exclude(inspected_by=user), reverse('returns') + '?status=inspected', 'Inspected goods in quarantine')
     if has('decide_complaint'):
         add('Complaints to decide', Complaint.objects.filter(status='investigating').exclude(created_by=user).exclude(owner=user), reverse('complaints') + '?status=investigating', 'Findings recorded')
     if has('view_complaint'):
