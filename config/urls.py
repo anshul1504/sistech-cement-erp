@@ -294,3 +294,10 @@ urlpatterns += [
     path('quotations/<int:pk>/edit/', qtv.quotation_form, name='quotation_edit'),
     path('quotations/<int:pk>/do/<str:action>/', qtv.quotation_action, name='quotation_action'),
 ]
+from erp import complaint_views as cmv
+urlpatterns += [
+    path('complaints/', cmv.complaints, name='complaints'),
+    path('complaints/new/', cmv.complaint_new, name='complaint_new'),
+    path('complaints/<int:pk>/', cmv.complaint_detail, name='complaint_detail'),
+    path('complaints/<int:pk>/do/<str:action>/', cmv.complaint_action, name='complaint_action'),
+]

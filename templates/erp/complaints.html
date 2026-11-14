@@ -1,0 +1,23 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · SERVICE</div><h1>Complaints &amp; CAPA</h1><p>Customer complaints linked to invoice, truck and batch, with a resolve-by date by type. A different user decides; settlement and corrective action are recorded before closing.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'complaint_new' %}"><svg><use href="#ic-plus"/></svg>Log complaint</a></div>{% endif %}</div>
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi" href="?"><span>Open</span><strong>{{ kpi.open }}</strong><small>Not closed</small></a>
+    <a role="listitem" class="inf-kpi{% if kpi.overdue %} is-danger{% endif %}" href="?status=overdue"><span>Past SLA</span><strong>{{ kpi.overdue }}</strong><small>Resolve-by date passed</small></a>
+    <div role="listitem" class="inf-kpi{% if kpi.quality %} is-warn{% endif %}"><span>Quality complaints</span><strong>{{ kpi.quality }}</strong><small>Open</small></div>
+    <div role="listitem" class="inf-kpi{% if kpi.capa_overdue %} is-danger{% endif %}"><span>CAPA overdue</span><strong>{{ kpi.capa_overdue }}</strong><small>Actions past due</small></div></div>
+  <section class="org-card doc-list-card" style="margin-bottom:16px"><header class="doc-list-head"><div><h2>Complaints</h2><p>{{ rows|length }} shown</p></div>
+    <form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Number, customer or invoice" aria-label="Search"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">Open</option><option value="overdue"{% if status == 'overdue' %} selected{% endif %}>Past SLA</option><option value="investigating"{% if status == 'investigating' %} selected{% endif %}>Under investigation</option><option value="decided"{% if status == 'decided' %} selected{% endif %}>Decided</option><option value="closed"{% if status == 'closed' %} selected{% endif %}>Closed</option></select></form></header>
+    {% if rows %}<ul class="mst-list prc-list pr-list sinv-list">{% for c in rows %}
+      <li><a class="mst-main" href="{% url 'complaint_detail' c.pk %}"><span class="mst-icon"><svg><use href="#ic-shield"/></svg></span><span><strong>{{ c.partner.name }}</strong><small>{{ c.number }} · {{ c.get_category_display }}{% if c.invoice %} · {{ c.invoice.number }}{% endif %}</small></span></a>
+        <div class="mst-cell"><small>Resolve by</small><span class="{% if c.overdue %}led-late{% endif %}">{{ c.due_on|date:'d M Y' }}</span></div><div class="mst-cell"><small>Received</small>{{ c.received_on|date:'d M Y' }}</div>
+        <div class="mst-cell"><span class="org-chip ord-status is-{{ c.badge }}">● {{ c.get_status_display }}</span></div><div class="mst-cell"><small>Owner</small>{{ c.owner|who }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'complaint_detail' c.pk %}">Open</a></li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-shield"/></svg><strong>No complaints here</strong><span>Log a customer complaint against its invoice.</span></div>{% endif %}</section>
+  <section class="org-card ord-items"><header class="acc-card-head"><h2>Open CAPA</h2></header>
+    {% if capas %}<ul class="mst-order-list">{% for x in capas %}<li><a href="{% if x.complaint %}{% url 'complaint_detail' x.complaint_id %}{% else %}#{% endif %}"><strong>{{ x }}</strong><small>{% if x.complaint %}{{ x.complaint.number }} · {% endif %}owner {{ x.owner|who }} · due {{ x.due_on|date:'d M Y' }}</small></a><span class="doc-badge{% if x.overdue %} is-danger{% elif x.status == 'done' %} is-warning{% endif %}">{{ x.get_status_display }}</span><span></span></li>{% endfor %}</ul>{% else %}<p class="acc-muted">No open actions.</p>{% endif %}</section>
+</div>
+{% endblock %}

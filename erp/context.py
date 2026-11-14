@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.15.3'
+ASSET_VERSION = '0.15.4'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -31,6 +31,7 @@ NAV_GROUPS = [
         _item('crm_leads', 'Dealer CRM', 'crm', 'view_crmlead', match=('crm_lead_new', 'crm_lead_edit', 'crm_lead_detail', 'crm_applications', 'crm_application_detail', 'crm_application_edit', 'crm_performance', 'crm_policy', 'crm_review_detail', 'crm_performance_detail')),
         _item('influencers', 'Masons & contractors', 'hardhat', 'view_influencer',
               match=('influencer_districts', 'influencer_dealers', 'influencers_new', 'influencer_import', 'influencer_detail', 'influencers_edit')),
+        _item('complaints', 'Complaints & CAPA', 'shield', 'view_complaint', match=('complaint_new', 'complaint_detail')),
         _item('recognition', 'Star programmes', 'gift', 'view_recognitionprogram', match=('recognition_detail', 'recognition_action', 'influencer_usage')),
         _item('schemes', 'Schemes & incentives', 'gift', 'view_incentivescheme', match=('scheme_new', 'scheme_edit', 'scheme_detail', 'scheme_evaluation', 'scheme_check_sources', 'scheme_payouts', 'scheme_batch', 'scheme_statement')),
     ]),
@@ -157,6 +158,8 @@ def navigation(request):
     quick_create = []
     if user.has_perm('erp.add_crmlead'):
         quick_create.append(('CRM lead', reverse('crm_lead_new'), 'crm'))
+    if user.has_perm('erp.add_complaint'):
+        quick_create.append(('Complaint', reverse('complaint_new'), 'shield'))
     if user.has_perm('erp.add_quotation'):
         quick_create.append(('Quotation', reverse('quotation_new'), 'quote'))
     if order_permission(user, 'Sale', 'create'):

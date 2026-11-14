@@ -1,0 +1,23 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'complaints' %}">← Complaints &amp; CAPA</a></div><h1>Log complaint</h1><p>Choose the customer and the invoice first — the truck and batch are linked from it, so quality can trace the material.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>What and where</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="cm-p">Customer <span class="required">*</span></label><select class="form-select" id="cm-p" name="partner" onchange="this.form.submit()"><option value="">Choose</option>{% for c in customers %}<option value="{{ c.pk }}"{% if partner.pk == c.pk %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="cm-i">Invoice</label><select class="form-select" id="cm-i" name="invoice" onchange="this.form.submit()"><option value="">Not linked</option>{% for i in invoices %}<option value="{{ i.pk }}"{% if invoice.pk == i.pk %} selected{% endif %}>{{ i.number }} · {{ i.date|date:'d M Y' }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="cm-d">Truck</label><select class="form-select" id="cm-d" name="dispatch"><option value="">—</option>{% for d in dispatches %}<option value="{{ d.pk }}" selected>{{ d.vehicle.registration }} · {{ d.number }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="cm-pr">Product</label><select class="form-select" id="cm-pr" name="product"><option value="">—</option>{% for p in products %}<option value="{{ p.pk }}"{% if post.product == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="cm-c">Type <span class="required">*</span></label><select class="form-select" id="cm-c" name="category">{% for k, l in categories %}<option value="{{ k }}"{% if post.category == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="cm-q">Quantity affected</label><input class="form-control" id="cm-q" type="number" step="any" min="0" name="quantity" value="{{ post.quantity }}"></div>
+      <div class="org-field"><label class="form-label" for="cm-r">Received on</label><input class="form-control" id="cm-r" type="date" name="received_on" max="{{ today }}" value="{{ post.received_on|default:today }}"></div>
+      <div class="org-field"><label class="form-label" for="cm-o">Investigation owner</label><select class="form-select" id="cm-o" name="owner"><option value="">Assign later</option>{% for u in users %}<option value="{{ u.pk }}"{% if post.owner == u.pk|stringformat:'s' %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select></div>
+      <div class="org-field is-wide"><label class="form-label" for="cm-s">Customer site</label><input class="form-control" id="cm-s" name="site_location" maxlength="150" value="{{ post.site_location }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="cm-de">Complaint <span class="required">*</span></label><textarea class="form-control" id="cm-de" name="description" rows="3">{{ post.description }}</textarea></div>
+    </div></section>
+    <div class="org-actions"><span>The resolve-by date is set from the complaint type.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'complaints' %}">Cancel</a><button class="org-btn is-primary" type="submit" name="save" value="1">Log complaint</button></div></div>
+  </form>
+</div>
+{% endblock %}

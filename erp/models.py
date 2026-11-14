@@ -751,7 +751,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -2723,3 +2723,88 @@ class QuotationLine(models.Model):
     @property
     def discount_pct(self):
         return ((self.list_rate - self.rate) / self.list_rate * 100).quantize(Decimal('0.1')) if self.list_rate else None
+
+
+# ---------- Complaints, returns and CAPA (Step 8d, FR-QC-007/008, SRS §5.12) ----------
+
+COMPLAINT_CATEGORIES = [('quality', 'Quality (setting, strength, lumps, colour)'), ('short', 'Short quantity / weight'), ('damage', 'Damaged / wet / torn bags'),
+                        ('delay', 'Late delivery'), ('billing', 'Billing / rate'), ('other', 'Other')]
+COMPLAINT_SLA_DAYS = {'quality': 7, 'short': 3, 'damage': 3, 'delay': 2, 'billing': 5, 'other': 5}
+COMPLAINT_STATUSES = [('open', 'Open'), ('investigating', 'Under investigation'), ('decided', 'Decided — action pending'), ('closed', 'Closed')]
+
+
+class Complaint(models.Model):
+    """Customer claim linked to invoice, truck and batch. Investigated, decided by a different user, settled (credit note / replacement)
+    and closed — quality complaints only after CAPA is verified effective or a reason is recorded why none is needed."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='complaints', verbose_name='Customer')
+    invoice = models.ForeignKey('Invoice', null=True, blank=True, on_delete=models.PROTECT, related_name='complaints')
+    dispatch = models.ForeignKey('Dispatch', null=True, blank=True, on_delete=models.PROTECT, related_name='complaints', verbose_name='Truck / dispatch')
+    batch = models.ForeignKey('Production', null=True, blank=True, on_delete=models.PROTECT, related_name='complaints')
+    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    category = models.CharField(max_length=8, choices=COMPLAINT_CATEGORIES)
+    description = models.TextField()
+    quantity = models.DecimalField('Quantity affected', max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    site_location = models.CharField('Where (customer site)', max_length=150, blank=True)
+    received_on = models.DateField(default=timezone.localdate)
+    due_on = models.DateField('Resolve by (SLA)', editable=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+', verbose_name='Investigation owner')
+    status = models.CharField(max_length=13, choices=COMPLAINT_STATUSES, default='open')
+    findings = models.TextField(blank=True)
+    decision = models.CharField(max_length=8, blank=True, choices=[('accept', 'Accepted'), ('partial', 'Partly accepted'), ('reject', 'Rejected')])
+    accepted_quantity = models.DecimalField(max_digits=14, decimal_places=3, default=0, validators=MONEY)
+    resolution = models.CharField(max_length=10, blank=True, choices=[('credit', 'Credit note'), ('replace', 'Replacement supply'), ('none', 'No settlement')])
+    decision_note = models.CharField(max_length=300, blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    credit_note = models.ForeignKey('CreditNote', null=True, blank=True, on_delete=models.PROTECT, related_name='complaints')
+    replacement_order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.PROTECT, related_name='complaints')
+    capa_waiver = models.CharField('Why no CAPA is needed', max_length=200, blank=True)
+    closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    closed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-received_on', '-pk']
+        permissions = [('decide_complaint', 'Decide complaints and close them')]
+
+    def __str__(self): return self.number
+
+    @property
+    def overdue(self):
+        return self.status != 'closed' and self.due_on < timezone.localdate()
+
+    @property
+    def badge(self):
+        return {'open': 'submitted', 'investigating': 'approved', 'decided': 'approved', 'closed': 'completed'}[self.status]
+
+
+class CapaAction(models.Model):
+    """Corrective and preventive action (FR-QC-008): root cause → actions → implemented → effectiveness verified by a different user."""
+    complaint = models.ForeignKey(Complaint, null=True, blank=True, on_delete=models.PROTECT, related_name='capas')
+    title = models.CharField(max_length=150)
+    root_cause = models.TextField()
+    containment = models.TextField('Containment (immediate action)', blank=True)
+    corrective = models.TextField('Corrective action')
+    preventive = models.TextField('Preventive action', blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    due_on = models.DateField()
+    status = models.CharField(max_length=9, default='open', choices=[('open', 'Open'), ('done', 'Implemented — verify'), ('effective', 'Verified effective'), ('reopened', 'Not effective — reopened')])
+    implementation_note = models.CharField(max_length=300, blank=True)
+    implemented_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    effectiveness_note = models.CharField(max_length=300, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['due_on']
+        permissions = [('verify_capaaction', 'Verify CAPA effectiveness')]
+
+    def __str__(self): return f'CAPA-{self.pk:05d} · {self.title}'
+
+    @property
+    def overdue(self):
+        return self.status in ('open', 'reopened') and self.due_on < timezone.localdate()

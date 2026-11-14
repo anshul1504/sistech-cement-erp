@@ -227,6 +227,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - A sent quotation is never edited — **New revision** copies it as rev 2, 3… and marks the old one revised. Accepting an expired quotation is refused.
 - An accepted quotation for a registered customer becomes a **draft sales order** in one click (prospects must finish dealer onboarding first); the order still goes through credit and approval.
 
+## Complaints & CAPA (Step 8d)
+
+- **Sales → Complaints & CAPA**: log a complaint for a customer against the invoice; the truck and the cement batch are linked from it (so quality can trace and issue the COA). Type sets the resolve-by date (quality 7 days, short / damage 3, delay 2, billing / other 5) and late complaints are flagged.
+- An owner records the **investigation findings**; a user who neither logged nor investigated **decides** — accept, partly accept (quantity cannot exceed the claim) or reject — and the settlement: credit note on that invoice, replacement order, or none.
+- **Closure** needs the settlement evidence linked (the credit note on the same invoice, or a sales order for the customer). Quality complaints close only when every **CAPA** (root cause, containment, corrective and preventive action, owner, due date) is implemented and verified effective by someone other than its owner — or with a written reason why no CAPA is needed.
+
 ## Implemented workflows
 
 - Responsive internal web ERP with local Poppins/Bootstrap, Sistech blue/yellow branding and The Webfix credit.
