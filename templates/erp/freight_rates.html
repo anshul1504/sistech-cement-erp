@@ -1,0 +1,29 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow">LOGISTICS</div><h1>Freight rates</h1><p>Contracted freight per lane (plant → buyer district). The most specific rate wins: transporter, then vehicle type, then the general lane rate. It is frozen on each trip at gate-out.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'freight_rate_new' %}"><svg><use href="#ic-plus"/></svg>Add rate</a></div>{% endif %}
+  </div>
+  {% if unpriced %}<ul class="ord-checks"><li class="is-warn">Trips left without a lane rate to: {{ unpriced|join:', ' }}. Add those lanes so the transporter bills can be checked.</li></ul>{% endif %}
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Lanes</h2><p>{{ rates|length }} shown</p></div>
+      <form method="get" class="doc-filter"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="District, transporter, plant…" aria-label="Search">
+        <select class="form-select" name="state" aria-label="Validity" onchange="this.form.submit()"><option value="current"{% if state == 'current' %} selected{% endif %}>In force</option><option value="all"{% if state == 'all' %} selected{% endif %}>All incl. ended</option></select>
+        <button class="org-btn is-light" type="submit">Search</button></form>
+    </header>
+    {% if rates %}<ul class="mst-list prc-list">{% for r in rates %}
+      <li class="{% if not r.active or r.valid_to and r.valid_to < today %}is-inactive{% endif %}">
+        <div class="mst-main"><span class="mst-icon is-transporter"><svg><use href="#ic-truck"/></svg></span><span><strong>{{ r.origin.code }} → {{ r.destination }}</strong><small>{% if r.distance_km %}{{ r.distance_km }} km · {% endif %}{{ r.transporter.name|default:'Any transporter' }} · {{ r.get_vehicle_type_display|default:'any vehicle' }}</small></span></div>
+        <div class="mst-cell"><small>{{ r.get_basis_display }}</small>{% if r.min_mt %}min {{ r.min_mt|qty }} MT{% else %}—{% endif %}</div>
+        <div class="mst-cell"><span class="prc-rate">₹{{ r.rate|indian:2 }}</span></div>
+        <div class="mst-cell"><small>Valid</small>{{ r.valid_from|date:'d M y' }} – {% if r.valid_to %}{{ r.valid_to|date:'d M y' }}{% else %}open{% endif %}</div>
+        <div class="mst-cell"><small>Detention / unloading</small>₹{{ r.detention_per_day|indian }} · ₹{{ r.unloading_charge|indian }}</div>
+        {% if can_edit %}<a class="org-btn is-light is-sm mst-open" href="{% url 'freight_rate_edit' r.pk %}">{% if r.trips %}End{% else %}Edit{% endif %}</a>{% else %}<span></span>{% endif %}
+      </li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-truck"/></svg><strong>No freight rates</strong><span>Add a rate for each plant → district lane you supply.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

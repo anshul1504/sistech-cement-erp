@@ -295,6 +295,8 @@ def gate_out(user, pk):
         d.vehicle.tare_kg = tare.weight_kg
         d.vehicle.save(update_fields=['tare_kg', 'updated_at'])
     refresh_order(d.order)
+    from .freight import snapshot
+    snapshot(d)
     _log(user, d, 'Gate-out', f'{d.vehicle} · invoice {d.invoice.number} · net {d.net_kg:,} kg')
     return d
 

@@ -6,6 +6,7 @@
   <form method="post" class="doc-form" novalidate>{% csrf_token %}
     {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}</span></div>{% endif %}
     <section class="org-card"><div class="org-grid">{% for field in form %}{% include 'erp/_field.html' %}{% endfor %}</div></section>
+    {% if districts %}<datalist id="district-options">{% for x in districts %}<option value="{{ x }}">{% endfor %}</datalist>{% endif %}
     <div class="org-actions"><span>Changes are recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url back %}">Cancel</a><button class="org-btn is-primary" type="submit">Save</button></div></div>
   </form>
 </div>

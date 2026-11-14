@@ -116,7 +116,13 @@ Turn on **Gate & weighbridge dispatch** for a plant (Masters → Plants & depots
 - **Weighments are immutable**: manual entry needs a reason; a reweigh adds a new linked reading with a reason and the original stays visible (struck through) on screen and slip. Gross must exceed tare; tare far from the vehicle's usual tare needs a reason.
 - **Stock posts once** per dispatch line at the configured event (unique source id); cancelling a loaded truck puts stock back. Orders move Approved → Part dispatched → Completed automatically; **short-close** ends a part-dispatched order. One order can have many trucks and invoices.
 - **Segregated roles**: Gate security, Weighbridge operator, Loading supervisor, Logistics manager presets; gate cannot weigh, weighbridge cannot run the gate, the weigher/loader cannot approve their own exception. Board by stage with exceptions and POD pending; printable **weighment slip** and **gate pass**.
-- Next in Step 3b: freight rate cards, trip freight check and transporter bills. Weighbridge hardware integration is Step 11.
+- Weighbridge hardware integration is Step 11.
+
+## Freight (Step 3b)
+
+- **Freight rates** (Logistics → Freight rates): lane = plant → buyer district, optionally for one transporter and/or vehicle type; per MT (with minimum chargeable MT) or per trip; detention per day, unloading charge, distance, validity. Overlapping rates for the same lane are refused; a rate already used on trips can only be ended.
+- At **gate-out** each trip freezes who pays (customer for ex-works orders or customer-owned trucks, otherwise Sistech) and the **contracted freight** for its net weight, so later rate changes never alter past trips.
+- **Freight bills**: enter the transporter's bill against their unbilled trips. Per trip, payable = claimed freight capped at contract + extras allowed up to (detention days × lane detention + unloading) − **shortage/damage recovery** from the POD at invoice value; minus advance already paid. Claims above contract are shown as variance. Duplicate bill numbers are refused. A **different user** approves (a note is required when the claim exceeds contract) or rejects (which frees the trips for a corrected bill). Approved bills become payables for Finance (Step 7).
 
 ## Implemented workflows
 

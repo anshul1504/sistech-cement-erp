@@ -1,0 +1,30 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'freight_bills' %}">← Freight bills</a></div><h1>Enter freight bill</h1><p>{{ transporter.name }}. Tick the trips on the bill and type what the transporter claims. The system caps freight at contract, allows extras only up to the lane's detention + unloading, and recovers POD shortage.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="doc-form" novalidate>{% csrf_token %}
+    <section class="org-card"><header><h2>Bill</h2></header><div class="org-grid">
+      <div class="org-field"><label class="form-label" for="fb-no">Bill no. <span class="required">*</span></label><input class="form-control" id="fb-no" name="bill_number" maxlength="40" value="{{ post.bill_number }}"></div>
+      <div class="org-field"><label class="form-label" for="fb-d">Bill date <span class="required">*</span></label><input class="form-control" id="fb-d" type="date" name="bill_date" value="{{ post.bill_date|default:today|date:'Y-m-d' }}"></div>
+      <div class="org-field"><label class="form-label" for="fb-a">Advance already paid (₹)</label><input class="form-control" id="fb-a" type="number" step="0.01" min="0" name="advance" value="{{ post.advance|default:'0' }}"></div>
+      <div class="org-field"><label class="form-label" for="fb-n">Notes</label><input class="form-control" id="fb-n" name="notes" maxlength="200" value="{{ post.notes }}"></div>
+    </div></section>
+    <section class="org-card"><header><h2>Trips</h2><p>{{ trips|length }} unbilled trip{{ trips|length|pluralize }}.</p></header>
+      {% if trips %}<div class="ord-lines">{% for t in trips %}
+        <div class="ord-line fb-line">
+          <div class="ord-cell ord-product" data-label="Trip"><label class="org-check-label"><input class="form-check-input" type="checkbox" name="pick_{{ t.pk }}"{% if t.f.pick == 'on' %} checked{% endif %}><span><strong>{{ t.vehicle.registration }} · {{ t.number }}</strong><small>{{ t.gate_out_at|date:'d M' }} · {{ t.order.partner.name }} · net {{ t.net_kg|indian }} kg</small></span></label></div>
+          <div class="ord-cell" data-label="Contract">{% if t.freight_amount is not None %}<strong>₹{{ t.freight_amount|indian:2 }}</strong><small class="ord-hint">{{ t.freight_rate.get_basis_display }} ₹{{ t.freight_rate.rate|indian }}</small>{% else %}<span class="mst-missing">No lane rate</span>{% endif %}</div>
+          <div class="ord-cell" data-label="Claimed freight (₹)"><input class="form-control" type="number" step="0.01" min="0" name="claimed_{{ t.pk }}" value="{{ t.f.claimed|default:t.freight_amount|default:'' }}"></div>
+          <div class="ord-cell" data-label="Detention days"><input class="form-control" type="number" min="0" name="days_{{ t.pk }}" value="{{ t.f.days|default:'0' }}"></div>
+          <div class="ord-cell" data-label="Extra claimed (₹)"><input class="form-control" type="number" step="0.01" min="0" name="extra_{{ t.pk }}" value="{{ t.f.extra|default:'0' }}"></div>
+          <div class="ord-cell" data-label="Extra reason"><input class="form-control" name="reason_{{ t.pk }}" maxlength="120" value="{{ t.f.reason }}" placeholder="Detention, toll…"></div>
+          <div class="ord-cell ord-gst" data-label="Recovery">{% if t.recovery %}<span class="mst-missing">−₹{{ t.recovery|indian:2 }}</span>{% else %}—{% endif %}</div>
+        </div>{% endfor %}</div>
+      {% else %}<p class="acc-muted">No unbilled trips for this transporter.</p>{% endif %}
+    </section>
+    <div class="org-actions"><span>A different user approves the bill.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% url 'freight_bills' %}">Cancel</a><button class="org-btn is-primary" type="submit"{% if not trips %} disabled{% endif %}>Save bill</button></div></div>
+  </form>
+</div>
+{% endblock %}

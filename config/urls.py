@@ -126,3 +126,13 @@ urlpatterns += [
     path('dispatch/<int:pk>/print/<str:doc>/', lv.dispatch_print, name='dispatch_print'),
     path('dispatch/<int:pk>/pod/', lv.dispatch_pod, name='dispatch_pod'),
 ]
+from erp import freight_views as frv
+urlpatterns += [
+    path('freight/rates/', frv.freight_rates, name='freight_rates'),
+    path('freight/rates/new/', frv.freight_rate_form, name='freight_rate_new'),
+    path('freight/rates/<int:pk>/edit/', frv.freight_rate_form, name='freight_rate_edit'),
+    path('freight/bills/', frv.freight_bills, name='freight_bills'),
+    path('freight/bills/new/<int:transporter_pk>/', frv.freight_bill_new, name='freight_bill_new'),
+    path('freight/bills/<int:pk>/', frv.freight_bill_detail, name='freight_bill_detail'),
+    path('freight/bills/<int:pk>/<str:decision>/', frv.freight_bill_decide, name='freight_bill_decide'),
+]

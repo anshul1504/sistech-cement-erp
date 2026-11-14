@@ -85,8 +85,9 @@
   .ord-tr .ord-name { grid-column: 1 / -1; }
   .ord-tr > span:nth-child(n+3) { text-align: left; }
   .ord-tr > span[data-label]::before { content: attr(data-label); display: block; color: var(--o-ink-3); font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
-  .prc-list li { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .prc-list li { grid-template-columns: minmax(0, 1fr) auto auto auto; }
   .prc-list li > .mst-cell:nth-child(2), .prc-list li > .mst-cell:nth-child(4) { display: none; }
+  .prc-list li > .mst-cell:nth-child(5) { display: block; }
   .prc-tester { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 991.98px) {
@@ -105,7 +106,9 @@
   .ord-buttons > *, .ord-buttons form .org-btn { width: 100%; justify-content: center; }
   .ord-buttons form { width: 100%; }
   .prc-list li { grid-template-columns: minmax(0, 1fr) auto; }
-  .prc-list li > .mst-cell:nth-child(3) { display: none; }
+  .prc-list li > .mst-cell:nth-child(3) { display: block; text-align: right; }
+  .prc-list li > .mst-cell:nth-child(5), .prc-list li > .mst-open { display: none; }
+  .prc-list li > .doc-head-actions { grid-column: 1 / -1; }
   .prc-tester { grid-template-columns: minmax(0, 1fr); }
 }
 .ord-page .acc-grid > .ord-items { grid-column: 1 / -1; }
@@ -176,3 +179,8 @@ a.ord-tr:hover { background: #fafbfd; }
   .lg-board { grid-template-columns: minmax(0, 1fr); }
   .lg-checks { grid-template-columns: minmax(0, 1fr); }
 }
+.fb-line { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) 90px minmax(0, 1fr) minmax(0, 1.2fr) 90px; }
+.fb-table .ord-tr { grid-template-columns: minmax(0, 2.2fr) repeat(6, minmax(0, 1fr)); }
+.fb-table .ord-th > span { white-space: normal; }
+@media (max-width: 1199.98px) { .fb-line { grid-template-columns: repeat(3, minmax(0, 1fr)); } .fb-line .ord-product { grid-column: 1 / -1; } .fb-table .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) { .fb-line, .fb-table .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

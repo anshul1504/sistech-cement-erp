@@ -1,0 +1,29 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">LOGISTICS</div><h1>Freight bills</h1><p>Transporter bills checked trip by trip against the contracted freight. Claims above contract are not paid; shortage and damage are recovered. A different user approves.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'freight_rates' %}">Freight rates</a></div></div>
+  <div class="inf-kpis is-three" role="list">
+    <a role="listitem" class="inf-kpi{% if waiting %} is-warn{% endif %}" href="?status=submitted"><span>Waiting for check</span><strong>{{ waiting }}</strong><small>Maker-checker</small></a>
+    <div role="listitem" class="inf-kpi"><span>Approved payable</span><strong>₹{{ totals.p|default:0|indian }}</strong><small>Paid through Finance (Step 7)</small></div>
+    <div role="listitem" class="inf-kpi"><span>Transporters with unbilled trips</span><strong>{{ unbilled|length }}</strong><small>Trips Sistech pays for</small></div>
+  </div>
+  {% if unbilled and can_add %}<section class="org-card" style="margin-bottom:16px"><header><h2>Unbilled trips</h2><p>Enter the transporter's bill against these trips.</p></header>
+    <ul class="mst-order-list">{% for u in unbilled %}<li><span><strong>{{ u.transporter__name }}</strong><small>{{ u.n }} trip{{ u.n|pluralize }} · contract ₹{{ u.amount|default:0|indian }}</small></span><span></span><a class="org-btn is-primary is-sm" href="{% url 'freight_bill_new' u.transporter %}">Enter bill</a></li>{% endfor %}</ul></section>{% endif %}
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head"><div><h2>Bills</h2><p>{{ bills|length }} shown</p></div>
+      <form method="get" class="doc-filter"><select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option><option value="submitted"{% if status == 'submitted' %} selected{% endif %}>Waiting for check</option><option value="approved"{% if status == 'approved' %} selected{% endif %}>Approved</option><option value="rejected"{% if status == 'rejected' %} selected{% endif %}>Rejected</option></select></form></header>
+    {% if bills %}<ul class="mst-list prc-list">{% for b in bills %}
+      <li class="{% if b.status == 'rejected' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'freight_bill_detail' b.pk %}"><span class="mst-icon is-transporter"><svg><use href="#ic-receipt"/></svg></span><span><strong>{{ b.transporter.name }}</strong><small>Bill {{ b.bill_number }} · {{ b.bill_date|date:'d M Y' }}</small></span></a>
+        <div class="mst-cell"><small>Claimed</small>₹{{ b.claimed|add:b.extras|indian }}</div>
+        <div class="mst-cell"><span class="prc-rate">₹{{ b.payable|indian }}</span></div>
+        <div class="mst-cell">{% if b.status == 'approved' %}<span class="doc-badge is-ok">Approved</span>{% elif b.status == 'rejected' %}<span class="doc-badge is-danger">Rejected</span>{% else %}<span class="doc-badge is-warning">Waiting</span>{% endif %}</div>
+        <div class="mst-cell"><small>Variance</small>{% if b.variance > 0 %}<span class="mst-missing">+₹{{ b.variance|indian }}</span>{% else %}—{% endif %}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'freight_bill_detail' b.pk %}">Open</a>
+      </li>{% endfor %}</ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-receipt"/></svg><strong>No freight bills</strong><span>Bills appear here once entered against trips.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

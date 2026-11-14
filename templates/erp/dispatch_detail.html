@@ -129,6 +129,7 @@
         <div><dt>Loading</dt><dd>{% if d.loading_started_at %}{{ d.loading_started_at|time:'H:i' }} – {{ d.loading_done_at|time:'H:i'|default:'…' }}{% else %}—{% endif %}</dd></div>
         <div><dt>Gate-out</dt><dd>{{ d.gate_out_at|date:'d M, H:i'|default:'—' }}</dd></div>
         <div><dt>Invoice</dt><dd>{% if invoice %}<a href="{% url 'invoice_detail' invoice.pk %}">{{ invoice.number }}</a>{% else %}—{% endif %}</dd></div>
+        {% if d.freight_payable_by %}<div><dt>Freight</dt><dd>{% if d.freight_payable_by == 'customer' %}Customer pays{% elif d.freight_amount is not None %}₹{{ d.freight_amount|indian:2 }} contract{% else %}<span class="mst-missing">No lane rate</span>{% endif %}</dd></div>{% endif %}
       </dl>
       {% if can.cancel and d.status in 'planned gate_in tared loading loaded weighed' and not invoice %}
       <details class="inf-log" style="margin-top:12px"><summary><svg><use href="#ic-close"/></svg>Cancel this truck</summary>

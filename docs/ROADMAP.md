@@ -20,6 +20,7 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 | GST tax invoice (Step 2b) | Invoice from dispatched order, frozen snapshot, FY series ≤16 chars, A4 print/PDF, register with GSTR-1 style export |
 | Receivables (Step 2c) | Receipts with FIFO settlement and advances, s.269ST cash limit, cheque bounce, GST credit notes with stock return, customer ledger, ageing, overdue-aware credit control |
 | Gate, weighbridge & dispatch (Step 3a) | Vehicles/drivers with document validity, truck flow with immutable weighments, tolerance/overload exceptions, invoice per truck, stock at configured event, POD, slip & gate pass |
+| Freight (Step 3b) | Lane rate cards, contracted freight frozen at gate-out, transporter bill check with caps, recovery and maker-checker |
 | Web shell | Responsive app shell, toasts, Indian number formats, My account, Administration, System settings |
 
 ## Build sequence
@@ -45,8 +46,8 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 1. ✅ Vehicles and drivers master (permit/insurance/fitness expiry); transporter link.
 2. ✅ Gate-in with token, tare, loading (bags/MT, bay, seal), gross, net = gross − tare with tolerance; **immutable readings + reweigh**.
 3. ✅ Gate pass / weighment slip printing; stock posts at one configured event only.
-4. ✅ Trips and POD. Next (3b): freight rate cards and freight bill check.
-5. Inbound flow for purchases: gate → weighment → unload → GRN.
+4. ✅ Trips, POD, freight rate cards and freight bill check.
+5. Inbound flow for purchases: gate → weighment → unload → GRN — built with Step 4 (GRN).
 
 ### Step 4 — Procure-to-pay (SRS Phase 1–3, §4.2, §5.4)
 1. Purchase requests (manual + reorder level), RFQ and comparison, PO approval by value.

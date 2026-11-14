@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.9.0'
+ASSET_VERSION = '0.9.1'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -45,7 +45,8 @@ NAV_GROUPS = [
     ('Logistics', [
         _item('dispatch_board', 'Gate & dispatch', 'scale', 'view_dispatch', match=('dispatch_new', 'dispatch_detail', 'dispatch_print')),
         _item('vehicles', 'Vehicles & drivers', 'truck', 'view_vehicle', match=('vehicle_new', 'vehicle_edit', 'driver_new', 'driver_edit')),
-        _soon('Freight & trips', 'truck'),
+        _item('freight_bills', 'Freight bills', 'receipt', 'view_freightbill', match=('freight_bill_new', 'freight_bill_detail')),
+        _item('freight_rates', 'Freight rates', 'chart', 'view_freightrate', match=('freight_rate_new', 'freight_rate_edit')),
     ]),
     ('Finance', [
         _item('invoices', 'Tax invoices', 'receipt', 'view_invoice', match=('invoice_detail', 'invoice_new')),

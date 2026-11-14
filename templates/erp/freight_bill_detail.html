@@ -1,0 +1,40 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'freight_bills' %}">← Freight bills</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-transporter"><svg><use href="#ic-receipt"/></svg></span>
+    <div class="org-hero-text"><h1>{{ bill.transporter.name }}</h1><p>Bill {{ bill.bill_number }} · {{ bill.bill_date|date:'d M Y' }} · entered by {{ bill.created_by.get_full_name|default:bill.created_by.username }}</p>
+      <div class="org-chips">{% if bill.status == 'approved' %}<span class="org-chip ord-status is-completed">● Approved by {{ bill.checked_by.get_full_name|default:bill.checked_by.username }}</span>{% elif bill.status == 'rejected' %}<span class="org-chip ord-status is-cancelled">● Rejected</span>{% else %}<span class="org-chip ord-status is-submitted">● Waiting for check</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Payable</small><span class="mst-total">₹{{ bill.payable|indian:2 }}</span><small>Claimed ₹{{ bill.claimed|add:bill.extras|indian:2 }}</small></div>
+  </section>
+  {% if bill.variance > 0 %}<ul class="ord-checks"><li class="is-warn">Claimed ₹{{ bill.variance|indian:2 }} more than contract (freight + extras). Only contracted freight and allowed extras are payable.</li></ul>{% endif %}
+  {% if bill.check_note %}<ul class="ord-checks"><li class="is-info">Checker's note: {{ bill.check_note }}</li></ul>{% endif %}
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide ord-items">
+      <header class="acc-card-head"><h2>Trips</h2></header>
+      <div class="ord-table fb-table" role="table">
+        <div class="ord-tr ord-th" role="row"><span>Trip</span><span>Contract</span><span>Claimed</span><span>Extra</span><span>Allowed extra</span><span>Recovery</span><span>Payable</span></div>
+        {% for l in lines %}<div class="ord-tr" role="row">
+          <span class="ord-name"><strong><a href="{% url 'dispatch_detail' l.dispatch.pk %}">{{ l.dispatch.vehicle.registration }} · {{ l.dispatch.number }}</a></strong><small>{{ l.dispatch.order.partner.name }} · net {{ l.dispatch.net_kg|indian }} kg{% if l.extra_reason %} · {{ l.extra_reason }}{% endif %}{% if l.detention_days %} · {{ l.detention_days }} day{{ l.detention_days|pluralize }} detention{% endif %}</small></span>
+          <span data-label="Contract">₹{{ l.contracted|indian:2 }}</span>
+          <span data-label="Claimed" class="{% if l.claimed > l.contracted %}led-late{% endif %}">₹{{ l.claimed|indian:2 }}</span>
+          <span data-label="Extra">₹{{ l.extra|indian:2 }}</span>
+          <span data-label="Allowed extra">₹{{ l.allowed_extra|indian:2 }}</span>
+          <span data-label="Recovery">{% if l.shortage_recovery %}−₹{{ l.shortage_recovery|indian:2 }}{% else %}—{% endif %}</span>
+          <span data-label="Payable"><strong>₹{{ l.payable|indian:2 }}</strong></span>
+        </div>{% empty %}<p class="acc-muted" style="padding:12px 0">Trips were released when the bill was rejected.</p>{% endfor %}
+      </div>
+      <div class="ord-summary"><span></span><div class="ord-totals is-static">
+        <div><span>Contract</span><strong>₹{{ bill.contracted|indian:2 }}</strong></div><div><span>Claimed + extras</span><strong>₹{{ bill.claimed|add:bill.extras|indian:2 }}</strong></div>
+        <div><span>Shortage recovery</span><strong>−₹{{ bill.deductions|indian:2 }}</strong></div><div><span>Advance paid</span><strong>−₹{{ bill.advance|indian:2 }}</strong></div>
+        <div class="is-grand"><span>Payable</span><strong>₹{{ bill.payable|indian:2 }}</strong></div></div></div>
+    </section>
+    {% if can_decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Check</h2><span class="acc-muted">You did not enter this bill, so you can decide it.</span></header>
+      <form method="post" action="{% url 'freight_bill_decide' bill.pk 'approve' %}" id="fb-decide">{% csrf_token %}<div class="org-field"><label class="form-label" for="fb-note">Note (required to reject, or to approve a claim above contract)</label><input class="form-control" id="fb-note" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'freight_bill_decide' bill.pk 'reject' %}">Reject</button><button class="org-btn is-primary" type="submit">Approve payable</button></div></form></section>
+    {% elif bill.status == 'submitted' %}<section class="org-card org-view acc-wide ord-items"><p class="acc-muted">Waiting for a logistics manager other than the person who entered it.</p></section>{% endif %}
+  </div>
+</div>
+{% endblock %}

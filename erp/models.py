@@ -1013,6 +1013,10 @@ class Dispatch(models.Model):
     pod_file = models.BinaryField(null=True, blank=True, editable=False)
     pod_file_type = models.CharField(max_length=40, blank=True, editable=False)
     cancel_reason = models.CharField(max_length=150, blank=True)
+    # Freight snapshot at gate-out (contract, not the transporter's claim)
+    freight_rate = models.ForeignKey('FreightRate', null=True, blank=True, on_delete=models.PROTECT, related_name='dispatches', editable=False)
+    freight_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, editable=False)
+    freight_payable_by = models.CharField(max_length=8, blank=True, editable=False, choices=[('company', 'Sistech'), ('customer', 'Customer')])
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1080,3 +1084,88 @@ class Weighment(models.Model):
     class Meta:
         ordering = ['captured_at']
         constraints = [models.CheckConstraint(condition=models.Q(weight_kg__gt=0), name='weighment_positive')]
+
+
+# ---------- Freight (Step 3b, FR-LOG-013/014) ----------
+
+class FreightRate(models.Model):
+    """Contracted freight for a lane. Most specific wins: transporter > vehicle type > destination district."""
+    origin = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='freight_rates', verbose_name='From plant / depot')
+    destination = models.CharField('To district', max_length=80)
+    transporter = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='freight_rates', limit_choices_to={'kind': 'Transporter'},
+                                    help_text='Empty = any transporter.')
+    vehicle_type = models.CharField(max_length=10, choices=VEHICLE_TYPES, blank=True, help_text='Empty = any vehicle.')
+    basis = models.CharField(max_length=8, choices=[('per_mt', 'Per MT (net weight)'), ('per_trip', 'Per trip')], default='per_mt')
+    rate = models.DecimalField('Rate (₹)', max_digits=12, decimal_places=2, validators=POSITIVE)
+    min_mt = models.DecimalField('Minimum chargeable MT', max_digits=6, decimal_places=2, default=0, validators=MONEY, help_text='Per-MT lanes bill at least this weight.')
+    detention_per_day = models.DecimalField('Detention per day (₹)', max_digits=10, decimal_places=2, default=0, validators=MONEY)
+    unloading_charge = models.DecimalField('Unloading / handling (₹ per trip)', max_digits=10, decimal_places=2, default=0, validators=MONEY)
+    distance_km = models.PositiveIntegerField('Distance (km)', null=True, blank=True)
+    valid_from = models.DateField(default=timezone.localdate)
+    valid_to = models.DateField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+', editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['origin__code', 'destination', '-valid_from']
+
+    def __str__(self): return f'{self.origin.code} → {self.destination}'
+
+    @property
+    def specificity(self):
+        return (2 if self.transporter_id else 0) + (1 if self.vehicle_type else 0)
+
+    def amount_for(self, net_kg):
+        if self.basis == 'per_trip':
+            return self.rate
+        mt = max(Decimal(net_kg or 0) / 1000, self.min_mt)
+        return (mt * self.rate).quantize(Decimal('0.01'))
+
+
+class FreightBill(models.Model):
+    """Transporter's bill checked against contracted freight per trip. Maker-checker before it becomes payable."""
+    transporter = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='freight_bills', limit_choices_to={'kind': 'Transporter'})
+    bill_number = models.CharField("Transporter's bill no.", max_length=40)
+    bill_date = models.DateField()
+    status = models.CharField(max_length=9, default='submitted', choices=[('submitted', 'Waiting for check'), ('approved', 'Approved · payable'), ('rejected', 'Rejected')])
+    contracted = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    claimed = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    extras = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    advance = models.DecimalField('Advance already paid', max_digits=14, decimal_places=2, default=0, validators=MONEY)
+    payable = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    checked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    checked_at = models.DateTimeField(null=True, blank=True)
+    check_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-bill_date', '-id']
+        permissions = [('approve_freightbill', 'Approve transporter freight bills')]
+        constraints = [models.UniqueConstraint(fields=['transporter', 'bill_number'], name='unique_transporter_bill')]
+
+    def __str__(self): return f'{self.transporter.name} · {self.bill_number}'
+
+    @property
+    def variance(self):
+        return self.claimed + self.extras - self.contracted
+
+
+class FreightBillLine(models.Model):
+    bill = models.ForeignKey(FreightBill, on_delete=models.CASCADE, related_name='lines')
+    dispatch = models.OneToOneField(Dispatch, on_delete=models.PROTECT, related_name='freight_line')
+    contracted = models.DecimalField(max_digits=12, decimal_places=2)
+    claimed = models.DecimalField(max_digits=12, decimal_places=2)
+    detention_days = models.PositiveSmallIntegerField(default=0)
+    extra = models.DecimalField('Detention / toll / unloading claimed', max_digits=12, decimal_places=2, default=0)
+    extra_reason = models.CharField(max_length=120, blank=True)
+    shortage_recovery = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    allowed_extra = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    @property
+    def payable(self):
+        """Freight capped at contract + allowed extras − shortage/damage recovery."""
+        return min(self.claimed, self.contracted) + self.allowed_extra - self.shortage_recovery

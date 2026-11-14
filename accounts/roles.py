@@ -17,6 +17,8 @@ MODULES = [
     ('weighbridge', 'Weighbridge readings', {'post': 'weigh_dispatch', 'approve': 'approve_weight_exception'}),
     ('loading', 'Truck loading', {'post': 'load_dispatch'}),
     ('pod', 'Proof of delivery', {'post': 'pod_dispatch'}),
+    ('freight_rates', 'Freight rates', {'view': 'view_freightrate', 'create': 'add_freightrate', 'edit': 'change_freightrate'}),
+    ('freight_bills', 'Freight bills', {'view': 'view_freightbill', 'create': 'add_freightbill', 'approve': 'approve_freightbill'}),
     ('pricing', 'Price list', {'view': 'view_pricerule', 'create': 'add_pricerule', 'edit': 'change_pricerule'}),
     ('influencers', 'Masons & contractors', {'view': 'view_influencer', 'create': 'add_influencer', 'edit': 'change_influencer', 'export': 'export_influencer'}),
     ('partners', 'Business partners', {'view': 'view_partner', 'create': 'add_partner', 'edit': 'change_partner'}),
@@ -39,7 +41,7 @@ PRESETS = {
     'Gate security': {'view_dispatch', 'gate_dispatch', 'view_vehicle'},
     'Weighbridge operator': {'view_dispatch', 'weigh_dispatch', 'view_vehicle'},
     'Loading supervisor': {'view_dispatch', 'load_dispatch', 'view_vehicle'},
-    'Logistics manager': {'view_dispatch', 'add_dispatch', 'approve_weight_exception', 'pod_dispatch', 'view_vehicle', 'add_vehicle', 'change_vehicle',
+    'Logistics manager': {'view_freightrate', 'add_freightrate', 'change_freightrate', 'view_freightbill', 'approve_freightbill', 'view_dispatch', 'add_dispatch', 'approve_weight_exception', 'pod_dispatch', 'view_vehicle', 'add_vehicle', 'change_vehicle',
                           'view_sales_order', 'view_partner', 'view_product', 'view_site'},
     'Internal auditor': ALL_VIEWS | {'export_invoice', 'export_influencer', 'export_stockmovement'},
 }
