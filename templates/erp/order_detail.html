@@ -9,7 +9,9 @@
       <h1>{{ order.number }}</h1>
       <p>{{ order.partner.name }} · {{ order.site.code }} · created {{ order.created_at|date:'d M Y' }} by {{ order.created_by.get_full_name|default:order.created_by.username }}</p>
       <div class="org-chips">
-        <span class="org-chip ord-status is-{{ order.status|lower }}">● {{ order.status }}</span>
+        <span class="org-chip ord-status is-{{ order.status|slugify }}">● {% if sale.stage %}{{ sale.stage }}{% else %}{{ order.status }}{% endif %}</span>
+        {% if order.priority == 'urgent' %}<span class="org-chip ins-pill is-danger">Urgent</span>{% endif %}
+        {% if order.revision > 1 %}<span class="org-chip">Revision {{ order.revision }}</span>{% endif %}
         <span class="org-chip">{% if tax.interstate %}Inter-state · IGST{% else %}Intra-state · CGST + SGST{% endif %}</span>
         {% if order.kind == 'Sale' %}<span class="org-chip">{{ order.get_freight_terms_display }}</span>{% endif %}
       </div>
@@ -17,7 +19,15 @@
     <div class="org-hero-side"><small>Order total</small><span class="mst-total">₹{{ tax.grand_total|indian }}</span><small>incl. GST ₹{{ tax.tax|indian:2 }}</small></div>
   </section>
 
-  {% if checks %}<ul class="ord-checks">{% for level, text in checks %}<li class="is-{{ level }}">{{ text }}</li>{% endfor %}</ul>{% endif %}
+  {% if checks or order.hold_reason or order.cancel_reason or order.short_close_reason or order.credit_override_reason or order.approval_checks.backorder or order.status == 'Revised' %}<ul class="ord-checks">
+    {% for level, text in checks %}<li class="is-{{ level }}">{{ text }}</li>{% endfor %}
+    {% if order.status == 'On hold' %}<li class="is-danger">On hold: {{ order.hold_reason }} — no truck can be planned until it is released.</li>{% endif %}
+    {% if order.status == 'Revised' %}{% with nxt=order.revised_to %}<li class="is-info">Replaced by revision {% if nxt %}<a href="{% url 'order_detail' nxt.pk %}">{{ nxt.number }}</a>{% endif %}. This version is kept for the record.</li>{% endwith %}{% endif %}
+    {% if order.credit_override_reason %}<li class="is-warn">Credit rule overridden by {{ order.credit_override_by|who }} until {{ order.credit_override_until|date:'d M Y' }}: {{ order.credit_override_reason }}</li>{% endif %}
+    {% if order.approval_checks.backorder %}<li class="is-warn">Approved as backorder: {{ order.approval_checks.backorder.reason }} ({{ order.approval_checks.backorder.lines|join:'; ' }})</li>{% endif %}
+    {% if order.cancel_reason %}<li class="is-danger">Cancelled: {{ order.cancel_reason }}</li>{% endif %}
+    {% if order.short_close_reason %}<li class="is-info">Short-closed: {{ order.short_close_reason }}</li>{% endif %}
+  </ul>{% endif %}
 
   <section class="ord-workflow">
     <ol class="ord-steps">
@@ -25,17 +35,38 @@
     </ol>
     <div class="ord-buttons">
       {% if order.status == 'Draft' and can_create %}<a class="org-btn is-light" href="{% url 'order_edit' order.pk %}">Edit draft</a>{% endif %}
-      {% if order.status == 'Draft' and can_submit %}<form method="post" action="{% url 'order_action' order.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary">Submit for approval</button></form>{% endif %}
-      {% if order.status == 'Submitted' and can_approve %}<form method="post" action="{% url 'order_action' order.pk 'approve' %}">{% csrf_token %}<button class="org-btn is-primary">Approve</button></form>{% endif %}
+      {% if order.status == 'Draft' and can_submit %}<form method="post" action="{% url 'order_action' order.pk 'submit' %}" class="ord-inline">{% csrf_token %}{% for p in sale.submit_problems %}{% if 'duplicate' in p %}<label class="ord-checkline"><input type="checkbox" name="confirm_duplicate" value="1"> Not a duplicate</label>{% endif %}{% endfor %}<button class="org-btn is-primary">Submit for approval</button></form>{% endif %}
+      {% if order.status == 'Submitted' and can_approve and order.created_by_id != user.pk %}{% if order.kind == 'Sale' and sale.credit or order.kind == 'Sale' and sale.short %}<a class="org-btn is-primary" href="#decide">Review &amp; approve ↓</a>{% else %}<form method="post" action="{% url 'order_action' order.pk 'approve' %}">{% csrf_token %}<button class="org-btn is-primary">Approve</button></form>{% endif %}{% endif %}
+      {% if sale.can_release %}<form method="post" action="{% url 'order_action' order.pk 'release' %}">{% csrf_token %}<button class="org-btn is-primary">Release hold</button></form>{% endif %}
+      {% if sale.can_revise %}<form method="post" action="{% url 'order_action' order.pk 'revise' %}" data-confirm="Open a new revision of {{ order.number }}? This version will be marked Revised and the new draft must be approved again.">{% csrf_token %}<button class="org-btn is-light">Revise order</button></form>{% endif %}
       {% if order.kind == 'Sale' and order.site.uses_weighbridge and order.status in 'Approved Part dispatched' and perms.erp.add_dispatch %}<a class="org-btn is-primary" href="{% url 'dispatch_new' order.pk %}">Plan truck</a>{% endif %}
-      {% if order.status == 'Part dispatched' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'close' %}" data-confirm="Short-close {{ order.number }}? The undispatched balance will not be supplied.">{% csrf_token %}<button class="org-btn is-light">Short-close</button></form>{% endif %}
+
       {% if order.kind == 'Purchase' and order.status in 'Approved Part received' and perms.erp.add_goodsreceipt %}<a class="org-btn is-primary" href="{% url 'grn_new' order.pk %}">Gate-in supplier truck</a>{% endif %}
       {% if order.status == 'Part received' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'close' %}" data-confirm="Short-close {{ order.number }}? The balance will not be received.">{% csrf_token %}<button class="org-btn is-light">Short-close</button></form>{% endif %}
       {% if order.status == 'Approved' and can_post and not order.site.uses_weighbridge and order.kind == 'Sale' %}<form method="post" action="{% url 'order_action' order.pk 'post' %}" data-confirm="Post this order and {% if order.kind == 'Sale' %}dispatch{% else %}receive{% endif %} stock? Posted orders cannot be edited.">{% csrf_token %}<button class="org-btn is-primary">{% if order.kind == 'Sale' %}Dispatch &amp; post stock{% else %}Receive &amp; post stock{% endif %}</button></form>{% endif %}
       {% if order.kind == 'Sale' and order.status == 'Completed' and not order.site.uses_weighbridge %}{% if invoice %}<a class="org-btn is-primary" href="{% url 'invoice_detail' invoice.pk %}">Invoice {{ invoice.number }}</a>{% elif perms.erp.post_invoice %}<a class="org-btn is-primary" href="{% url 'invoice_new' order.pk %}">Post tax invoice</a>{% endif %}{% endif %}
-      {% if order.status in 'Draft Submitted Approved' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" data-confirm="Cancel {{ order.number }}?">{% csrf_token %}<button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}
+      {% if order.kind == 'Purchase' or order.status == 'Draft' %}{% if order.status in 'Draft Submitted Approved' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" data-confirm="Cancel {{ order.number }}?">{% csrf_token %}<button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}{% endif %}
     </div>
+    {% if order.kind == 'Sale' %}<div class="ord-more">
+      {% if sale.can_hold %}<form method="post" action="{% url 'order_action' order.pk 'hold' %}" class="ord-inline">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="Hold reason (e.g. dealer asked to wait, payment dispute)" aria-label="Hold reason"><button class="org-btn is-light">Put on hold</button></form>{% endif %}
+      {% if order.status == 'Part dispatched' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'close' %}" class="ord-inline" data-confirm="Short-close {{ order.number }}? The undispatched balance will not be supplied.">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="Why short-close? (customer does not need the balance…)" aria-label="Short-close reason"><button class="org-btn is-light">Short-close</button></form>{% endif %}
+      {% if order.status in 'Submitted Approved On hold' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" class="ord-inline" data-confirm="Cancel {{ order.number }}? Reserved stock is released.">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="Cancellation reason" aria-label="Cancellation reason"><button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}
+    </div>{% endif %}
   </section>
+
+  {% if order.kind == 'Sale' and order.status == 'Submitted' and can_approve and order.created_by_id != user.pk and sale.credit or order.kind == 'Sale' and order.status == 'Submitted' and can_approve and order.created_by_id != user.pk and sale.short %}
+  <section class="org-card ord-decide" id="decide"><header class="acc-card-head"><h2>Approval decision</h2></header>
+    <form method="post" action="{% url 'order_action' order.pk 'approve' %}" class="ord-decide-form">{% csrf_token %}
+      {% if sale.credit %}<p><strong>Credit rule not met:</strong> {{ sale.credit|join:' ' }}</p>
+        {% if sale.can_override %}<div class="ord-decide-row"><label>Override reason<input class="form-control" name="override_reason" required maxlength="200" placeholder="e.g. Cheque of ₹2 L received, clearing on Monday"></label>
+          <label>Override valid until<input class="form-control" type="date" name="override_until" required min="{{ sale.today }}" max="{{ sale.override_max }}"></label></div>
+        {% else %}<p class="acc-muted">You do not have credit-override authority. Ask the finance controller, or collect payment first.</p>{% endif %}{% endif %}
+      {% if sale.short %}<p><strong>Not enough free stock:</strong> {% for r in sale.short %}{{ r.line.product.name }} short {{ r.short|qty }} {{ r.line.product.unit }}{% if not forloop.last %}; {% endif %}{% endfor %}.</p>
+        {% if order.site.atp_required %}<p class="acc-muted">{{ order.site.code }} approves only against free stock — arrange stock or a transfer first.</p>
+        {% else %}<label>Backorder reason<input class="form-control" name="backorder_reason" required maxlength="200" placeholder="e.g. 30 MT due from partner plant on 18 Nov"></label>{% endif %}{% endif %}
+      {% if sale.below and not sale.can_price %}<p class="acc-muted">Lines are below list price — you need price-exception authority.</p>{% endif %}
+      <div><button class="org-btn is-primary">Approve with these reasons</button></div>
+    </form></section>{% endif %}
 
   <div class="acc-grid">
     <section class="org-card org-view acc-wide ord-items">
@@ -64,6 +95,11 @@
         <p class="ord-words">{{ words }}</p>
       </div>
     </section>
+    {% if sale.progress and order.status not in 'Draft Submitted Cancelled Revised' %}<section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Fulfilment</h2><span class="acc-muted">{{ sale.stage }}</span></header>
+      <table class="ord-progress"><thead><tr><th>Product</th><th>Ordered</th><th class="is-optional">Truck planned</th><th>Dispatched</th><th class="is-optional">Invoiced</th><th class="is-optional">Delivered</th><th>Balance</th></tr></thead><tbody>
+        {% for r in sale.progress %}<tr><td>{{ r.line.product.name }}</td><td>{{ r.line.quantity|qty }}</td><td class="is-optional">{{ r.planned|qty }}</td><td>{{ r.sent|qty }}</td><td class="is-optional">{{ r.invoiced|qty }}</td><td class="is-optional">{{ r.delivered|qty }}</td><td>{% if r.pending %}<span class="ins-pill is-warn">{{ r.pending|qty }}</span>{% else %}<span class="ins-pill is-good">0</span>{% endif %}</td></tr>{% endfor %}
+      </tbody></table></section>{% endif %}
     <section class="org-card org-view">
       <header class="acc-card-head"><h2>{% if order.kind == 'Sale' %}Customer{% else %}Supplier{% endif %}</h2><a href="{% url 'partner_detail' order.partner.pk %}">Open</a></header>
       <dl>
@@ -75,10 +111,13 @@
       </dl>
     </section>
     <section class="org-card org-view">
-      <header class="acc-card-head"><h2>Fulfilment</h2></header>
+      <header class="acc-card-head"><h2>{% if order.kind == 'Sale' %}Delivery terms{% else %}Fulfilment{% endif %}</h2></header>
       <dl>
         <div class="is-wide"><dt>Plant / depot</dt><dd>{{ order.site }}</dd></div>
-        <div><dt>Required by</dt><dd>{{ order.due_date|date:'d M Y' }}</dd></div>
+        <div><dt>{% if order.kind == 'Sale' %}Requested date{% else %}Required by{% endif %}</dt><dd>{{ order.due_date|date:'d M Y' }}</dd></div>
+        {% if order.kind == 'Sale' %}<div><dt>Priority</dt><dd>{{ order.get_priority_display }}</dd></div><div><dt>Unloading by</dt><dd>{{ order.get_unloading_by_display|default:'—' }}</dd></div>
+        {% if order.delivery_instructions %}<div class="is-wide"><dt>Delivery instructions</dt><dd>{{ order.delivery_instructions }}</dd></div>{% endif %}
+        {% for r in sale.revisions %}<div><dt>{% if r.pk == order.revised_from_id %}Previous version{% else %}Next version{% endif %}</dt><dd><a href="{% url 'order_detail' r.pk %}">{{ r.number }}</a></dd></div>{% endfor %}{% endif %}
         <div><dt>Approved by</dt><dd>{% if order.approved_by %}{{ order.approved_by.get_full_name|default:order.approved_by.username }}{% else %}—{% endif %}</dd></div>
         {% if order.kind == 'Purchase' %}
         <div><dt>Credit</dt><dd>{% if order.payment_terms_days is not None %}{{ order.payment_terms_days }} days{% else %}{{ order.partner.payment_terms_days }} days (supplier){% endif %}</dd></div>

@@ -233,6 +233,22 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - An owner records the **investigation findings**; a user who neither logged nor investigated **decides** — accept, partly accept (quantity cannot exceed the claim) or reject — and the settlement: credit note on that invoice, replacement order, or none.
 - **Closure** needs the settlement evidence linked (the credit note on the same invoice, or a sales order for the customer). Quality complaints close only when every **CAPA** (root cause, containment, corrective and preventive action, owner, due date) is implemented and verified effective by someone other than its owner — or with a written reason why no CAPA is needed.
 
+## Sales order controls (Step 8e — SRS §5.2 / §5.11)
+- **Order list** (Sales / Purchase orders): approval-pending, to-dispatch, late and on-hold counts; filter by status, plant,
+  dates and search; dispatch progress per order; urgent orders and earliest requested dates first.
+- **Order terms**: requested date, priority, ship-to, freight terms, unloading by, delivery instructions.
+- **Submission** checks the customer and rates and flags a possible duplicate (same customer, plant and items within 24 h).
+- **Approval** by a different user records the credit, price and stock position on the order:
+  - overdue / credit-limit breach → only *Sales credit override* holders may approve, with a reason and an expiry (≤ 30 days);
+    planning a truck re-checks credit once the override has expired;
+  - below list price → needs *Sales below list price* authority;
+  - not enough free stock (available − other open orders) → approved as a backorder with a reason, or refused at plants set to
+    *Approve sales only against free stock (ATP)* (Plants & depots → Dispatch settings).
+- **Hold / release** with reason (no truck can be planned while on hold), **revision** after approval (old version kept as
+  *Revised*, new draft `-R2` re-approved), **cancel** and **short-close** require a reason.
+- **Fulfilment** per line: ordered, truck planned, dispatched, invoiced, delivered, balance; stage Draft → Approval pending →
+  Approved → Dispatch planned / Part dispatched → Dispatched → Invoiced → Delivered (or Closed).
+
 ## Dashboards, My work & reminders (Step 9a)
 - **Home** (`/`) is role-based: the work waiting for you (only approvals you may give, never your own documents), headline
   numbers from each dashboard you may open, and *My sales* (orders you created, against your monthly target) for sales staff.

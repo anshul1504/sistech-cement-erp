@@ -24,24 +24,25 @@ def table(request, title, subtitle, headers, rows, create=None, filters=False, c
                                              'create': create, 'filters': filters, 'create_label': create_label})
 
 @login_required
-def orders(request, kind):
-    if not order_permission(request.user, kind, 'view'):
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
-    qs = scope(Order.objects.filter(kind=kind).select_related('partner', 'site').prefetch_related('lines'), request.user)
-    if request.GET.get('q'): qs = qs.filter(Q(number__icontains=request.GET['q']) | Q(partner__name__icontains=request.GET['q']))
-    if request.GET.get('status'): qs = qs.filter(status=request.GET['status'])
-    rows = [{'cells': [o.number, o.partner.name, o.site.code, o.due_date, ('₹', o.total), o.status], 'url': f'/orders/{o.pk}/'} for o in qs]
-    return table(request, 'Sales orders' if kind == 'Sale' else 'Purchase orders', 'Track documents from draft through approval and stock posting. Values exclude tax and freight.', ['Document', 'Partner', 'Site', 'Due date', 'Net value', 'Status'], rows, f'/orders/new/{kind}/' if order_permission(request.user, kind, 'create') else None, True,
-                 '+ New sales order' if kind == 'Sale' else '+ New purchase order')
-
-@login_required
 @require_POST
 def order_action(request, pk, action):
     get_object_or_404(scope(Order.objects.all(), request.user), pk=pk)
+    P = request.POST
     try:
-        transition_order(request.user, pk, action)
-        messages.success(request, 'Order workflow updated.')
+        if action == 'revise':
+            from .sales import revise
+            new = revise(request.user, pk)
+            messages.success(request, f'Revision {new.revision} opened as draft {new.number}. Make the changes and submit it for approval.')
+            return redirect('order_detail', pk=new.pk)
+        from datetime import date
+        until = date.fromisoformat(P['override_until']) if P.get('override_until') else None
+        transition_order(request.user, pk, action, reason=P.get('reason', ''), override_reason=P.get('override_reason', ''), override_until=until,
+                         backorder_reason=P.get('backorder_reason', ''), confirm_duplicate=P.get('confirm_duplicate') == '1')
+        messages.success(request, {'submit': 'Submitted for approval.', 'approve': 'Order approved.', 'cancel': 'Order cancelled.', 'close': 'Order short-closed.',
+                                   'hold': 'Order put on hold — no truck can be planned until it is released.', 'release': 'Order released from hold.',
+                                   'post': 'Stock posted.'}.get(action, 'Order workflow updated.'))
+    except ValueError:
+        messages.error(request, 'Enter the override expiry date correctly.')
     except ValidationError as e: messages.error(request, ' '.join(e.messages))
     return redirect('order_detail', pk=pk)
 

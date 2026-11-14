@@ -71,38 +71,42 @@ def transfer_state(user, site, product, quantity, source, kind_out, kind_in, fro
 
 
 @transaction.atomic
-def transition_order(user, pk, action):
+def transition_order(user, pk, action, **data):
+    """data (sales orders): reason, override_reason, override_until (date), backorder_reason, confirm_duplicate."""
     order = scope(Order.objects.select_for_update(), user).get(pk=pk)
     from accounts.roles import order_permission
+    from . import sales
     if action in ['submit', 'approve', 'post', 'cancel', 'close'] and not order_permission(user, order.kind, 'post' if action == 'close' else action):
         raise PermissionDenied
-    if action == 'submit':
+    reason = (data.get('reason') or '').strip()
+    fields = ['status', 'approved_by']
+    if action in ('hold', 'release'):
+        if order.kind != 'Sale': raise ValidationError('Only sales orders can be put on hold.')
+        sales.hold(user, order, reason) if action == 'hold' else sales.release(user, order)
+        fields += ['hold_reason', 'held_from']
+    elif action == 'submit':
         if order.status != 'Draft': raise ValidationError('Only draft orders can be submitted.')
         if not order.lines.exists(): raise ValidationError('Add at least one order line.')
         if order.kind == 'Purchase':
             _purchase_checks(order)
+        else:
+            problems = sales.submit_checks(order, bool(data.get('confirm_duplicate')))
+            if problems: raise ValidationError(problems)
         order.status = 'Submitted'
     elif action == 'approve':
         if order.status != 'Submitted': raise ValidationError('Only submitted orders can be approved.')
         if order.created_by_id == user.pk: raise ValidationError('A different user must approve this order (maker-checker).')
         if not order.partner.active: raise ValidationError('The partner is inactive.')
         if order.kind == 'Sale':
-            # Serialize credit approvals for a dealer on row-locking databases.
-            partner = Partner.objects.select_for_update().get(pk=order.partner_id)
-            from .ledger import exposure, overdue
-            late = overdue(partner)
-            if late:
-                raise ValidationError(f'{len(late)} invoice{"s" if len(late) > 1 else ""} past due (₹{inr(sum(i.outstanding for i in late), 0)}, oldest {late[0].number}). Collect payment before approving new orders.')
-            exp = exposure(partner, exclude_order=order.pk)
-            if exp['total'] + order.grand_total > partner.credit_limit:
-                raise ValidationError(f'Dealer credit limit exceeded: outstanding ₹{inr(exp["balance"], 0)} + orders not yet invoiced ₹{inr(exp["pipeline"], 0)} + this order ₹{inr(order.grand_total, 0)} > limit ₹{inr(partner.credit_limit, 0)}.')
+            sales.approve(user, order, data.get('override_reason', ''), data.get('override_until'), data.get('backorder_reason', ''))
+            fields += ['approval_checks', 'credit_override_reason', 'credit_override_until', 'credit_override_by']
         else:
             _purchase_checks(order)
             from .procurement import approval_limit
             limit = approval_limit()
             if order.grand_total > limit and not user.has_perm('erp.approve_high_value_purchase'):
                 raise ValidationError(f'PO value ₹{inr(order.grand_total, 0)} is above the ₹{inr(limit, 0)} approval limit — a senior purchase approver must approve it.')
-        order.status, order.approved_by = 'Approved', user
+            order.status, order.approved_by = 'Approved', user
     elif action == 'post':
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')
         if order.kind == 'Sale' and order.site.uses_weighbridge:
@@ -116,10 +120,12 @@ def transition_order(user, pk, action):
         order.status = 'Completed'
     elif action == 'cancel':
         if order.status in ('Part dispatched', 'Part received'): raise ValidationError('Part of this order has already moved — short-close it instead.')
-        if order.status not in ['Draft', 'Submitted', 'Approved']: raise ValidationError('Completed or cancelled orders cannot be cancelled.')
+        if order.status not in ['Draft', 'Submitted', 'Approved', 'On hold']: raise ValidationError('Completed, revised or cancelled orders cannot be cancelled.')
         if order.dispatches.exclude(status='cancelled').exists(): raise ValidationError('A truck is planned or on its way — cancel the dispatch first.')
         if order.kind == 'Purchase' and order.grns.exclude(status='cancelled').exists(): raise ValidationError('Material has been received on this order — short-close it instead.')
-        order.status = 'Cancelled'
+        if order.kind == 'Sale' and order.status != 'Draft' and not reason: raise ValidationError('Give the reason for cancelling (FR-SLS-010).')
+        order.status, order.cancel_reason = 'Cancelled', reason[:200]
+        fields.append('cancel_reason')
     elif action == 'close':
         # Short-close: the customer does not want the rest. Nothing open may remain on the gate.
         if order.status not in ('Part dispatched', 'Part received'): raise ValidationError('Only part-dispatched or part-received orders can be short-closed.')
@@ -127,9 +133,11 @@ def transition_order(user, pk, action):
             raise ValidationError('A supplier truck is still inside for this order — post or cancel its receipt first.')
         if order.dispatches.filter(status__in=['planned', 'gate_in', 'tared', 'loading', 'loaded', 'weighed']).exists():
             raise ValidationError('Finish or cancel the trucks still inside the plant first.')
-        order.status = 'Completed'
+        if order.kind == 'Sale' and not reason: raise ValidationError('Give the reason for short-closing (e.g. customer does not need the balance).')
+        order.status, order.short_close_reason = 'Completed', reason[:200]
+        fields.append('short_close_reason')
     else: raise ValidationError('Unknown action.')
-    order.save(update_fields=['status', 'approved_by'])
+    order.save(update_fields=fields)
     if order.kind == 'Purchase' and action in ('approve', 'cancel', 'close'):
         from .procurement import refresh_requests
         refresh_requests(order)
@@ -137,7 +145,8 @@ def transition_order(user, pk, action):
             rfq = order.quote.rfq
             rfq.status = 'open'  # buyer can award the next supplier
             rfq.save(update_fields=['status'])
-    audit(user, f'Order {action}', order)
+    detail = reason or data.get('override_reason') or data.get('backorder_reason') or ''
+    audit(user, {'hold': 'Order put on hold', 'release': 'Order released from hold'}.get(action, f'Order {action}'), order, detail[:250])
     return order
 
 

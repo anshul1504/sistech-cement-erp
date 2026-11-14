@@ -191,7 +191,7 @@ def drill(request, kind):
             rows.append({'url': reverse('partner_ledger', args=[i.partner_id]), 'cells': [i.number, i.partner.name, i.due_date, max((today - i.due_date).days, 0), ('₹', i.grand_total), ('₹', i.due)]})
             total += i.due
     elif kind == 'orders':
-        qs = Order.objects.filter(kind='Sale', status__in=['Approved', 'Part dispatched'], site__in=sites).select_related('partner', 'site').prefetch_related('lines').order_by('created_at')
+        qs = Order.objects.filter(kind='Sale', status__in=['Approved', 'Part dispatched', 'On hold'], site__in=sites).select_related('partner', 'site').prefetch_related('lines').order_by('created_at')
         cols = ['Order', 'Customer', 'Plant', 'Ordered on', 'Status', 'Value']
         for o in qs[:500]:
             rows.append({'url': reverse('order_detail', args=[o.pk]), 'cells': [o.number, o.partner.name, o.site.code, timezone.localtime(o.created_at).date(), o.status, ('₹', o.total)]})

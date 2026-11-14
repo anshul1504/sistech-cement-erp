@@ -82,7 +82,7 @@ def ageing(invoices, on=None):
 def uninvoiced_orders(partner):
     """Approved / part-dispatched / dispatched orders whose value is not fully invoiced yet."""
     from .models import Order
-    return Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Part dispatched', 'Completed']) \
+    return Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Part dispatched', 'On hold', 'Completed']) \
         .select_related('site', 'partner').prefetch_related('lines', 'invoices')
 
 

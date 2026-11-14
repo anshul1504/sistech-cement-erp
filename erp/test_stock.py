@@ -88,7 +88,7 @@ class StockTests(TestCase):
         dealer = Partner.objects.create(code='D1', name='Dealer', kind='Dealer', state='23', credit_limit=10 ** 8)
         o = Order.objects.create(kind='Sale', site=self.plant, partner=dealer, created_by=self.a)
         OrderLine.objects.create(order=o, product=self.opc, quantity=120, rate=350, gst_rate=28)
-        transition_order(self.a, o.pk, 'submit'); transition_order(self.b, o.pk, 'approve')
+        transition_order(self.a, o.pk, 'submit'); transition_order(self.b, o.pk, 'approve', backorder_reason='Partner supply due')
         r = ST.position([self.plant])[0]
         self.assertEqual((r['available'], r['reserved'], r['free'], r['mt']), (D(100), D(120), D(-20), D('5.000')))
         c = ST.start_count(self.a, self.plant)

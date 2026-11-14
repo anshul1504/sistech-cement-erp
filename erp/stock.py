@@ -58,7 +58,7 @@ def position(sites, product_filter=None):
         r['value'] += b.value
         if b.status == 'available':
             r['cost'] = b.avg_cost
-    for l in OrderLine.objects.filter(order__kind='Sale', order__status__in=['Approved', 'Part dispatched'], order__site_id__in=site_ids).select_related('order'):
+    for l in OrderLine.objects.filter(order__kind='Sale', order__status__in=['Approved', 'Part dispatched', 'On hold'], order__site_id__in=site_ids).select_related('order'):
         if product_filter is None or l.product_id in {p.pk for p in product_filter}:
             rows[(l.order.site_id, l.product_id)]['reserved'] += l.pending_quantity
     for l in GRNLine.objects.filter(grn__status='posted', hold__gt=0, qc_at__isnull=True, grn__site_id__in=site_ids).select_related('grn'):

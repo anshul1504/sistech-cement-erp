@@ -47,6 +47,8 @@ class Site(models.Model):
     # Dispatch settings (FR-LOG-008/009)
     uses_weighbridge = models.BooleanField('Gate & weighbridge dispatch', default=False,
                                            help_text='Sales leave through gate-in, tare, loading, gross and gate-out. Off = dispatch posts directly from the order.')
+    atp_required = models.BooleanField('Approve sales only against free stock (ATP)', default=False,
+                                       help_text='On: a sales order is approved only if available stock minus other orders covers it. Off: shortages are approved as backorders and recorded.')
     stock_post_event = models.CharField('Stock reduces at', max_length=14, default='gate_out',
                                         choices=[('load_complete', 'Loading complete'), ('gate_out', 'Gate-out')])
     weight_tolerance_pct = models.DecimalField('Weight tolerance (%)', max_digits=4, decimal_places=2, default=Decimal('0.50'), validators=MONEY,
@@ -239,7 +241,7 @@ class Order(Document):
     kind = models.CharField(max_length=10, choices=[('Sale', 'Sales order'), ('Purchase', 'Purchase order')])
     partner = models.ForeignKey(Partner, on_delete=models.PROTECT)
     due_date = models.DateField(default=timezone.localdate)
-    status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Part dispatched', 'Part received', 'Completed', 'Cancelled']])
+    status = models.CharField(max_length=15, default='Draft', choices=[(x, x) for x in ['Draft', 'Submitted', 'Approved', 'Part dispatched', 'Part received', 'Completed', 'On hold', 'Revised', 'Cancelled']])
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='approved_orders')
     place_of_supply = models.CharField('Place of supply', max_length=2, blank=True, choices=INDIAN_STATES,
                                        help_text="Buyer's delivery state. Same state as the plant → CGST + SGST, otherwise IGST.")
@@ -254,9 +256,26 @@ class Order(Document):
                                                 help_text='How much more than ordered the store may accept, e.g. 2% for bulk material by weight.')
     advance_amount = models.DecimalField('Advance to supplier (₹)', max_digits=14, decimal_places=2, default=0, validators=MONEY)
     delivery_terms = models.CharField('Delivery terms', max_length=120, blank=True, help_text='e.g. Door delivery at plant, unloading by supplier.')
+    # Sales order terms and controls (FR-SLS-004…010, FR-AR-003/004)
+    priority = models.CharField(max_length=8, choices=[('normal', 'Normal'), ('urgent', 'Urgent')], default='normal')
+    unloading_by = models.CharField('Unloading by', max_length=12, blank=True, choices=[('customer', 'Customer'), ('company', 'Sistech'), ('transporter', 'Transporter')], default='customer')
+    delivery_instructions = models.CharField('Delivery instructions', max_length=200, blank=True, help_text='Site contact, timing, access road, unloading point…')
+    revision = models.PositiveSmallIntegerField(default=1, editable=False)
+    revised_from = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='revised_to', editable=False)
+    approval_checks = models.JSONField(default=dict, blank=True, editable=False, help_text='Credit, stock and price position recorded at approval.')
+    credit_override_reason = models.CharField(max_length=200, blank=True, editable=False)
+    credit_override_until = models.DateField(null=True, blank=True, editable=False)
+    credit_override_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+', editable=False)
+    hold_reason = models.CharField(max_length=200, blank=True, editable=False)
+    held_from = models.CharField(max_length=15, blank=True, editable=False)
+    cancel_reason = models.CharField(max_length=200, blank=True, editable=False)
+    short_close_reason = models.CharField(max_length=200, blank=True, editable=False)
     class Meta(Document.Meta):
         permissions = [('approve_order', 'Approve orders (legacy)'), ('post_order', 'Receive or dispatch orders (legacy)'),
-                       ('approve_high_value_purchase', 'Approve purchase orders above the approval limit')] + [
+                       ('approve_high_value_purchase', 'Approve purchase orders above the approval limit'),
+                       ('override_credit_sales_order', 'Approve sales orders beyond credit / overdue rules with a recorded reason'),
+                       ('approve_price_exception', 'Approve sales below list price'),
+                       ('hold_sales_order', 'Put sales orders on hold and release them')] + [
             (f'{action}_{kind}_order', f'{action.title()} {kind} orders')
             for kind in ['sales', 'purchase']
             for action in ['view', 'create', 'submit', 'approve', 'post', 'cancel']

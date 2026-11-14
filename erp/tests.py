@@ -34,7 +34,7 @@ class WorkflowTests(TestCase):
 
     def approve(self, order):
         transition_order(self.maker, order.pk, 'submit')
-        transition_order(self.checker, order.pk, 'approve')
+        transition_order(self.checker, order.pk, 'approve', backorder_reason='Partner supply due')
 
     def opening(self, product=None, quantity=100):
         return move_stock(self.admin, self.site, product or self.product, Decimal(quantity), 'opening:' + str((product or self.product).pk), 'Opening')
@@ -95,7 +95,7 @@ class WorkflowTests(TestCase):
         self.dealer.save()
         self.approve(self.make_order())
         order = self.make_order()
-        transition_order(self.maker, order.pk, 'submit')
+        transition_order(self.maker, order.pk, 'submit', confirm_duplicate=True)
         with self.assertRaises(ValidationError): transition_order(self.checker, order.pk, 'approve')
 
     def test_completed_order_cannot_cancel(self):

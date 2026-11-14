@@ -65,8 +65,14 @@ def plan(user, order, vehicle, driver, quantities, transporter=None, bay='', pla
     _need(user, 'add_dispatch')
     order = Order.objects.select_for_update().select_related('site').get(pk=order.pk)
     require_site(user, order.site)
+    if order.kind == 'Sale' and order.status == 'On hold':
+        raise ValidationError(f'{order.number} is on hold: {order.hold_reason}')
     if order.kind != 'Sale' or order.status not in ('Approved', 'Part dispatched'):
         raise ValidationError('Only approved sales orders can be dispatched.')
+    from .sales import dispatch_block
+    blocked = dispatch_block(order)
+    if blocked:
+        raise ValidationError(blocked + ['Collect payment, or ask a credit approver to re-approve the order with an override.'])
     if not order.site.uses_weighbridge:
         raise ValidationError(f'{order.site.code} does not use the gate & weighbridge flow — dispatch from the order page.')
     problems = vehicle_problems(vehicle)
@@ -322,12 +328,18 @@ def gate_out(user, pk):
 def refresh_order(order):
     order = Order.objects.select_for_update().get(pk=order.pk)
     lines = list(order.lines.all())
-    if order.status not in ('Approved', 'Part dispatched'):
+    if order.status not in ('Approved', 'Part dispatched', 'On hold'):
         return
     done = all(l.dispatched_quantity() >= l.quantity for l in lines)
     some = any(l.dispatched_quantity() > 0 for l in lines)
     new = 'Completed' if done else 'Part dispatched' if some else 'Approved'
-    if new != order.status:
+    if order.status == 'On hold':  # a truck already inside finished: remember where the order is, keep it on hold
+        if new == 'Completed':
+            order.status, order.held_from, order.hold_reason = 'Completed', '', ''
+        else:
+            order.held_from = new
+        order.save(update_fields=['status', 'held_from', 'hold_reason'])
+    elif new != order.status:
         order.status = new
         order.save(update_fields=['status'])
 

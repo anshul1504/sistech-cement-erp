@@ -248,7 +248,7 @@ def trend(sites, months=12, today=None, finance=False):
 
 
 def order_book(sites):
-    lines = OrderLine.objects.filter(order__kind='Sale', order__status__in=['Approved', 'Part dispatched'], order__site__in=sites).annotate(
+    lines = OrderLine.objects.filter(order__kind='Sale', order__status__in=['Approved', 'Part dispatched', 'On hold'], order__site__in=sites).annotate(
         sent=Coalesce(Sum(Coalesce('dispatch_lines__loaded_quantity', 'dispatch_lines__planned_quantity'), filter=~Q(dispatch_lines__dispatch__status='cancelled')),
                       Value(ZERO), output_field=DEC))
     f, mt, value, orders = _Factors(), ZERO, ZERO, set()

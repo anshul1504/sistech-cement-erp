@@ -185,7 +185,7 @@ class LogisticsTests(TestCase):
         self.client.post(reverse('dispatch_action', args=[d.pk, 'gate_out']))
         self.assertContains(self.client.get(reverse('dispatch_print', args=[d.pk, 'pass'])), 'Gate pass')
         self.assertEqual(Dispatch.objects.get().status, 'gate_out')
-        transition_order(self.admin, self.order.pk, 'close')
+        transition_order(self.admin, self.order.pk, 'close', reason='Customer does not need the balance')
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'Completed')
         # Gate user sees the board only for plants they can access

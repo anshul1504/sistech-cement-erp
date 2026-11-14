@@ -1,5 +1,6 @@
 """Sales & purchase orders: create / edit draft with price-list lookup and GST, detail with tax breakup, live price API."""
 import json
+from datetime import timedelta
 from .gst import inr
 from decimal import Decimal, InvalidOperation
 
@@ -149,15 +150,15 @@ def order_detail(request, pk):
             from .partner_views import credit_position
             credit = credit_position(order.partner)
             if credit['overdue_count']:
-                checks.append(('danger', f'{credit["overdue_count"]} invoice(s) past due — ₹{inr(credit["overdue"], 0)}. Approval will be blocked until paid.'))
+                checks.append(('danger', f'{credit["overdue_count"]} invoice(s) past due — ₹{inr(credit["overdue"], 0)}. Approval will be blocked until paid, unless a credit approver overrides it with a reason.'))
             if credit['exposure'] + tax['grand_total'] > credit['limit']:
                 checks.append(('danger', f'Credit limit will be exceeded: exposure ₹{inr(credit["exposure"], 0)} + this order ₹{inr(tax["grand_total"], 0)} > limit ₹{inr(credit["limit"], 0)}.'))
-        for l in lines:
-            bal = StockBalance.objects.filter(site=order.site, product=l.product, status='available').values_list('quantity', flat=True).first() or Decimal('0')
-            reserved = (Order.objects.filter(kind='Sale', site=order.site, status='Approved').exclude(pk=order.pk)
-                        .aggregate(q=Sum('lines__quantity', filter=Q(lines__product=l.product)))['q'] or Decimal('0'))
-            if bal - reserved < l.quantity:
-                checks.append(('warn', f'{l.product.name}: {inr(max(bal - reserved, 0), 3)} {l.product.unit} free at {order.site.code} (stock {inr(bal, 3)}, reserved {inr(reserved, 3)}).'.replace('.000', '')))
+        if order.status in ('Draft', 'Submitted'):
+            from .sales import atp as atp_rows
+            for r in atp_rows(order):
+                if r['short'] > 0:
+                    checks.append(('warn', f'{r["line"].product.name}: only {inr(max(r["free"], 0), 3)} {r["line"].product.unit} free at {order.site.code} (stock {inr(r["available"], 3)}, other orders {inr(r["reserved"], 3)}) — '.replace('.000', '')
+                                   + ('approval will be refused (plant approves only against stock).' if order.site.atp_required else 'approver must record a backorder reason.')))
     requests = []
     if order.kind == 'Purchase':
         from .procurement import check_po_against_requests, approval_limit
@@ -173,19 +174,99 @@ def order_detail(request, pk):
             limit = approval_limit()
             if tax['grand_total'] > limit:
                 checks.append(('info', f'Above the ₹{inr(limit, 0)} approval limit — needs a senior purchase approver.'))
-    flow = ['Draft', 'Submitted', 'Approved', 'Part received', 'Completed'] if order.kind == 'Purchase' else ['Draft', 'Submitted', 'Approved', 'Completed']
-    at = flow.index(order.status) if order.status in flow else -1
-    steps = [(name, 'cancelled' if order.status == 'Cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i, name in enumerate(flow)]
     invoices = list(order.invoices.all()) if order.kind == 'Sale' else []
     invoice = invoices[0] if len(invoices) == 1 and not invoices[0].dispatch_id else None
-    if order.kind == 'Sale':
-        if order.status == 'Part dispatched':
-            steps[-1] = ('Dispatched', 'current')
-            steps[2] = ('Approved', 'done')
-        steps[-1] = ('Dispatched', 'done' if invoices and order.status == 'Completed' else steps[-1][1])
-        steps.append(('Invoiced', 'cancelled' if order.status == 'Cancelled' else 'current' if invoices and order.status == 'Completed' else 'todo'))
+    sale = {}
+    if order.kind == 'Purchase':
+        flow = ['Draft', 'Submitted', 'Approved', 'Part received', 'Completed']
+        at = flow.index(order.status) if order.status in flow else -1
+        steps = [(name, 'cancelled' if order.status == 'Cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i, name in enumerate(flow)]
+    else:
+        from . import sales
+        prog = sales.progress(order)
+        st = sales.stage(order, prog)
+        flow = ['Draft', 'Approval pending', 'Approved', 'Dispatched', 'Invoiced', 'Delivered']
+        pos = {'Draft': 0, 'Approval pending': 1, 'Approved': 2, 'Dispatch planned': 3, 'Part dispatched': 3, 'Dispatched': 3, 'Invoiced': 4, 'Delivered': 5, 'Closed': 5,
+               'On hold': {'Submitted': 1}.get(order.held_from, 2)}.get(st, -1)
+        steps = [(name, 'cancelled' if order.status in ('Cancelled', 'Revised') else 'done' if i < pos or (i == pos and st in ('Delivered', 'Closed')) else 'current' if i == pos else 'todo')
+                 for i, name in enumerate(flow)]
+        if st == 'Closed':
+            steps[-1] = ('Short-closed', 'done')
+        u = request.user
+        credit = sales.credit_problems(order) if order.status == 'Submitted' else []
+        short = [r for r in sales.atp(order) if r['short'] > 0] if order.status == 'Submitted' else []
+        sale = {'progress': prog, 'stage': st, 'credit': credit, 'short': short,
+                'below': any(l.below_list for l in lines) and order.status == 'Submitted',
+                'can_override': u.has_perm('erp.override_credit_sales_order'), 'can_price': u.has_perm('erp.approve_price_exception'),
+                'can_hold': u.has_perm('erp.hold_sales_order') and order.status in ('Submitted', 'Approved', 'Part dispatched'),
+                'can_release': u.has_perm('erp.hold_sales_order') and order.status == 'On hold',
+                'can_revise': order_permission(u, 'Sale', 'create') and order.status in ('Submitted', 'Approved', 'On hold') and not order.dispatches.exclude(status='cancelled').exists() and not invoices,
+                'override_max': (timezone.localdate() + timedelta(days=30)).isoformat(), 'today': timezone.localdate().isoformat(),
+                'submit_problems': sales.submit_checks(order) if order.status == 'Draft' else [],
+                'revisions': list(Order.objects.filter(Q(pk=order.revised_from_id) | Q(revised_from=order)).only('number', 'status', 'revision'))}
     history = AuditEvent.objects.filter(reference=order.number).select_related('actor').order_by('-created_at')[:8]
     return render(request, 'erp/order_detail.html', {'title': order.number, 'order': order, 'lines': lines, 'tax': tax, 'words': in_words(tax['grand_total']),
                                                      'checks': checks, 'history': history, 'requests': requests,
                                                      'grns': order.grns.prefetch_related('lines__product') if order.kind == 'Purchase' else [], 'steps': steps, 'invoice': invoice, 'invoices': invoices,
-                                                     'dispatches': order.dispatches.select_related('vehicle', 'invoice').prefetch_related('lines__order_line__product') if order.kind == 'Sale' else [], **actions})
+                                                     'dispatches': order.dispatches.select_related('vehicle', 'invoice').prefetch_related('lines__order_line__product') if order.kind == 'Sale' else [], 'sale': sale, **actions})
+
+
+# ---------- Order list (sales & purchase) ----------
+
+LIST_FILTERS = {
+    'Sale': [('open', 'All open'), ('Draft', 'Draft'), ('Submitted', 'Approval pending'), ('Approved', 'Approved · to dispatch'), ('Part dispatched', 'Part dispatched'),
+             ('On hold', 'On hold'), ('late', 'Past requested date'), ('urgent', 'Urgent'), ('Completed', 'Completed'), ('Cancelled', 'Cancelled'), ('Revised', 'Revised'), ('all', 'All')],
+    'Purchase': [('open', 'All open'), ('Draft', 'Draft'), ('Submitted', 'Approval pending'), ('Approved', 'Approved · to receive'), ('Part received', 'Part received'),
+                 ('late', 'Past delivery date'), ('Completed', 'Completed'), ('Cancelled', 'Cancelled'), ('all', 'All')],
+}
+OPEN_STATES = ['Draft', 'Submitted', 'Approved', 'Part dispatched', 'Part received', 'On hold']
+
+
+@login_required
+def order_list(request, kind):
+    from django.core.paginator import Paginator
+    from .models import DispatchLine, GRNLine
+    _check(request.user, kind, 'view')
+    G = request.GET
+    base = scope(Order.objects.filter(kind=kind), request.user)
+    today = timezone.localdate()
+    status, q, site = G.get('status', 'open'), G.get('q', '').strip(), G.get('site', '')
+    qs = base.select_related('partner', 'site').prefetch_related('lines')
+    if status == 'open': qs = qs.filter(status__in=OPEN_STATES)
+    elif status == 'late': qs = qs.filter(status__in=['Approved', 'Part dispatched', 'Part received', 'On hold'], due_date__lt=today)
+    elif status == 'urgent': qs = qs.filter(status__in=OPEN_STATES, priority='urgent')
+    elif status != 'all': qs = qs.filter(status=status)
+    if q: qs = qs.filter(Q(number__icontains=q) | Q(partner__name__icontains=q) | Q(customer_ref__icontains=q))
+    if site.isdigit(): qs = qs.filter(site_id=site)
+    try:
+        if G.get('from'): qs = qs.filter(created_at__date__gte=G['from'])
+        if G.get('to'): qs = qs.filter(created_at__date__lte=G['to'])
+    except ValidationError:
+        pass
+    # Dispatch view: urgent first, then by requested date. Otherwise newest first.
+    qs = qs.order_by('-priority', 'due_date', '-created_at') if kind == 'Sale' and status in ('Approved', 'open', 'late') else qs.order_by('-created_at')
+    page = Paginator(qs, 25).get_page(G.get('page'))
+    orders = list(page.object_list)
+    ids = [o.pk for o in orders]
+    moved = {}
+    if kind == 'Sale':
+        for r in DispatchLine.objects.filter(order_line__order_id__in=ids, dispatch__stock_posted=True).values('order_line__order').annotate(q=Sum('loaded_quantity')):
+            moved[r['order_line__order']] = r['q'] or Decimal('0')
+    else:
+        for r in GRNLine.objects.filter(po_line__order_id__in=ids, grn__status='posted').values('po_line__order').annotate(q=Sum('accepted'), h=Sum('qc_accepted')):
+            moved[r['po_line__order']] = (r['q'] or 0) + (r['h'] or 0)
+    for o in orders:
+        total = sum((l.quantity for l in o.lines.all()), Decimal('0'))
+        done = total if o.status == 'Completed' and not o.short_close_reason else moved.get(o.pk, Decimal('0'))
+        o.pct = min(int(done * 100 / total), 100) if total else 0
+        o.value = sum((l.quantity * l.rate for l in o.lines.all()), Decimal('0'))
+        o.late = o.status in ('Approved', 'Part dispatched', 'Part received', 'On hold') and o.due_date < today
+    open_base = base.filter(status__in=OPEN_STATES)
+    kpi = {'approval': open_base.filter(status='Submitted').count(), 'to_move': open_base.filter(status__in=['Approved', 'Part dispatched', 'Part received']).count(),
+           'held': open_base.filter(status='On hold').count(), 'late': open_base.filter(status__in=['Approved', 'Part dispatched', 'Part received', 'On hold'], due_date__lt=today).count(),
+           'drafts': open_base.filter(status='Draft').count()}
+    params = G.copy(); params.pop('page', None)
+    return render(request, 'erp/orders.html', {'title': 'Sales orders' if kind == 'Sale' else 'Purchase orders', 'kind': kind, 'page': page, 'orders': orders, 'kpi': kpi,
+                                               'filters': LIST_FILTERS[kind], 'status': status, 'q': q, 'site': site, 'sites': _sites(request.user).order_by('code'),
+                                               'date_from': G.get('from', ''), 'date_to': G.get('to', ''), 'qs': params.urlencode(),
+                                               'can_create': order_permission(request.user, kind, 'create')})

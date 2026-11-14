@@ -122,12 +122,12 @@ class ReceivableTests(TestCase):
             transition_order(self.admin, o.pk, 'approve')
         self.assertContains(self.client.get(reverse('order_detail', args=[o.pk])), 'Approval will be blocked')
         self.receive(11800, ref='PAY1')
-        transition_order(self.admin, o.pk, 'approve')
+        transition_order(self.admin, o.pk, 'approve', backorder_reason='Stock due from partner plant')
         self.assertEqual(Order.objects.get(pk=o.pk).status, 'Approved')
         self.assertEqual(exposure(self.dealer)['pipeline'], Decimal('1180'))
         big = Order.objects.create(kind='Sale', site=self.site, partner=self.dealer, created_by=self.maker, status='Submitted')
         OrderLine.objects.create(order=big, product=self.cement, quantity=2000, rate=100, gst_rate=18)  # 2,36,000 > 2,00,000 limit
-        with self.assertRaisesMessage(ValidationError, 'credit limit exceeded'):
+        with self.assertRaisesMessage(ValidationError, 'Credit limit exceeded'):
             transition_order(self.admin, big.pk, 'approve')
 
     def test_outstanding_page_and_ageing(self):

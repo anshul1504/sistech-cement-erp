@@ -17,14 +17,14 @@ class SiteForm(StyledForm):
         ('Basics', 'What this location is and what it does.', ['kind', 'facility_type', 'code', 'name', 'operated_by', 'active']),
         ('Address', 'Where goods are produced, stored or dispatched from.', ['address', 'city', 'district', 'state', 'pincode']),
         ('Registration & contact', 'State GST registration and the people to reach.', ['gstin', 'manager', 'phone', 'email']),
-        ('Dispatch settings', 'How trucks leave this location.', ['uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays']),
+        ('Dispatch settings', 'How trucks leave this location and whether sales are approved only against free stock.', ['uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays', 'atp_required']),
         ('Capacity & notes', 'Installed capacity and anything the team should know.', ['capacity_tpa', 'notes']),
     ]
 
     class Meta:
         model = Site
         fields = ['kind', 'facility_type', 'code', 'name', 'operated_by', 'active', 'address', 'city', 'district', 'state', 'pincode',
-                  'gstin', 'manager', 'phone', 'email', 'uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays', 'capacity_tpa', 'notes']
+                  'gstin', 'manager', 'phone', 'email', 'uses_weighbridge', 'stock_post_event', 'weight_tolerance_pct', 'scale_id', 'loading_bays', 'atp_required', 'capacity_tpa', 'notes']
         widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
 
     def _dispatch_defaults(self):
@@ -277,8 +277,8 @@ class PartnerForm(StyledForm):
 class OrderForm(StyledForm):
     class Meta:
         model = Order
-        fields = ['site', 'partner', 'due_date', 'place_of_supply', 'freight_terms', 'customer_ref', 'payment_terms_days', 'receipt_tolerance_pct', 'advance_amount',
-                  'delivery_terms', 'ship_to', 'notes']
+        fields = ['site', 'partner', 'due_date', 'priority', 'place_of_supply', 'freight_terms', 'unloading_by', 'customer_ref', 'payment_terms_days', 'receipt_tolerance_pct', 'advance_amount',
+                  'delivery_terms', 'ship_to', 'delivery_instructions', 'notes']
         widgets = {'due_date': forms.DateInput(attrs={'type': 'date'}), 'ship_to': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 2})}
 
     def __init__(self, *args, **kwargs):
@@ -288,7 +288,7 @@ class OrderForm(StyledForm):
         self.fields['partner'].empty_label = 'Choose ' + ('supplier' if self.instance.kind == 'Purchase' else 'customer')
         self.fields['place_of_supply'].choices = [('', "Partner's state")] + list(self.fields['place_of_supply'].choices)[1:]
         if self.instance.kind == 'Purchase':
-            for name in ['place_of_supply', 'freight_terms', 'ship_to']:
+            for name in ['place_of_supply', 'freight_terms', 'ship_to', 'priority', 'unloading_by', 'delivery_instructions']:
                 del self.fields[name]
             self.fields['customer_ref'].label = 'Supplier quotation / reference'
             self.fields['partner'].label = 'Supplier'
@@ -296,8 +296,13 @@ class OrderForm(StyledForm):
             self.fields['receipt_tolerance_pct'].widget.attrs.update(step='0.1', min='0', max='10')
         else:
             self.fields['partner'].label = 'Customer'
+            self.fields['due_date'].label = 'Requested delivery date'
+            self.fields['priority'].required = False
             for name in ['payment_terms_days', 'receipt_tolerance_pct', 'advance_amount', 'delivery_terms']:
                 del self.fields[name]
+
+    def clean_priority(self):
+        return self.cleaned_data.get('priority') or 'normal'
 
     def clean_receipt_tolerance_pct(self):
         v = self.cleaned_data.get('receipt_tolerance_pct') or Decimal('0')

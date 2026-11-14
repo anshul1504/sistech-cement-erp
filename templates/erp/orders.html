@@ -1,0 +1,36 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">{% if kind == 'Sale' %}SALES{% else %}PROCUREMENT{% endif %}</div><h1>{{ title }}</h1>
+    <p>{% if kind == 'Sale' %}Customer orders from draft to approval (credit, price and stock checked by a different user), trucks, invoice and delivery. Urgent orders and the earliest requested dates come first.{% else %}Purchase orders from draft to approval and truck-by-truck receipt.{% endif %}</p></div>
+    {% if can_create %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'order_new' kind %}"><svg><use href="#ic-plus"/></svg>New {% if kind == 'Sale' %}sales{% else %}purchase{% endif %} order</a></div>{% endif %}</div>
+
+  <div class="inf-kpis" role="list">
+    <a role="listitem" class="inf-kpi{% if kpi.approval %} is-warn{% endif %}" href="?status=Submitted"><span>Approval pending</span><strong>{{ kpi.approval }}</strong><small>{{ kpi.drafts }} draft{{ kpi.drafts|pluralize }} not submitted</small></a>
+    <a role="listitem" class="inf-kpi" href="?status={% if kind == 'Sale' %}Approved{% else %}Approved{% endif %}"><span>{% if kind == 'Sale' %}To dispatch{% else %}To receive{% endif %}</span><strong>{{ kpi.to_move }}</strong><small>approved, not complete</small></a>
+    <a role="listitem" class="inf-kpi{% if kpi.late %} is-danger{% endif %}" href="?status=late"><span>Past {% if kind == 'Sale' %}requested{% else %}delivery{% endif %} date</span><strong>{{ kpi.late }}</strong><small>open and late</small></a>
+    {% if kind == 'Sale' %}<a role="listitem" class="inf-kpi{% if kpi.held %} is-warn{% endif %}" href="?status=On+hold"><span>On hold</span><strong>{{ kpi.held }}</strong><small>no truck until released</small></a>{% else %}<a role="listitem" class="inf-kpi" href="?status=all"><span>All orders</span><strong>{{ page.paginator.count }}</strong><small>in this view</small></a>{% endif %}
+  </div>
+
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>{{ page.paginator.count }} order{{ page.paginator.count|pluralize }}</h2><p>{% for k, l in filters %}{% if k == status %}{{ l }}{% endif %}{% endfor %}</p></div>
+    <form method="get" class="doc-filter ord-filter">
+      <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Order no., {% if kind == 'Sale' %}customer{% else %}supplier{% endif %} or reference" aria-label="Search">
+      <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()">{% for k, l in filters %}<option value="{{ k }}"{% if k == status %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      {% if sites|length > 1 %}<select class="form-select" name="site" aria-label="Plant or depot" onchange="this.form.submit()"><option value="">All plants &amp; depots</option>{% for s in sites %}<option value="{{ s.pk }}"{% if site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select>{% endif %}
+      <input class="form-control" type="date" name="from" value="{{ date_from }}" aria-label="Created from"><input class="form-control" type="date" name="to" value="{{ date_to }}" aria-label="Created to">
+      <button class="org-btn is-light is-sm" type="submit">Filter</button>
+    </form></header>
+    {% if orders %}<ul class="ord-list">{% for o in orders %}
+      <li class="{% if o.late %}is-late{% endif %}">
+        <a class="ord-list-main" href="{% url 'order_detail' o.pk %}"><strong>{{ o.partner.name }}</strong><small>{{ o.number }}{% if o.revision > 1 %} · rev {{ o.revision }}{% endif %} · {{ o.site.code }}{% if o.customer_ref %} · {{ o.customer_ref }}{% endif %}</small></a>
+        <div class="ord-list-cell"><small>{% if kind == 'Sale' %}Requested{% else %}Delivery by{% endif %}</small><span class="{% if o.late %}led-late{% endif %}">{{ o.due_date|date:'d M Y' }}</span></div>
+        <div class="ord-list-cell"><small>Value</small>{{ o.value|inr_short }}</div>
+        <div class="ord-list-cell ord-list-progress"><small>{% if kind == 'Sale' %}Dispatched{% else %}Received{% endif %} {{ o.pct }}%</small><span class="ins-track{% if o.pct == 100 %} is-green{% endif %}"><i style="width:{{ o.pct }}%"></i></span></div>
+        <div class="ord-list-cell"><span class="org-chip ord-status is-{{ o.status|slugify }}">● {% if o.status == 'Submitted' %}Approval pending{% else %}{{ o.status }}{% endif %}</span>{% if o.priority == 'urgent' %} <span class="ins-pill is-danger">Urgent</span>{% endif %}</div>
+      </li>{% endfor %}</ul>
+    {% if page.paginator.num_pages > 1 %}<nav class="ord-pages" aria-label="Pages"><span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_previous %}<a class="org-btn is-light is-sm" href="?{{ qs }}&page={{ page.previous_page_number }}">← Previous</a>{% endif %}{% if page.has_next %}<a class="org-btn is-light is-sm" href="?{{ qs }}&page={{ page.next_page_number }}">Next →</a>{% endif %}</nav>{% endif %}
+    {% else %}<div class="doc-empty"><svg><use href="#ic-{% if kind == 'Sale' %}sales{% else %}purchase{% endif %}"/></svg><strong>No orders here</strong><span>Change the filter{% if can_create %} or create a new order{% endif %}.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}
