@@ -1,0 +1,63 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_influencer_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page inf-page">
+  <div class="org-head">
+    <div><div class="eyebrow">SALES · INFLUENCER NETWORK</div><h1>Masons &amp; contractors</h1><p>Masons, contractors, engineers and builders who choose the cement and TMT on site — by district and by dealer.</p></div>
+    <div class="doc-head-actions">
+      {% if can_export %}<a class="org-btn is-light" href="?{{ querystring }}{% if querystring %}&{% endif %}export=csv"><svg><use href="#ic-download"/></svg>Export</a>{% endif %}
+      {% if can_add %}<a class="org-btn is-light" href="{% url 'influencer_import' %}"><svg><use href="#ic-upload"/></svg>Import</a>
+      <a class="org-btn is-primary" href="{% url 'influencers_new' %}{% if dealer %}?dealer={{ dealer.pk }}{% elif filters.district %}?district={{ filters.district|urlencode }}{% endif %}"><svg><use href="#ic-plus"/></svg>Add person</a>{% endif %}
+    </div>
+  </div>
+  {% include 'erp/_influencer_tabs.html' %}
+
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Registered</span><strong>{{ stats.total|indian }}</strong><small>{{ stats.masons|indian }} masons · {{ stats.contractors|indian }} contractors</small></div>
+    <div role="listitem" class="inf-kpi"><span>Cement potential / month</span><strong>{{ stats.bags|default:0|indian }} <em>bags</em></strong><small>≈ {{ stats.bags|default:0|bags_mt }} MT · TMT {{ stats.tmt|default:0|qty }} MT</small></div>
+    <div role="listitem" class="inf-kpi"><span>Using Sistech</span><strong>{% if stats.total %}{% widthratio stats.sistech stats.total 100 %}{% else %}0{% endif %}<em>%</em></strong><small>{{ stats.sistech|indian }} of {{ stats.total|indian }} people</small></div>
+    <a role="listitem" class="inf-kpi{% if stats.unlinked %} is-warn{% endif %}" href="?dealer=none"><span>Not linked to a dealer</span><strong>{{ stats.unlinked|indian }}</strong><small>{{ stats.districts }} district{{ stats.districts|pluralize }} covered · KYC {{ stats.kyc|indian }}</small></a>
+  </div>
+
+  <nav class="org-tabs mst-cat-tabs" aria-label="Type">
+    {% for code, label, count in tabs %}<a class="org-tab{% if filters.group == code %} is-active{% endif %}" href="?group={{ code }}{% if filters.district %}&district={{ filters.district|urlencode }}{% endif %}{% if filters.dealer %}&dealer={{ filters.dealer }}{% endif %}">{{ label }}<span class="org-tab-count">{{ count }}</span></a>{% endfor %}
+  </nav>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>{% if dealer %}Linked to {{ dealer.name }}{% elif filters.dealer == 'none' %}Not linked to any dealer{% elif filters.district %}{{ filters.district }} district{% else %}People{% endif %}</h2>
+        <p>{{ page.paginator.count|indian }} shown{% if filters.q or filters.district or filters.dealer or filters.tier or filters.brand or filters.kyc or filters.status != 'active' %} · <a href="{% url 'influencers' %}">Clear filters</a>{% endif %}</p></div>
+      <form method="get" class="doc-filter inf-filter">
+        {% if filters.group %}<input type="hidden" name="group" value="{{ filters.group }}">{% endif %}
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Name, mobile, village, code…" aria-label="Search">
+        <select class="form-select" name="district" aria-label="District" onchange="this.form.submit()"><option value="">All districts</option>{% for d in districts %}<option{% if filters.district|lower == d|lower %} selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+        <select class="form-select" name="dealer" aria-label="Dealer" onchange="this.form.submit()"><option value="">All dealers</option><option value="none"{% if filters.dealer == 'none' %} selected{% endif %}>No dealer linked</option>{% for d in dealers %}<option value="{{ d.pk }}"{% if filters.dealer == d.pk|stringformat:'s' %} selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+        <select class="form-select" name="tier" aria-label="Tier" onchange="this.form.submit()"><option value="">All tiers</option>{% for t in tiers %}<option{% if filters.tier == t %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+        <select class="form-select" name="brand" aria-label="Brand" onchange="this.form.submit()"><option value="">Any brand</option>{% for code, label in brands %}<option value="{{ code }}"{% if filters.brand == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="active"{% if filters.status == 'active' %} selected{% endif %}>Active</option><option value="inactive"{% if filters.status == 'inactive' %} selected{% endif %}>Inactive</option><option value="all"{% if filters.status == 'all' %} selected{% endif %}>All statuses</option></select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if page.object_list %}
+    <ul class="mst-list inf-list">
+      {% for p in page.object_list %}
+      <li class="{% if not p.active %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'influencer_detail' p.pk %}">
+          <span class="mst-icon inf-av is-{{ p.kind|lower }}">{{ p.name|first|upper }}</span>
+          <span><strong>{{ p.name }}{% if p.kyc_verified %} <i class="inf-kyc" title="KYC verified">✓</i>{% endif %}</strong><small>{{ p.get_kind_display }}{% if p.firm_name %} · {{ p.firm_name }}{% endif %} · {{ p.mobile_display }}</small></span>
+        </a>
+        <div class="mst-cell"><small>Area</small>{{ p.place|default:p.district }}</div>
+        <div class="mst-cell inf-dealer"><small>Main dealer</small>{% if p.primary_dealer %}{{ p.primary_dealer.name }}{% else %}<span class="mst-missing">Not linked</span>{% endif %}</div>
+        <div class="mst-cell mst-stock"><small>Bags / month</small><strong>{{ p.monthly_cement_bags|indian }}</strong></div>
+        <div class="mst-cell"><span class="inf-tier is-{{ p.tier|lower }}">{{ p.tier }}</span></div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'influencer_detail' p.pk %}">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if page.paginator.num_pages > 1 %}<nav class="acc-pager">{% if page.has_previous %}<a class="org-btn is-light is-sm" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page.previous_page_number }}">← Previous</a>{% else %}<span></span>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="org-btn is-light is-sm" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page.next_page_number }}">Next →</a>{% else %}<span></span>{% endif %}</nav>{% endif %}
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-hardhat"/></svg><strong>No masons or contractors here</strong><span>{% if can_add %}Add them one by one, or import your field team's Excel sheet.{% else %}People added by the sales team will appear here.{% endif %}</span>{% if can_add %}<a class="org-btn is-light is-sm" href="{% url 'influencer_import' %}">Import from Excel / CSV</a>{% endif %}</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

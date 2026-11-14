@@ -15,11 +15,12 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 | Organisation (§2.2 company) | Single company profile, GSTIN/PAN/CIN/BIS, bank, branding, compliance documents with expiry |
 | Masters (§2.2) | Products (cement + TMT specs, HSN, GST rate), plants/depots (facility, GSTIN, capacity, licences), dealers/suppliers/transporters (GSTIN, PAN, credit terms, KYC) |
 | Basic transactions | Sales/purchase order draft → submit → approve → post; credit-limit block; stock ledger with source document and non-negative stock; production → quality hold → release |
+| Masons & contractors (Step 1d) | Influencer master with district/dealer views, coverage gaps, activities and referral leads, CSV import/export |
 | Web shell | Responsive app shell, toasts, Indian number formats, My account, Administration, System settings |
 
 ## Build sequence
 
-### Step 1d — Masons & contractors (influencer network) — requested by Sistech
+### Step 1d — Masons & contractors (influencer network) — requested by Sistech ✅ done
 1. Influencer master: type (mason/mistri, contractor, engineer, architect, builder), name, mobile, district/tehsil/village,
    linked **dealer(s)**, specialisation, experience, typical monthly cement/TMT volume, KYC, active status.
 2. **District-wise** view: count of masons/contractors per district, linked dealers, coverage gaps.

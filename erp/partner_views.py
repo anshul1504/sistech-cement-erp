@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.roles import order_permission
 from .forms import PartnerForm, PartnerDocumentForm
-from .models import Partner, PartnerDocument, Order, AuditEvent, PARTNER_KINDS, CUSTOMER_KINDS
+from .models import Partner, PartnerDocument, Order, AuditEvent, Influencer, PARTNER_KINDS, CUSTOMER_KINDS
 from .services import audit, permitted
 
 KIND_ICONS = {'Dealer': 'handshake', 'Distributor': 'truck', 'Retailer': 'building', 'Institutional': 'factory', 'Supplier': 'boxes', 'Transporter': 'truck'}
@@ -68,8 +68,15 @@ def partner_detail(request, pk):
         summary[o.status] += 1
         if o.status != 'Cancelled':
             value += o.total
+    network = None
+    if partner.is_customer and request.user.has_perm('erp.view_influencer'):
+        people = Influencer.objects.filter(active=True).filter(Q(primary_dealer=partner) | Q(dealers=partner)).distinct()
+        network = {'people': people.order_by('-monthly_cement_bags', 'name')[:6], 'total': people.count(),
+                   'masons': people.filter(kind='Mason').count(), 'contractors': people.filter(kind='Contractor').count(),
+                   'bags': Influencer.objects.filter(pk__in=people.values('pk')).aggregate(b=Sum('monthly_cement_bags'))['b'] or 0,
+                   'can_add': request.user.has_perm('erp.add_influencer')}
     return render(request, 'erp/partner_detail.html', {
-        'title': partner.name, 'partner': partner, 'icon': KIND_ICONS.get(partner.kind, 'handshake'),
+        'title': partner.name, 'network': network, 'partner': partner, 'icon': KIND_ICONS.get(partner.kind, 'handshake'),
         'credit': credit_position(partner) if partner.is_customer else None,
         'orders': orders[:8] if can_orders else [], 'can_orders': can_orders, 'summary': summary, 'order_value': value,
         'documents': partner.documents.defer('file'), 'used': is_used(partner),

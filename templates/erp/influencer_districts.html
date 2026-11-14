@@ -1,0 +1,54 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_influencer_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page inf-page">
+  <div class="org-head">
+    <div><div class="eyebrow">SALES · INFLUENCER NETWORK</div><h1>District-wise coverage</h1><p>How many masons and contractors each district has, which dealers serve them, and where the field team should go next.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'influencers_new' %}"><svg><use href="#ic-plus"/></svg>Add person</a></div>{% endif %}
+  </div>
+  {% include 'erp/_influencer_tabs.html' %}
+
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Districts</span><strong>{{ rows|length }}</strong><small>{{ totals.total|indian }} people registered</small></div>
+    <div role="listitem" class="inf-kpi{% if gaps.no_people %} is-danger{% endif %}"><span>Dealer, but no masons</span><strong>{{ gaps.no_people }}</strong><small>Districts to recruit in first</small></div>
+    <div role="listitem" class="inf-kpi{% if gaps.no_dealer %} is-warn{% endif %}"><span>Masons, but no dealer</span><strong>{{ gaps.no_dealer }}</strong><small>Possible new dealer points</small></div>
+    <div role="listitem" class="inf-kpi"><span>Open site leads</span><strong>{{ totals.open_leads|indian }}</strong><small>Referrals &amp; projects being followed</small></div>
+  </div>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Districts</h2><p>Active people only. Dealers are counted from the dealer master's district.</p></div>
+      <form method="get" class="doc-filter">
+        {% if states|length > 1 %}<select class="form-select" name="state" aria-label="State" onchange="this.form.submit()"><option value="">All states</option>{% for code, label in states %}<option value="{{ code }}"{% if state == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% endif %}
+        <select class="form-select" name="sort" aria-label="Sort" onchange="this.form.submit()">
+          <option value="total"{% if sort == 'total' %} selected{% endif %}>Most people</option>
+          <option value="bags"{% if sort == 'bags' %} selected{% endif %}>Highest cement potential</option>
+          <option value="share"{% if sort == 'share' %} selected{% endif %}>Lowest Sistech share</option>
+          <option value="dealers"{% if sort == 'dealers' %} selected{% endif %}>Most dealers</option>
+          <option value="district"{% if sort == 'district' %} selected{% endif %}>District A–Z</option>
+        </select>
+      </form>
+    </header>
+    {% if rows %}
+    <div class="inf-table" role="table" aria-label="District-wise masons and contractors">
+      <div class="inf-tr inf-th" role="row"><span role="columnheader">District</span><span role="columnheader">Masons</span><span role="columnheader">Contractors</span><span role="columnheader">Others</span><span role="columnheader">Dealers</span><span role="columnheader">Bags / month</span><span role="columnheader">Sistech share</span><span role="columnheader">Status</span></div>
+      {% for r in rows %}
+      <a class="inf-tr" role="row" href="{% url 'influencers' %}?district={{ r.district|urlencode }}">
+        <span role="cell" class="inf-name"><strong>{{ r.district }}</strong><small>{{ r.total|indian }} people{% if r.open_leads %} · {{ r.open_leads }} open lead{{ r.open_leads|pluralize }}{% endif %}</small><i class="inf-bar"><b style="width: {% widthratio r.total max_total 100 %}%"></b></i></span>
+        <span role="cell" data-label="Masons">{{ r.masons|indian }}</span>
+        <span role="cell" data-label="Contractors">{{ r.contractors|indian }}</span>
+        <span role="cell" data-label="Others">{{ r.others|indian }}</span>
+        <span role="cell" data-label="Dealers">{{ r.dealer_count }}{% if r.linked_count != r.dealer_count %}<small>{{ r.linked_count }} linked</small>{% endif %}</span>
+        <span role="cell" data-label="Bags / month"><strong>{{ r.bags|default:0|indian }}</strong><small>{{ r.bags|default:0|bags_mt }} MT</small></span>
+        <span role="cell" data-label="Sistech share">{% if r.total %}<span class="inf-share{% if r.share < 40 %} is-low{% elif r.share >= 70 %} is-high{% endif %}">{{ r.share }}%</span>{% else %}—{% endif %}</span>
+        <span role="cell" data-label="Status">{% if r.gap == 'no_people' %}<span class="doc-badge is-danger">No masons yet</span>{% elif r.gap == 'no_dealer' %}<span class="doc-badge is-warning">No dealer</span>{% elif r.gap == 'unlinked' %}<span class="doc-badge is-warning">{{ r.unlinked }} not linked</span>{% elif r.gap == 'low_share' %}<span class="doc-badge">Low share</span>{% else %}<span class="doc-badge is-ok">Covered</span>{% endif %}</span>
+      </a>
+      {% endfor %}
+      <div class="inf-tr inf-tf" role="row"><span role="cell" class="inf-name"><strong>Total</strong></span><span role="cell" data-label="Masons">{{ totals.masons|indian }}</span><span role="cell" data-label="Contractors">{{ totals.contractors|indian }}</span><span role="cell" data-label="Others">{{ totals.others|indian }}</span><span role="cell"></span><span role="cell" data-label="Bags / month"><strong>{{ totals.bags|indian }}</strong></span><span role="cell"></span><span role="cell"></span></div>
+    </div>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-map"/></svg><strong>No districts yet</strong><span>Add masons and contractors, or set districts on your dealers, to see coverage here.</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

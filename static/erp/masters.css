@@ -134,3 +134,4 @@
   .mst-order-list li { grid-template-columns: minmax(0, 1fr) auto; }
   .mst-order-list .mst-qty { grid-column: 1; }
 }
+.inf-add { margin-top: 12px; }

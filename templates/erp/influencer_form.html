@@ -1,0 +1,37 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_influencer_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page inf-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% if person %}{% url 'influencer_detail' person.pk %}{% else %}{% url 'influencers' %}{% endif %}">← {% if person %}{{ person.name }}{% else %}Masons &amp; contractors{% endif %}</a></div>
+      <h1>{{ title }}</h1><p>Mobile number is the unique key — the same person cannot be added twice. Only the last 4 digits of Aadhaar are stored.</p></div>
+  </div>
+  <form method="post" class="doc-form" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>Please correct the highlighted fields.{% for e in form.non_field_errors %} {{ e }}{% endfor %}{% if form.duplicate %} <a href="{% url 'influencer_detail' form.duplicate.pk %}">Open {{ form.duplicate.name }} →</a>{% endif %}</span></div>{% endif %}
+    <div class="mst-form-grid">
+      {% for title, note, fields in form.sections %}
+      <section class="org-card{% if title == 'Notes' %} mst-span{% endif %}">
+        <header><h2>{{ title }}</h2><p>{{ note }}</p></header>
+        <div class="org-grid">
+          {% for field in fields %}
+          {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="org-field org-check{% if field.errors %} has-error{% endif %}"><label class="org-check-label" for="{{ field.id_for_label }}">{{ field }}<span><strong>{{ field.label }}</strong><small>{% if field.name == 'active' %}Inactive people are left out of counts.{% elif field.name == 'whatsapp' %}Scheme updates and greetings go on WhatsApp.{% else %}Checked by the sales officer against the original ID.{% endif %}</small></span></label>{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+          {% else %}
+          <div class="org-field{% if field.name in form.WIDE %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+    <datalist id="district-options">{% for d in districts %}<option value="{{ d }}">{% endfor %}</datalist>
+    <div class="org-actions"><span>Changes are recorded in the audit trail.</span><div class="org-actions-buttons"><a class="org-btn is-light" href="{% if person %}{% url 'influencer_detail' person.pk %}{% else %}{% url 'influencers' %}{% endif %}">Cancel</a>{% if not person %}<button class="org-btn is-light" type="submit" name="another" value="1">Save &amp; add another</button>{% endif %}<button class="org-btn is-primary" type="submit">{% if person %}Save changes{% else %}Add person{% endif %}</button></div></div>
+  </form>
+</div>
+{% endblock %}

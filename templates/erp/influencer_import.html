@@ -1,0 +1,43 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_influencer_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page inf-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'influencers' %}">← Masons &amp; contractors</a></div>
+      <h1>{{ title }}</h1><p>Bring in the field team's Excel sheet. Rows with a mobile number that already exists are skipped, never overwritten.</p></div>
+  </div>
+  <div class="mst-form-grid">
+    <section class="org-card">
+      <header><h2>1. Prepare the sheet</h2><p>Use the template's columns. Only <strong>type, name, mobile, district</strong> are required.</p></header>
+      <ul class="inf-cols">{% for c in columns %}<li><code>{{ c }}</code></li>{% endfor %}</ul>
+      <p class="acc-note">Type: Mason / Mistri, Contractor / Thekedar, Engineer, Architect, Builder. State: code (MP) or name — blank means Madhya Pradesh. dealer_code must match a dealer in Masters.</p>
+      <a class="org-btn is-light" href="?template=1"><svg><use href="#ic-download"/></svg>Download template</a>
+    </section>
+    <section class="org-card">
+      <header><h2>2. Upload</h2><p>In Excel: File → Save As → <strong>CSV UTF-8</strong>. Hindi names are kept.</p></header>
+      <form method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+        <div class="org-field{% if form.file.errors %} has-error{% endif %}"><label class="form-label" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>{{ form.file }}<div class="form-text">{{ form.file.help_text }}</div>{% for e in form.file.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>
+        <div class="inf-log-actions"><button class="org-btn is-primary" type="submit"><svg><use href="#ic-upload"/></svg>Import</button></div>
+      </form>
+    </section>
+    {% if result %}
+    <section class="org-card mst-span">
+      <header><h2>Result</h2><p>{{ result.rows }} row{{ result.rows|pluralize }} read.</p></header>
+      <div class="inf-kpis is-compact">
+        <div class="inf-kpi is-ok"><span>Imported</span><strong>{{ result.created }}</strong></div>
+        <div class="inf-kpi{% if result.duplicates %} is-warn{% endif %}"><span>Duplicates skipped</span><strong>{{ result.duplicates|length }}</strong></div>
+        <div class="inf-kpi{% if result.errors %} is-danger{% endif %}"><span>Rows with errors</span><strong>{{ result.errors|length }}</strong></div>
+      </div>
+      {% if result.duplicates or result.errors %}
+      <ul class="inf-issues">
+        {% for n, name, why in result.errors %}<li class="is-error"><strong>Row {{ n }}</strong><span>{{ name }}</span><small>{{ why }}</small></li>{% endfor %}
+        {% for n, name, why in result.duplicates %}<li><strong>Row {{ n }}</strong><span>{{ name }}</span><small>{{ why }}</small></li>{% endfor %}
+      </ul>
+      <p class="acc-note">Fix the rows with errors in the sheet and upload again — already imported rows will be skipped as duplicates.</p>
+      {% endif %}
+      {% if result.created %}<a class="org-btn is-primary" href="{% url 'influencers' %}">View masons &amp; contractors</a>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

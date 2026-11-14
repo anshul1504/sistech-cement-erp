@@ -1,0 +1,51 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_influencer_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page inf-page">
+  <div class="org-head">
+    <div><div class="eyebrow">SALES · INFLUENCER NETWORK</div><h1>Dealer-wise network</h1><p>The masons and contractors behind each dealer — and the dealers who have nobody linked yet.</p></div>
+  </div>
+  {% include 'erp/_influencer_tabs.html' %}
+
+  <div class="inf-kpis is-three" role="list">
+    <div role="listitem" class="inf-kpi"><span>Active dealers</span><strong>{{ rows|length }}</strong><small>Dealers, distributors, retailers, institutional</small></div>
+    <a role="listitem" class="inf-kpi{% if empty_dealers %} is-warn{% endif %}" href="?sort=empty"><span>Dealers with no masons</span><strong>{{ empty_dealers }}</strong><small>Plan a mason meet with them</small></a>
+    <a role="listitem" class="inf-kpi{% if unlinked %} is-warn{% endif %}" href="{% url 'influencers' %}?dealer=none"><span>People without a dealer</span><strong>{{ unlinked|indian }}</strong><small>Link them to the nearest dealer</small></a>
+  </div>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Dealers</h2><p>A person linked to two dealers is counted under both.</p></div>
+      <form method="get" class="doc-filter">
+        <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Dealer name, code, city…" aria-label="Search dealers">
+        <select class="form-select" name="district" aria-label="District" onchange="this.form.submit()"><option value="">All districts</option>{% for d in districts %}<option{% if district|lower == d|lower %} selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+        <select class="form-select" name="sort" aria-label="Sort" onchange="this.form.submit()">
+          <option value="total"{% if sort == 'total' %} selected{% endif %}>Most people</option>
+          <option value="bags"{% if sort == 'bags' %} selected{% endif %}>Highest cement potential</option>
+          <option value="empty"{% if sort == 'empty' %} selected{% endif %}>Fewest people first</option>
+          <option value="name"{% if sort == 'name' %} selected{% endif %}>Dealer A–Z</option>
+        </select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if rows %}
+    <div class="inf-table is-dealers" role="table" aria-label="Dealer-wise masons and contractors">
+      <div class="inf-tr inf-th" role="row"><span role="columnheader">Dealer</span><span role="columnheader">Masons</span><span role="columnheader">Contractors</span><span role="columnheader">Others</span><span role="columnheader">Bags / month</span><span role="columnheader">Sistech share</span><span role="columnheader">Last activity</span></div>
+      {% for r in rows %}
+      <a class="inf-tr{% if not r.total %} is-empty{% endif %}" role="row" href="{% url 'influencers' %}?dealer={{ r.dealer.pk }}">
+        <span role="cell" class="inf-name"><strong>{{ r.dealer.name }}</strong><small>{{ r.dealer.code }}{% if r.dealer.district %} · {{ r.dealer.district }}{% endif %} · {{ r.total }} {% if r.total == 1 %}person{% else %}people{% endif %}{% if r.primary != r.total %} ({{ r.primary }} main){% endif %}</small><i class="inf-bar"><b style="width: {% widthratio r.total max_total 100 %}%"></b></i></span>
+        <span role="cell" data-label="Masons">{{ r.masons }}</span>
+        <span role="cell" data-label="Contractors">{{ r.contractors }}</span>
+        <span role="cell" data-label="Others">{{ r.others }}</span>
+        <span role="cell" data-label="Bags / month"><strong>{{ r.bags|indian }}</strong><small>{{ r.bags|bags_mt }} MT</small></span>
+        <span role="cell" data-label="Sistech share">{% if r.total %}<span class="inf-share{% if r.share < 40 %} is-low{% elif r.share >= 70 %} is-high{% endif %}">{{ r.share }}%</span>{% else %}<span class="doc-badge is-warning">Nobody linked</span>{% endif %}</span>
+        <span role="cell" data-label="Last activity">{{ r.last_activity|date:'d M Y'|default:'—' }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-handshake"/></svg><strong>No dealers match</strong><span>Add dealers under Masters → Dealers &amp; suppliers.</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -60,3 +60,12 @@ def cell(value):
     if isinstance(value, (Decimal, int, float)):
         return qty(value)
     return value
+
+
+@register.filter
+def bags_mt(value):
+    """50 kg cement bags → metric tonnes: 400 → 20."""
+    try:
+        return qty(Decimal(str(value or 0)) * Decimal('0.05'))
+    except (InvalidOperation, ValueError):
+        return ''

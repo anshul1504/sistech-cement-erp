@@ -1,0 +1,5 @@
+<nav class="org-tabs inf-views" aria-label="Masons & contractors views">
+  <a class="org-tab{% if section == 'list' %} is-active{% endif %}" href="{% url 'influencers' %}"><svg><use href="#ic-hardhat"/></svg>All people</a>
+  <a class="org-tab{% if section == 'districts' %} is-active{% endif %}" href="{% url 'influencer_districts' %}"><svg><use href="#ic-map"/></svg>District-wise</a>
+  <a class="org-tab{% if section == 'dealers' %} is-active{% endif %}" href="{% url 'influencer_dealers' %}"><svg><use href="#ic-handshake"/></svg>Dealer-wise</a>
+</nav>

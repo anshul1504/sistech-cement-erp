@@ -2,7 +2,7 @@ from decimal import Decimal
 from django import forms
 from django.forms import inlineformset_factory
 import re
-from .models import Site, Product, Partner, Order, OrderLine, Production, QualityTest, Organization, OrganizationDocument
+from .models import Site, Product, Partner, Order, OrderLine, Production, QualityTest, Organization, OrganizationDocument, Influencer, InfluencerActivity, CUSTOMER_KINDS, LEAD_KINDS
 
 class StyledForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -494,3 +494,146 @@ class PartnerDocumentForm(StyledForm):
         if commit:
             doc.save()
         return doc
+
+
+# ---------- Masons & contractors ----------
+
+def normalise_mobile(value):
+    """'+91 98765-43210', '098765 43210' → '9876543210'. Returns '' when it is not a valid Indian mobile."""
+    digits = re.sub(r'\D', '', value or '')
+    if len(digits) == 12 and digits.startswith('91'): digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith('0'): digits = digits[1:]
+    return digits if re.fullmatch(r'[6-9]\d{9}', digits) else ''
+
+
+class InfluencerForm(StyledForm):
+    SECTIONS = [
+        ('Basics', 'Who this person is.', ['kind', 'name', 'firm_name', 'mobile', 'alt_mobile', 'whatsapp', 'active']),
+        ('Area', 'Where they work. District drives the district-wise view.', ['state', 'district', 'tehsil', 'village', 'pincode', 'address']),
+        ('Dealers', 'Dealers they buy through or recommend.', ['primary_dealer', 'dealers']),
+        ('Work & volume', 'Typical work and monthly consumption decide the loyalty tier.', ['specialisation', 'experience_years', 'team_size', 'monthly_cement_bags', 'monthly_tmt_mt', 'brand_preference']),
+        ('KYC & payouts', 'Needed before scheme rewards are paid.', ['aadhaar_last4', 'pan', 'upi_id', 'date_of_birth', 'kyc_verified']),
+        ('Notes', 'Anything the field team should know.', ['notes']),
+    ]
+    WIDE = {'name', 'address', 'notes', 'dealers'}
+
+    class Meta:
+        model = Influencer
+        fields = ['kind', 'name', 'firm_name', 'mobile', 'alt_mobile', 'whatsapp', 'active', 'state', 'district', 'tehsil', 'village', 'pincode', 'address',
+                  'primary_dealer', 'dealers', 'specialisation', 'experience_years', 'team_size', 'monthly_cement_bags', 'monthly_tmt_mt', 'brand_preference',
+                  'aadhaar_last4', 'pan', 'upi_id', 'date_of_birth', 'kyc_verified', 'notes']
+        widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3}), 'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+                   'dealers': forms.SelectMultiple(attrs={'size': 5})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        customers = Partner.objects.filter(kind__in=CUSTOMER_KINDS).filter(models_active_or(self.instance)).distinct().order_by('name')
+        self.fields['primary_dealer'].queryset = customers
+        self.fields['dealers'].queryset = customers
+        self.fields['primary_dealer'].empty_label = 'No dealer yet'
+        self.fields['dealers'].widget.attrs['class'] = 'form-select'
+        self.fields['dealers'].help_text = 'Hold Ctrl / ⌘ to pick more than one.'
+        self.fields['kind'].choices = [('', 'Select type')] + list(self.fields['kind'].choices)[1:]
+        self.fields['district'].widget.attrs.update(list='district-options', autocomplete='off', placeholder='e.g. Bhopal')
+        for name in ['mobile', 'alt_mobile']:
+            self.fields[name] = forms.CharField(label=self.fields[name].label, required=name == 'mobile', help_text=self.fields[name].help_text,
+                                                widget=forms.TextInput(attrs={'class': 'form-control', 'inputmode': 'tel', 'placeholder': 'e.g. 98765 43210'}))
+        self.fields['pincode'].widget.attrs.update(inputmode='numeric', maxlength='6')
+        self.fields['aadhaar_last4'].widget.attrs.update(inputmode='numeric', maxlength='4', placeholder='e.g. 4821')
+        self.fields['pan'].widget.attrs.update(style='text-transform:uppercase', autocomplete='off')
+        self.fields['monthly_tmt_mt'].widget.attrs.update(step='any')
+        self.duplicate = None
+
+    def sections(self):
+        return [(title, note, [self[name] for name in names]) for title, note, names in self.SECTIONS]
+
+    def clean_mobile(self):
+        mobile = normalise_mobile(self.cleaned_data['mobile'])
+        if not mobile:
+            raise forms.ValidationError('Enter a valid 10-digit Indian mobile number.')
+        existing = Influencer.objects.filter(mobile=mobile).exclude(pk=self.instance.pk).first()
+        if existing:
+            self.duplicate = existing
+            raise forms.ValidationError(f'This mobile is already registered to {existing.name} ({existing.code}).')
+        return mobile
+
+    def clean_alt_mobile(self):
+        raw = self.cleaned_data.get('alt_mobile', '').strip()
+        if not raw:
+            return ''
+        mobile = normalise_mobile(raw)
+        if not mobile:
+            raise forms.ValidationError('Enter a valid 10-digit Indian mobile number.')
+        return mobile
+
+    def clean(self):
+        data = super().clean()
+        checks = {'pincode': (r'[1-9]\d{5}', 'Enter a 6-digit PIN code.'), 'aadhaar_last4': (r'\d{4}', 'Enter only the last 4 digits.'),
+                  'pan': (r'[A-Z]{5}\d{4}[A-Z]', 'Enter a valid 10-character PAN, e.g. ABCDE1234F.'),
+                  'upi_id': (r'[\w.\-]{2,}@[A-Za-z]{2,}', 'Enter a valid UPI ID, e.g. name@okaxis.')}
+        for name, (pattern, message) in checks.items():
+            value = (data.get(name) or '').strip()
+            value = value.upper() if name == 'pan' else value.replace(' ', '')
+            data[name] = value
+            if value and not re.fullmatch(pattern, value):
+                self.add_error(name, message)
+        if data.get('alt_mobile') and data.get('alt_mobile') == data.get('mobile'):
+            self.add_error('alt_mobile', 'Alternate mobile is the same as the main mobile.')
+        if data.get('kyc_verified') and not (data.get('aadhaar_last4') or data.get('pan')):
+            self.add_error('kyc_verified', 'Record Aadhaar (last 4) or PAN before marking KYC verified.')
+        return data
+
+
+def models_active_or(instance):
+    """Active dealers, plus any inactive dealer already linked to this record (so editing never drops a link)."""
+    from django.db.models import Q
+    q = Q(active=True)
+    if instance and instance.pk:
+        q |= Q(pk=instance.primary_dealer_id) | Q(influencers=instance)
+    return q
+
+
+class InfluencerActivityForm(StyledForm):
+    class Meta:
+        model = InfluencerActivity
+        fields = ['kind', 'date', 'title', 'location', 'dealer', 'expected_bags', 'expected_tmt_mt', 'status', 'follow_up_on', 'notes']
+        widgets = {'date': forms.DateInput(attrs={'type': 'date'}), 'follow_up_on': forms.DateInput(attrs={'type': 'date'}), 'notes': forms.Textarea(attrs={'rows': 2})}
+
+    def __init__(self, *args, influencer=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        dealers = Partner.objects.filter(kind__in=CUSTOMER_KINDS, active=True).order_by('name')
+        if influencer:
+            linked = [d.pk for d in influencer.all_dealers()]
+            if linked:
+                dealers = Partner.objects.filter(pk__in=linked).order_by('name') | dealers
+        self.fields['dealer'].queryset = dealers.distinct()
+        self.fields['dealer'].empty_label = 'Not through a dealer'
+        self.fields['kind'].choices = [('', 'Choose activity')] + list(self.fields['kind'].choices)[1:]
+        self.fields['status'].choices = [('', 'Not a lead')] + list(self.fields['status'].choices)[1:]
+        self.fields['expected_tmt_mt'].widget.attrs.update(step='any')
+        self.fields['notes'].widget.attrs['rows'] = 2
+
+    def clean(self):
+        data = super().clean()
+        if data.get('kind') in LEAD_KINDS and not data.get('status'):
+            data['status'] = 'open'
+        elif data.get('kind') and data.get('kind') not in LEAD_KINDS:
+            data['status'] = ''
+        if data.get('kind') in LEAD_KINDS and not (data.get('title') or '').strip():
+            self.add_error('title', 'Name the site or project, e.g. "G+2 house, Kolar Road".')
+        if data.get('follow_up_on') and data.get('date') and data['follow_up_on'] < data['date']:
+            self.add_error('follow_up_on', 'Follow-up date cannot be before the activity date.')
+        return data
+
+
+class InfluencerImportForm(forms.Form):
+    file = forms.FileField(label='CSV file', help_text='Save the Excel sheet as "CSV UTF-8". Max 2 MB, 2,000 rows.',
+                           widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv,text/csv'}))
+
+    def clean_file(self):
+        f = self.cleaned_data['file']
+        if f.size > 2 * 1024 * 1024:
+            raise forms.ValidationError('File is larger than 2 MB. Split it into smaller files.')
+        if not f.name.lower().endswith('.csv'):
+            raise forms.ValidationError('Upload a .csv file. In Excel use File → Save As → CSV UTF-8.')
+        return f

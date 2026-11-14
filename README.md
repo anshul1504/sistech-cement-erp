@@ -80,6 +80,16 @@ Changes are audited. Plant-level addresses, GST registrations and factory licenc
 
 `/partners/` covers customers (dealer, distributor, retailer, institutional / project buyer) and vendors (supplier, transporter) with group tabs, type filter and search. Each partner records contact person, phones, email, **GSTIN and PAN** (PAN taken from the GSTIN when empty; state checked), billing and delivery address, territory, **credit limit, payment terms and security deposit**, and bank details (account masked on screen). The detail page shows the **credit position** (approved + completed sales orders against the limit; receipts are not deducted until Finance exists), recent orders, KYC documents (GST, PAN, cancelled cheque, agreement, vehicle RC; PDF or image up to 5 MB) and a shortcut to a new order. Sales orders accept any customer type; purchase orders accept suppliers. The partner type locks once it has orders; partners with orders cannot be deleted.
 
+## Masons & contractors (influencer network)
+
+`/influencers/` (Sales → Masons & contractors) records masons/mistris, contractors, site engineers, architects and builders: mobile (normalised to 10 digits and **unique — duplicates are blocked with a link to the existing record**), district / tehsil / village (spelling normalised so reports group correctly), main dealer plus other dealers, specialisation, experience, monthly cement bags and TMT, current brand, and payout KYC (only the last 4 Aadhaar digits, PAN, UPI). Monthly bags set the tier (Bronze < 100 ≤ Silver < 400 ≤ Gold < 1,000 ≤ Platinum).
+
+- **District-wise** (`/influencers/districts/`): masons, contractors, others, dealers located and linked, bags/month, Sistech share, open leads, and coverage gaps (dealer but no masons, masons but no dealer, people not linked, low share).
+- **Dealer-wise** (`/influencers/dealers/`): the people behind each dealer, potential volume and Sistech share, dealers with nobody linked; each dealer's detail page also lists its masons and contractors.
+- **Activity**: meets, site visits, calls, samples, gifts, and **site referrals / projects** with expected volume and an open → converted / lost status.
+- **CSV import** with a downloadable template (type aliases like Mistri/Thekedar, state codes like MP, dealer codes), duplicate and per-row error report; **CSV export** behind its own permission (audited).
+- Permissions: `view/add/change/export_influencer` in the role matrix; the Sales executive preset can view, add and edit. `manage.py seed_influencers` adds fictional demo records locally.
+
 ## Implemented workflows
 
 - Login, CSRF-protected forms, logout and Django group permissions.

@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.5.5'
+ASSET_VERSION = '0.6.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -28,7 +28,8 @@ NAV_GROUPS = [
         _item('sales', 'Sales orders', 'sales', 'view_sales_order'),
         _soon('Quotations', 'quote'),
         _soon('Dealer CRM', 'crm'),
-        _soon('Masons & contractors', 'user'),
+        _item('influencers', 'Masons & contractors', 'hardhat', 'view_influencer',
+              match=('influencer_districts', 'influencer_dealers', 'influencers_new', 'influencer_import', 'influencer_detail', 'influencers_edit')),
         _soon('Schemes & claims', 'gift'),
     ]),
     ('Procurement', [
@@ -141,6 +142,8 @@ def navigation(request):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
     if user.has_perm('erp.add_product'):
         quick_create.append(('Product', reverse('products_new'), 'package'))
+    if user.has_perm('erp.add_influencer'):
+        quick_create.append(('Mason or contractor', reverse('influencers_new'), 'hardhat'))
     if user.has_perm('erp.add_partner'):
         quick_create.append(('Dealer or supplier', reverse('partners_new'), 'handshake'))
     if user.has_perm('erp.add_site'):

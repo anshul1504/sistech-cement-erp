@@ -455,3 +455,126 @@ class OrganizationDocument(models.Model):
             return 'none', None
         days = (self.valid_until - timezone.localdate()).days
         return ('expired' if days < 0 else 'expiring' if days <= 30 else 'valid'), days
+
+
+# ---------- Masons, contractors & other influencers (SRS §5.1 lead sources, Step 1d) ----------
+
+INFLUENCER_KINDS = [('Mason', 'Mason / mistri'), ('Contractor', 'Contractor'), ('Engineer', 'Site engineer'), ('Architect', 'Architect'), ('Builder', 'Builder / developer')]
+INFLUENCER_SPECIALISATIONS = [('', 'Not set'), ('residential', 'Residential houses'), ('commercial', 'Commercial buildings'), ('rcc', 'RCC / slab casting'),
+                              ('masonry', 'Brickwork & plaster'), ('flooring', 'Flooring & tiles'), ('infra', 'Roads & infrastructure'), ('industrial', 'Industrial / sheds')]
+BRAND_PREFERENCES = [('', 'Not known'), ('sistech', 'Uses Sistech'), ('mixed', 'Sistech + other brands'), ('competitor', 'Other brand only')]
+# Monthly cement bags → loyalty tier. Shown on lists; schemes (Step 8) will use the same bands.
+INFLUENCER_TIERS = [('Platinum', 1000), ('Gold', 400), ('Silver', 100), ('Bronze', 0)]
+
+
+def clean_place(value):
+    """'  bhopal   CITY ' → 'Bhopal City' so district-wise grouping is not split by typing."""
+    return ' '.join(w.capitalize() if w.islower() or w.isupper() else w for w in (value or '').split())
+
+
+class Influencer(models.Model):
+    code = models.CharField(max_length=20, unique=True, editable=False)
+    kind = models.CharField('Type', max_length=12, choices=INFLUENCER_KINDS)
+    name = models.CharField('Full name', max_length=120)
+    firm_name = models.CharField('Firm / team name', max_length=120, blank=True)
+    mobile = models.CharField(max_length=10, unique=True, help_text='10-digit mobile. Used to find duplicates.')
+    alt_mobile = models.CharField('Alternate mobile', max_length=10, blank=True)
+    whatsapp = models.BooleanField('Reachable on WhatsApp', default=True)
+    # Location
+    state = models.CharField(max_length=2, choices=INDIAN_STATES, default='23')
+    district = models.CharField(max_length=80)
+    tehsil = models.CharField('Tehsil / block', max_length=80, blank=True)
+    village = models.CharField('Village / town', max_length=80, blank=True)
+    pincode = models.CharField('PIN code', max_length=6, blank=True)
+    address = models.TextField(blank=True)
+    # Dealer link
+    primary_dealer = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.SET_NULL, related_name='primary_influencers',
+                                       verbose_name='Main dealer', help_text='The dealer this person mostly buys or recommends through.')
+    dealers = models.ManyToManyField(Partner, blank=True, related_name='influencers', verbose_name='Other dealers')
+    # Work profile
+    specialisation = models.CharField(max_length=12, choices=INFLUENCER_SPECIALISATIONS, blank=True)
+    experience_years = models.PositiveSmallIntegerField('Experience (years)', null=True, blank=True)
+    team_size = models.PositiveSmallIntegerField('Team size', null=True, blank=True)
+    monthly_cement_bags = models.PositiveIntegerField('Cement per month (bags)', default=0, help_text='Typical consumption across their sites.')
+    monthly_tmt_mt = models.DecimalField('TMT per month (MT)', max_digits=8, decimal_places=2, default=0, validators=MONEY)
+    brand_preference = models.CharField('Current brand', max_length=10, choices=BRAND_PREFERENCES, blank=True)
+    # KYC (only what loyalty payouts need; full Aadhaar is never stored)
+    aadhaar_last4 = models.CharField('Aadhaar (last 4 digits)', max_length=4, blank=True)
+    pan = models.CharField('PAN', max_length=10, blank=True)
+    upi_id = models.CharField('UPI ID', max_length=60, blank=True, help_text='For scheme and reward payouts.')
+    date_of_birth = models.DateField('Date of birth', null=True, blank=True)
+    kyc_verified = models.BooleanField('KYC verified', default=False)
+    active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+', editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'mason / contractor'
+        verbose_name_plural = 'masons & contractors'
+        permissions = [('export_influencer', 'Export masons & contractors')]
+        indexes = [models.Index(fields=['district', 'kind'])]
+
+    def __str__(self): return f'{self.name} ({self.code})'
+
+    def save(self, *args, **kwargs):
+        self.district, self.tehsil, self.village = clean_place(self.district), clean_place(self.tehsil), clean_place(self.village)
+        if not self.code:
+            last = Influencer.objects.order_by('-id').values_list('id', flat=True).first() or 0
+            self.code = f'INF-{last + 1:05d}'
+            while Influencer.objects.filter(code=self.code).exists():
+                last += 1
+                self.code = f'INF-{last + 1:05d}'
+        super().save(*args, **kwargs)
+
+    @property
+    def tier(self):
+        return next(name for name, floor in INFLUENCER_TIERS if self.monthly_cement_bags >= floor)
+
+    @property
+    def place(self):
+        return ', '.join(p for p in [self.village, self.tehsil, self.district] if p)
+
+    @property
+    def mobile_display(self):
+        m = self.mobile
+        return f'+91 {m[:5]} {m[5:]}' if len(m) == 10 else m
+
+    def all_dealers(self):
+        dealers = list(self.dealers.all())
+        if self.primary_dealer and self.primary_dealer not in dealers:
+            dealers.insert(0, self.primary_dealer)
+        return dealers
+
+
+ACTIVITY_KINDS = [('meet', 'Mason / contractor meet'), ('visit', 'Site visit'), ('call', 'Phone call'), ('referral', 'Site referral'),
+                  ('project', 'Project / construction site'), ('sample', 'Sample / demo'), ('gift', 'Gift / reward given')]
+LEAD_KINDS = ('referral', 'project')
+ACTIVITY_STATUSES = [('open', 'Open'), ('won', 'Converted'), ('lost', 'Lost')]
+
+
+class InfluencerActivity(models.Model):
+    """Meets, site visits, calls, referrals and projects for one mason/contractor. Referrals and projects carry a lead status."""
+    influencer = models.ForeignKey(Influencer, on_delete=models.CASCADE, related_name='activities')
+    kind = models.CharField('Activity', max_length=10, choices=ACTIVITY_KINDS)
+    date = models.DateField(default=timezone.localdate)
+    title = models.CharField('Site / subject', max_length=120, blank=True, help_text='e.g. "G+2 house, Kolar Road" or "Monthly mason meet".')
+    location = models.CharField(max_length=120, blank=True)
+    dealer = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.SET_NULL, related_name='+', verbose_name='Through dealer')
+    expected_bags = models.PositiveIntegerField('Expected cement (bags)', default=0)
+    expected_tmt_mt = models.DecimalField('Expected TMT (MT)', max_digits=8, decimal_places=2, default=0, validators=MONEY)
+    status = models.CharField(max_length=5, choices=ACTIVITY_STATUSES, blank=True)
+    follow_up_on = models.DateField('Follow up on', null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-id']
+        verbose_name_plural = 'influencer activities'
+
+    @property
+    def is_lead(self):
+        return self.kind in LEAD_KINDS

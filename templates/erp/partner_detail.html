@@ -77,6 +77,16 @@
       {% elif orders %}<ul class="mst-order-list">{% for o in orders %}<li><a href="{% url 'order_detail' o.pk %}"><strong>{{ o.number }}</strong><small>{{ o.created_at|date:'d M Y' }} · {{ o.site.code }} · due {{ o.due_date|date:'d M' }}</small></a><span class="mst-qty">₹{{ o.total|indian:2 }}</span><span class="doc-badge{% if o.status == 'Completed' %} is-ok{% elif o.status == 'Cancelled' %} is-danger{% elif o.status == 'Submitted' %} is-warning{% endif %}">{{ o.status }}</span></li>{% endfor %}</ul>
       {% else %}<p class="acc-muted">No orders with this partner yet.</p>{% endif %}
     </section>
+    {% if network %}
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Masons &amp; contractors</h2>{% if network.total %}<a href="{% url 'influencers' %}?dealer={{ partner.pk }}">All {{ network.total }}</a>{% endif %}</header>
+      {% if network.total %}
+      <dl><div><dt>Masons</dt><dd>{{ network.masons }}</dd></div><div><dt>Contractors</dt><dd>{{ network.contractors }}</dd></div><div class="is-wide"><dt>Cement potential</dt><dd>{{ network.bags|indian }} bags / month</dd></div></dl>
+      <ul class="mst-stock-list">{% for p in network.people %}<li><span><strong><a href="{% url 'influencer_detail' p.pk %}">{{ p.name }}</a></strong><small>{{ p.get_kind_display }} · {{ p.place|default:p.district }}</small></span><span class="mst-qty">{{ p.monthly_cement_bags|indian }}<small> bags</small></span></li>{% endfor %}</ul>
+      {% else %}<div class="acc-empty-mini"><strong>Nobody linked yet</strong><span>Masons and contractors who buy through {{ partner.name|truncatechars:24 }} show here.</span></div>{% endif %}
+      {% if network.can_add %}<a class="org-btn is-light is-sm inf-add" href="{% url 'influencers_new' %}?dealer={{ partner.pk }}">Add mason / contractor</a>{% endif %}
+    </section>
+    {% endif %}
     <section class="org-card org-view">
       <header class="acc-card-head"><h2>KYC documents</h2>{% if can_change %}<a href="{% url 'partner_document_new' partner.pk %}">Add</a>{% endif %}</header>
       {% if documents %}<ul class="mst-doc-list">{% for d in documents %}{% with st=d.status %}<li><a href="{% url 'partner_document_file' partner.pk d.pk %}" target="_blank" rel="noopener"><strong>{{ d.get_doc_type_display }}</strong><small>{% if d.number %}{{ d.number }} · {% endif %}{{ d.file_name|truncatechars:28 }}</small></a>

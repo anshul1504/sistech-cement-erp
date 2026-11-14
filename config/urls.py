@@ -68,3 +68,18 @@ urlpatterns += [
     path('partners/<int:pk>/documents/<int:doc_pk>/file/', ptv.partner_document_file, name='partner_document_file'),
     path('partners/<int:pk>/documents/<int:doc_pk>/delete/', ptv.partner_document_delete, name='partner_document_delete'),
 ]
+from erp import influencer_views as iv
+urlpatterns += [
+    path('influencers/', iv.influencers, name='influencers'),
+    path('influencers/districts/', iv.influencer_districts, name='influencer_districts'),
+    path('influencers/dealers/', iv.influencer_dealers, name='influencer_dealers'),
+    path('influencers/new/', iv.influencer_form, name='influencers_new'),
+    path('influencers/import/', iv.influencer_import, name='influencer_import'),
+    path('influencers/<int:pk>/', iv.influencer_detail, name='influencer_detail'),
+    path('influencers/<int:pk>/edit/', iv.influencer_form, name='influencers_edit'),
+    path('influencers/<int:pk>/status/', iv.influencer_status, name='influencer_status'),
+    path('influencers/<int:pk>/delete/', iv.influencer_delete, name='influencer_delete'),
+    path('influencers/<int:pk>/activities/new/', iv.activity_new, name='influencer_activity_new'),
+    path('influencers/<int:pk>/activities/<int:activity_pk>/status/', iv.activity_status, name='influencer_activity_status'),
+    path('influencers/<int:pk>/activities/<int:activity_pk>/delete/', iv.activity_delete, name='influencer_activity_delete'),
+]

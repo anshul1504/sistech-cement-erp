@@ -1,0 +1,140 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_influencer_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page inf-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'influencers' %}?district={{ person.district|urlencode }}">← Masons &amp; contractors · {{ person.district }}</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl inf-av is-{{ person.kind|lower }}">{{ person.name|first|upper }}</span>
+    <div class="org-hero-text">
+      <h1>{{ person.name }}</h1>
+      <p>{{ person.code }}{% if person.firm_name %} · {{ person.firm_name }}{% endif %} · {{ person.place }}</p>
+      <div class="org-chips">
+        <span class="org-chip">{{ person.get_kind_display }}</span>
+        <span class="inf-tier is-{{ person.tier|lower }}">{{ person.tier }}</span>
+        {% if person.kyc_verified %}<span class="org-chip is-ok">✓ KYC verified</span>{% else %}<span class="org-chip">KYC pending</span>{% endif %}
+        {% if person.active %}<span class="org-chip is-ok">● Active</span>{% else %}<span class="org-chip">● Inactive</span>{% endif %}
+      </div>
+    </div>
+    <div class="org-hero-side">
+      <a class="org-btn is-primary" href="tel:+91{{ person.mobile }}"><svg><use href="#ic-phone"/></svg>{{ person.mobile_display }}</a>
+      {% if person.whatsapp %}<a class="org-btn is-light" href="https://wa.me/91{{ person.mobile }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+    </div>
+  </section>
+
+  {% if can_change %}
+  <section class="adm-actions mst-actions">
+    <a class="adm-action" href="{% url 'influencers_edit' person.pk %}"><svg><use href="#ic-key"/></svg><span><strong>Edit details</strong><small>Area, dealers, volume, KYC</small></span></a>
+    <form method="post" action="{% url 'influencer_status' person.pk %}" data-confirm="{% if person.active %}Deactivate {{ person.name }}? They drop out of counts and lists.{% else %}Activate {{ person.name }} again?{% endif %}">{% csrf_token %}<button class="adm-action {% if person.active %}is-danger{% else %}is-ok{% endif %}" type="submit"><svg><use href="#ic-power"/></svg><span><strong>{% if person.active %}Deactivate{% else %}Activate{% endif %}</strong><small>{% if person.active %}Moved away or not working{% else %}Count in reports again{% endif %}</small></span></button></form>
+    {% if user.is_superuser %}<form method="post" action="{% url 'influencer_delete' person.pk %}" data-confirm="Delete {{ person.name }} permanently?">{% csrf_token %}<button class="adm-action is-danger" type="submit" {% if activity_count %}disabled{% endif %}><svg><use href="#ic-trash"/></svg><span><strong>Delete</strong><small>{% if activity_count %}Not possible — has activity{% else %}Entered by mistake{% endif %}</small></span></button></form>{% endif %}
+  </section>
+  {% endif %}
+
+  <div class="acc-grid">
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Volume &amp; tier</h2></header>
+      <div class="inf-volume">
+        <div><span>Cement / month</span><strong>{{ person.monthly_cement_bags|indian }} <em>bags</em></strong><small>≈ {{ person.monthly_cement_bags|bags_mt }} MT</small></div>
+        <div><span>TMT / month</span><strong>{{ person.monthly_tmt_mt|qty }} <em>MT</em></strong><small>{{ person.get_brand_preference_display|default:'Brand not known' }}</small></div>
+      </div>
+      {% if tier_next %}<p class="acc-note">{{ tier_next.1|indian }} more bags a month moves {{ person.name|truncatewords:1 }} to <strong>{{ tier_next.0 }}</strong>.</p>{% else %}<p class="acc-note">Top tier — priority for schemes and site visits.</p>{% endif %}
+      <dl>
+        <div><dt>Specialisation</dt><dd>{{ person.get_specialisation_display|default:'—' }}</dd></div>
+        <div><dt>Experience</dt><dd>{% if person.experience_years %}{{ person.experience_years }} years{% else %}—{% endif %}</dd></div>
+        <div><dt>Team size</dt><dd>{{ person.team_size|default:'—' }}</dd></div>
+        <div><dt>Open site leads</dt><dd>{{ leads.open }}{% if leads.bags %} · {{ leads.bags|indian }} bags{% endif %}</dd></div>
+      </dl>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Dealers</h2>{% if can_change %}<a href="{% url 'influencers_edit' person.pk %}">Change</a>{% endif %}</header>
+      {% if dealers %}<ul class="mst-stock-list">{% for d in dealers %}<li><span><strong><a href="{% url 'partner_detail' d.pk %}">{{ d.name }}</a></strong><small>{{ d.code }}{% if d.city %} · {{ d.city }}{% endif %}{% if d.phone %} · {{ d.phone }}{% endif %}</small></span>{% if d.pk == person.primary_dealer_id %}<span class="doc-badge is-ok">Main</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<div class="acc-empty-mini"><strong>Not linked to a dealer</strong><span>Link the dealer they buy through so they show up in dealer-wise reports.</span>{% if can_change %}<a class="org-btn is-light is-sm" href="{% url 'influencers_edit' person.pk %}">Link dealer</a>{% endif %}</div>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Contact &amp; area</h2></header>
+      <dl>
+        <div><dt>Mobile</dt><dd><a href="tel:+91{{ person.mobile }}">{{ person.mobile_display }}</a>{% if person.alt_mobile %}<br><a href="tel:+91{{ person.alt_mobile }}">+91 {{ person.alt_mobile }}</a>{% endif %}</dd></div>
+        <div><dt>District</dt><dd><a href="{% url 'influencers' %}?district={{ person.district|urlencode }}">{{ person.district }}</a>{% if nearby %}<br><small>{{ nearby }} other{{ nearby|pluralize }} here</small>{% endif %}</dd></div>
+        <div><dt>Tehsil / block</dt><dd>{{ person.tehsil|default:'—' }}</dd></div>
+        <div><dt>Village / town</dt><dd>{{ person.village|default:'—' }}{% if person.pincode %} · {{ person.pincode }}{% endif %}</dd></div>
+        <div class="is-wide"><dt>State</dt><dd>{{ person.get_state_display }}</dd></div>
+        {% if person.address %}<div class="is-wide"><dt>Address</dt><dd>{{ person.address|linebreaksbr }}</dd></div>{% endif %}
+      </dl>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>KYC &amp; payouts</h2></header>
+      <dl>
+        <div><dt>Aadhaar</dt><dd class="is-mono">{% if person.aadhaar_last4 %}XXXX XXXX {{ person.aadhaar_last4 }}{% else %}—{% endif %}</dd></div>
+        <div><dt>PAN</dt><dd class="is-mono">{{ person.pan|default:'—' }}</dd></div>
+        <div><dt>UPI ID</dt><dd>{{ person.upi_id|default:'—' }}</dd></div>
+        <div><dt>Date of birth</dt><dd>{{ person.date_of_birth|date:'d M Y'|default:'—' }}</dd></div>
+      </dl>
+      {% if person.notes %}<p class="acc-note">{{ person.notes|linebreaksbr }}</p>{% endif %}
+      <p class="acc-muted inf-meta">Added {{ person.created_at|date:'d M Y' }}{% if person.created_by %} by {{ person.created_by.get_full_name|default:person.created_by.username }}{% endif %}</p>
+    </section>
+
+    <section class="org-card org-view acc-wide" id="activity">
+      <header class="acc-card-head"><h2>Activity, referrals &amp; sites</h2><span class="acc-muted">{{ activity_count }} record{{ activity_count|pluralize }} · {{ leads.won }} converted · {{ leads.lost }} lost</span></header>
+      {% if form %}
+      <details class="inf-log"{% if not activities %} open{% endif %}>
+        <summary><svg><use href="#ic-plus"/></svg>Log a meet, visit, call or site referral</summary>
+        <form method="post" action="{% url 'influencer_activity_new' person.pk %}" class="inf-log-form" data-activity-form novalidate>{% csrf_token %}
+          <div class="org-grid">
+            {% for field in form %}<div class="org-field{% if field.name == 'notes' or field.name == 'title' %} is-wide{% endif %}" data-field="{{ field.name }}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endfor %}
+          </div>
+          <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Save activity</button></div>
+        </form>
+      </details>
+      {% endif %}
+      {% if activities %}
+      <ol class="inf-timeline">
+        {% for a in activities %}
+        <li class="is-{{ a.kind }}">
+          <span class="inf-dot" aria-hidden="true"></span>
+          <div class="inf-ev">
+            <header><strong>{{ a.get_kind_display }}{% if a.title %} · {{ a.title }}{% endif %}</strong><time datetime="{{ a.date|date:'Y-m-d' }}">{{ a.date|date:'d M Y' }}</time></header>
+            <p>{% if a.location %}{{ a.location }} · {% endif %}{% if a.dealer %}via {{ a.dealer.name }} · {% endif %}{% if a.expected_bags %}{{ a.expected_bags|indian }} bags{% endif %}{% if a.expected_tmt_mt %} · {{ a.expected_tmt_mt|qty }} MT TMT{% endif %}{% if a.follow_up_on %} · follow up {{ a.follow_up_on|date:'d M' }}{% endif %}</p>
+            {% if a.notes %}<p class="inf-note">{{ a.notes|linebreaksbr }}</p>{% endif %}
+            <footer>
+              {% if a.is_lead %}<span class="doc-badge{% if a.status == 'won' %} is-ok{% elif a.status == 'lost' %} is-danger{% else %} is-warning{% endif %}">{{ a.get_status_display }}</span>
+                {% if can_change %}
+                <form method="post" action="{% url 'influencer_activity_status' person.pk a.pk %}" class="inf-lead-form">{% csrf_token %}
+                  {% if a.status != 'won' %}<button class="org-btn is-light is-sm" name="status" value="won">Converted</button>{% endif %}
+                  {% if a.status != 'lost' %}<button class="org-btn is-light is-sm" name="status" value="lost">Lost</button>{% endif %}
+                  {% if a.status != 'open' %}<button class="org-btn is-light is-sm" name="status" value="open">Reopen</button>{% endif %}
+                </form>{% endif %}
+              {% endif %}
+              <small>{{ a.created_by.get_full_name|default:a.created_by.username|default:'—' }}</small>
+              {% if can_change and user.is_superuser or can_change and a.created_by_id == user.pk %}<form method="post" action="{% url 'influencer_activity_delete' person.pk a.pk %}" data-confirm="Remove this activity?">{% csrf_token %}<button class="mst-x" type="submit" aria-label="Remove activity"><svg><use href="#ic-trash"/></svg></button></form>{% endif %}
+            </footer>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% elif not form %}<p class="acc-muted">No activity recorded yet.</p>{% endif %}
+    </section>
+
+    {% if history %}
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Change history</h2></header>
+      <ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor.get_full_name|default:e.actor.username }}</small><small>{{ e.created_at|date:'d M Y, H:i' }}</small></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% if form %}
+<script>
+(() => {
+  // Lead fields (expected volume, status, follow-up) only matter for referrals and projects.
+  const form = document.querySelector('[data-activity-form]');
+  if (!form) return;
+  const kind = form.querySelector('[name=kind]');
+  const leadOnly = ['status'];
+  const apply = () => {
+    const lead = ['referral', 'project'].includes(kind.value);
+    leadOnly.forEach(n => { const f = form.querySelector(`[data-field="${n}"]`); if (f) f.hidden = !lead; });
+  };
+  kind.addEventListener('change', apply); apply();
+})();
+</script>
+{% endif %}
+{% endblock %}
