@@ -4,14 +4,17 @@
 <div class="org-page acc-page adm-page mst-page ord-page inv-page">
   <div class="org-head adm-crumb inv-noprint"><div class="eyebrow"><a href="{% url 'invoices' %}">← Tax invoices</a></div></div>
   <div class="ord-workflow inv-noprint">
-    <div><strong class="inv-tool-title">{{ inv.number }}</strong><span class="acc-muted"> · {{ inv.date|date:'d M Y' }} · ₹{{ inv.grand_total|indian }}{% if overdue %} · <span class="mst-missing">due {{ inv.due_date|date:'d M' }}</span>{% endif %}</span></div>
+    <div><strong class="inv-tool-title">{{ inv.number }}</strong><span class="acc-muted"> · {{ inv.date|date:'d M Y' }} · ₹{{ inv.grand_total|indian }}</span>
+      <div class="inv-paid">{% if inv.outstanding <= 0 %}<span class="doc-badge is-ok">Paid</span>{% else %}<span class="doc-badge{% if overdue %} is-danger{% else %} is-warning{% endif %}">Due ₹{{ inv.outstanding|indian:2 }}{% if overdue %} · {{ inv.days_overdue }} days late{% endif %}</span>{% endif %}{% if inv.settled %} <small class="acc-muted">₹{{ inv.settled|indian:2 }} settled</small>{% endif %}</div></div>
     <form class="ord-buttons" method="get">
       <select class="form-select" name="copy" aria-label="Copy" onchange="this.form.submit()">
         <option{% if copy == 'Original for recipient' %} selected{% endif %}>Original for recipient</option>
         <option{% if copy == 'Duplicate for transporter' %} selected{% endif %}>Duplicate for transporter</option>
         <option{% if copy == 'Triplicate for supplier' %} selected{% endif %}>Triplicate for supplier</option>
       </select>
-      {% if can_order %}<a class="org-btn is-light" href="{% url 'order_detail' inv.order.pk %}">Order {{ inv.order.number }}</a>{% endif %}
+      {% if can_order %}<a class="org-btn is-light" href="{% url 'order_detail' inv.order.pk %}">Order</a>{% endif %}
+      {% if perms.erp.view_receipt %}<a class="org-btn is-light" href="{% url 'partner_ledger' inv.partner.pk %}">Ledger</a>{% endif %}
+      {% if perms.erp.add_creditnote %}<a class="org-btn is-light" href="{% url 'credit_note_new' inv.pk %}">Credit note</a>{% endif %}
       <button class="org-btn is-primary" type="button" onclick="window.print()">Print / save PDF</button>
     </form>
   </div>

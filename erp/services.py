@@ -38,9 +38,13 @@ def transition_order(user, pk, action):
         if order.kind == 'Sale':
             # Serialize credit approvals for a dealer on row-locking databases.
             partner = Partner.objects.select_for_update().get(pk=order.partner_id)
-            exposure = sum((o.grand_total for o in Order.objects.filter(kind='Sale', partner=order.partner, status__in=['Approved', 'Completed']).select_related('site', 'partner').prefetch_related('lines')), Decimal('0'))
-            if exposure + order.grand_total > partner.credit_limit:
-                raise ValidationError('Dealer credit limit exceeded. Exposure includes all approved/completed orders; receipt accounting is not implemented yet.')
+            from .ledger import exposure, overdue
+            late = overdue(partner)
+            if late:
+                raise ValidationError(f'{len(late)} invoice{"s" if len(late) > 1 else ""} past due (₹{sum(i.outstanding for i in late):,.0f}, oldest {late[0].number}). Collect payment before approving new orders.')
+            exp = exposure(partner, exclude_order=order.pk)
+            if exp['total'] + order.grand_total > partner.credit_limit:
+                raise ValidationError(f'Dealer credit limit exceeded: outstanding ₹{exp["balance"]:,.0f} + orders not yet invoiced ₹{exp["pipeline"]:,.0f} + this order ₹{order.grand_total:,.0f} > limit ₹{partner.credit_limit:,.0f}.')
         order.status, order.approved_by = 'Approved', user
     elif action == 'post':
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')

@@ -100,3 +100,15 @@ urlpatterns += [
     path('invoices/<int:pk>/', inv.invoice_detail, name='invoice_detail'),
     path('invoices/new/<int:pk>/', inv.invoice_new, name='invoice_new'),
 ]
+from erp import finance_views as fv
+urlpatterns += [
+    path('receipts/', fv.receipts, name='receipts'),
+    path('receipts/new/', fv.receipt_new, name='receipt_new'),
+    path('receipts/<int:pk>/', fv.receipt_detail, name='receipt_detail'),
+    path('receipts/<int:pk>/bounce/', fv.receipt_bounce, name='receipt_bounce'),
+    path('credit-notes/', fv.credit_notes, name='credit_notes'),
+    path('credit-notes/<int:pk>/', fv.credit_note_detail, name='credit_note_detail'),
+    path('invoices/<int:pk>/credit-note/', fv.credit_note_new, name='credit_note_new'),
+    path('outstanding/', fv.outstanding, name='outstanding'),
+    path('partners/<int:pk>/ledger/', fv.partner_ledger, name='partner_ledger'),
+]

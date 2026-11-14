@@ -80,6 +80,8 @@ def post_invoice(user, order_pk, transport):
         l = row['line']
         InvoiceLine.objects.create(invoice=inv, product=l.product, description=l.product.name, hsn=l.hsn, unit=l.product.unit, quantity=l.quantity, rate=l.rate,
                                    taxable=row['taxable'], gst_rate=l.gst_rate, cgst=row['cgst'], sgst=row['sgst'], igst=row['igst'], total=row['total'])
+    from .ledger import allocate
+    allocate(partner)  # any advance already received settles the new invoice
     AuditEvent.objects.create(actor=user, site=site, action='Invoice posted', reference=inv.number, detail=f'{order.number} · ₹{inv.grand_total}')
     AuditEvent.objects.create(actor=user, site=site, action='Order invoiced', reference=order.number, detail=inv.number)
     return inv

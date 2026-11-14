@@ -1,0 +1,37 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'receipts' %}">← Receipts</a></div><h1>{{ title }}</h1><p>The amount settles the oldest due invoices automatically. Cash of ₹2 lakh or more from one person in a day is blocked (Income-tax s.269ST).</p></div></div>
+  <div class="mst-form-grid">
+    <form method="post" class="org-card" novalidate data-receipt-form>{% csrf_token %}
+      <header><h2>Payment</h2><p>UTR / cheque number is checked for duplicates.</p></header>
+      {% if form.non_field_errors %}<div class="org-alert" role="alert"><svg><use href="#ic-shield"/></svg><span>{% for e in form.non_field_errors %}{{ e }} {% endfor %}</span></div>{% endif %}
+      <div class="org-grid">{% for field in form %}<div class="org-field{% if field.name == 'notes' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}" data-field="{{ field.name }}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
+      <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Post receipt</button></div>
+    </form>
+    <section class="org-card">
+      <header><h2>{% if partner %}{{ partner.name }}{% else %}Customer account{% endif %}</h2><p>{% if partner %}Open invoices, oldest due first.{% else %}Choose a customer to see what is due.{% endif %}</p></header>
+      {% if partner %}
+        <div class="ord-totals is-static" style="max-width:none;margin-bottom:12px"><div class="is-grand"><span>{% if balance < 0 %}Advance with us{% else %}Balance due{% endif %}</span><strong>₹{% if balance < 0 %}{{ advance|indian:2 }}{% else %}{{ balance|indian:2 }}{% endif %}</strong></div></div>
+        {% if open %}<ul class="mst-order-list">{% for i in open %}<li><span><strong>{{ i.number }}</strong><small>{{ i.date|date:'d M Y' }} · due {{ i.due_date|date:'d M Y' }}{% if i.days_overdue %} · <span class="mst-missing">{{ i.days_overdue }} days late</span>{% endif %}</small></span><span class="mst-qty">₹{{ i.outstanding|indian:2 }}</span><span></span></li>{% endfor %}</ul>
+        {% else %}<p class="acc-muted">No open invoices — the receipt will be kept as an advance.</p>{% endif %}
+      {% endif %}
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  const f = document.querySelector('[data-receipt-form]'); if (!f) return;
+  const mode = f.querySelector('[name=mode]'), partner = f.querySelector('[name=partner]');
+  const apply = () => {
+    const m = mode.value;
+    f.querySelector('[data-field="reference"]').hidden = m === 'cash';
+    ['instrument_date', 'drawn_on'].forEach(n => { f.querySelector(`[data-field="${n}"]`).hidden = !['cheque', 'dd'].includes(m); });
+    f.querySelector('[data-field="reference"] label').firstChild.textContent = m === 'upi' ? 'UPI transaction ID ' : ['cheque', 'dd'].includes(m) ? 'Cheque / DD no. ' : 'UTR no. ';
+  };
+  mode.addEventListener('change', apply); apply();
+  partner.addEventListener('change', () => { if (partner.value) location.search = '?partner=' + partner.value; });
+})();
+</script>
+{% endblock %}

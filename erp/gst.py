@@ -59,6 +59,8 @@ def default_prefix(doc_type, site):
     code = ''.join(ch for ch in (site.code if site else 'HO').upper() if ch.isalnum())
     if doc_type == 'INV':
         return code[:4]  # PREF/26-27/00001 = 16 characters, GST's maximum
+    if doc_type == 'CN':
+        return 'CN' + code[:2]  # credit notes follow the same 16-character rule
     return f'{doc_type}{code[:5]}'
 
 

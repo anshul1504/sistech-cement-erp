@@ -1,0 +1,283 @@
+"""Receivables: receipts (with cheque bounce), GST credit notes (with goods return), customer ledger and outstanding / ageing."""
+import csv
+import re
+from datetime import date
+from decimal import Decimal, InvalidOperation
+
+from django import forms
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Q, Sum
+from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from .gst import next_number, line_tax, money, in_words
+from .ledger import allocate, balance, open_invoices, ageing, ledger_rows, exposure, credit_unapplied, AGE_BUCKETS
+from .models import (Receipt, CreditNote, CreditNoteLine, Invoice, InvoiceLine, Partner, Settlement, AuditEvent, StockMovement, Organization,
+                     RECEIPT_MODES, CREDIT_REASONS, CASH_LIMIT, CUSTOMER_KINDS, INDIAN_STATES)
+from .services import permitted, scope, move_stock
+
+
+def _styled(form):
+    for f in form.fields.values():
+        f.widget.attrs.setdefault('class', 'form-select' if isinstance(f.widget, forms.Select) else 'form-check-input' if isinstance(f.widget, forms.CheckboxInput) else 'form-control')
+    return form
+
+
+# ---------- Receipts ----------
+
+class ReceiptForm(forms.ModelForm):
+    class Meta:
+        model = Receipt
+        fields = ['partner', 'date', 'amount', 'mode', 'reference', 'instrument_date', 'drawn_on', 'deposited_to', 'notes']
+        widgets = {'date': forms.DateInput(attrs={'type': 'date'}), 'instrument_date': forms.DateInput(attrs={'type': 'date'})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['partner'].queryset = Partner.objects.filter(kind__in=CUSTOMER_KINDS).order_by('name')
+        self.fields['partner'].empty_label = 'Choose customer'
+        self.fields['amount'].widget.attrs.update(step='0.01', min='0')
+        _styled(self)
+
+    def clean(self):
+        data = super().clean()
+        mode, ref, amount, on = data.get('mode'), (data.get('reference') or '').strip(), data.get('amount'), data.get('date')
+        if on and on > timezone.localdate():
+            self.add_error('date', 'Receipt date cannot be in the future.')
+        if mode in ('neft', 'upi', 'cheque', 'dd') and not ref:
+            self.add_error('reference', 'Enter the UTR / transaction ID or cheque number.')
+        if mode in ('cheque', 'dd') and not data.get('instrument_date'):
+            self.add_error('instrument_date', 'Enter the cheque / DD date.')
+        if mode == 'cash' and amount and data.get('partner') and on:
+            same_day = Receipt.objects.filter(partner=data['partner'], date=on, mode='cash', status='posted').aggregate(t=Sum('amount'))['t'] or 0
+            if amount + same_day >= CASH_LIMIT:
+                self.add_error('amount', f'Cash of ₹2,00,000 or more from one person in a day is not allowed (Income-tax s.269ST). Already received in cash today: ₹{same_day:,.0f}.')
+        if ref and data.get('partner') and Receipt.objects.filter(partner=data['partner'], reference__iexact=ref, mode=mode).exclude(status='bounced').exists():
+            self.add_error('reference', 'This reference is already recorded for this customer — possible duplicate.')
+        data['reference'] = ref
+        return data
+
+
+@login_required
+def receipts(request):
+    permitted(request.user, 'view_receipt')
+    qs = Receipt.objects.select_related('partner')
+    q, mode, status = request.GET.get('q', '').strip(), request.GET.get('mode', ''), request.GET.get('status', '')
+    if q: qs = qs.filter(Q(number__icontains=q) | Q(partner__name__icontains=q) | Q(reference__icontains=q))
+    if mode in dict(RECEIPT_MODES): qs = qs.filter(mode=mode)
+    if status in ('posted', 'bounced'): qs = qs.filter(status=status)
+    today = timezone.localdate()
+    month = Receipt.objects.filter(status='posted', date__year=today.year, date__month=today.month)
+    stats = {'month': month.aggregate(t=Sum('amount'))['t'] or 0, 'month_n': month.count(),
+             'advance': sum((r.unallocated for r in Receipt.objects.filter(status='posted').prefetch_related('settlements')), Decimal('0')),
+             'bounced': Receipt.objects.filter(status='bounced').count()}
+    return render(request, 'erp/receipts.html', {'title': 'Receipts', 'page': Paginator(qs, 50).get_page(request.GET.get('page')), 'stats': stats,
+                                                 'filters': {'q': q, 'mode': mode, 'status': status}, 'modes': RECEIPT_MODES,
+                                                 'can_add': request.user.has_perm('erp.add_receipt')})
+
+
+@login_required
+def receipt_new(request):
+    permitted(request.user, 'add_receipt')
+    initial = {}
+    if request.GET.get('partner', '').isdigit():
+        initial['partner'] = request.GET['partner']
+    form = ReceiptForm(request.POST or None, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        with transaction.atomic():
+            r = form.save(commit=False)
+            r.number, r.created_by = next_number('RCT'), request.user
+            r.save()
+            allocate(r.partner)
+            AuditEvent.objects.create(actor=request.user, action='Receipt posted', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {r.get_mode_display()}')
+        r.refresh_from_db()
+        adj = r.allocated
+        messages.success(request, f'{r.number}: ₹{r.amount:,.2f} received — ₹{adj:,.2f} adjusted against invoices' + (f', ₹{r.unallocated:,.2f} kept as advance.' if r.unallocated else '.'))
+        return redirect('receipt_detail', pk=r.pk)
+    pk = initial.get('partner') or request.POST.get('partner') or ''
+    partner = form.fields['partner'].queryset.filter(pk=pk).first() if str(pk).isdigit() else None
+    bal = balance(partner) if partner else None
+    return render(request, 'erp/receipt_form.html', {'title': 'Record receipt', 'form': form, 'partner': partner, 'open': open_invoices(partner) if partner else [],
+                                                     'balance': bal, 'advance': -bal if bal is not None and bal < 0 else 0})
+
+
+@login_required
+def receipt_detail(request, pk):
+    permitted(request.user, 'view_receipt')
+    r = get_object_or_404(Receipt.objects.select_related('partner', 'created_by'), pk=pk)
+    return render(request, 'erp/receipt_detail.html', {'title': r.number, 'r': r, 'settlements': r.settlements.select_related('invoice'),
+                                                       'words': in_words(r.amount), 'can_bounce': request.user.has_perm('erp.bounce_receipt')})
+
+
+@login_required
+@require_POST
+def receipt_bounce(request, pk):
+    """Cheque / DD returned unpaid: undo its settlements, show it as a debit on the ledger, re-settle what is left."""
+    permitted(request.user, 'bounce_receipt')
+    with transaction.atomic():
+        r = get_object_or_404(Receipt.objects.select_for_update(), pk=pk)
+        if r.mode not in ('cheque', 'dd') or r.status != 'posted':
+            messages.error(request, 'Only a posted cheque or DD can be marked as bounced.')
+            return redirect('receipt_detail', pk=pk)
+        reason = (request.POST.get('reason') or 'Returned unpaid').strip()[:120]
+        r.settlements.all().delete()
+        r.status, r.bounced_on, r.bounce_reason = 'bounced', timezone.localdate(), reason
+        r.save(update_fields=['status', 'bounced_on', 'bounce_reason'])
+        allocate(r.partner)
+        AuditEvent.objects.create(actor=request.user, action='Cheque bounced', reference=r.number, detail=f'{r.partner.name} · ₹{r.amount} · {reason}')
+    messages.warning(request, f'{r.number} marked bounced. ₹{r.amount:,.2f} is outstanding again for {r.partner.name}.')
+    return redirect('receipt_detail', pk=pk)
+
+
+# ---------- Credit notes ----------
+
+def credit_room(line):
+    """How much taxable value and quantity can still be credited on one invoice line."""
+    done = line.credit_lines.aggregate(t=Sum('taxable'), q=Sum('quantity'))
+    return line.taxable - (done['t'] or 0), line.quantity - (done['q'] or 0)
+
+
+@login_required
+def credit_note_new(request, pk):
+    permitted(request.user, 'add_creditnote')
+    inv = get_object_or_404(scope(Invoice.objects.select_related('partner', 'site'), request.user), pk=pk)
+    lines = list(inv.lines.select_related('product'))
+    rows, errors = [], []
+    reason = request.POST.get('reason', 'rate')
+    for l in lines:
+        room_value, room_qty = credit_room(l)
+        row = {'line': l, 'room_value': room_value, 'room_qty': room_qty, 'qty': request.POST.get(f'qty_{l.pk}', ''), 'value': request.POST.get(f'value_{l.pk}', '')}
+        rows.append(row)
+    if request.method == 'POST':
+        if reason not in dict(CREDIT_REASONS):
+            errors.append('Choose a reason.')
+        picked = []
+        for row in rows:
+            l = row['line']
+            try:
+                qty = Decimal(row['qty'] or '0')
+                value = money(row['value'] or '0')
+            except InvalidOperation:
+                errors.append(f'{l.description}: enter numbers only.'); continue
+            if reason == 'return' and qty:
+                if qty < 0 or qty > row['room_qty']:
+                    errors.append(f'{l.description}: returned quantity must be between 0 and {row["room_qty"].normalize()} {l.unit}.'); continue
+                value = value or money(qty * l.rate)
+            elif qty:
+                qty = Decimal('0')
+            if value < 0 or value > row['room_value']:
+                errors.append(f'{l.description}: credit must be between ₹0 and ₹{row["room_value"]:,.2f} (taxable).'); continue
+            if value:
+                picked.append((l, qty, value))
+        if not picked and not errors:
+            errors.append('Enter a quantity or value on at least one line.')
+        if not errors:
+            with transaction.atomic():
+                cn = CreditNote(invoice=inv, partner=inv.partner, reason=reason, notes=request.POST.get('notes', '')[:200], created_by=request.user,
+                                returns_stock=reason == 'return' and any(q for _, q, _ in picked), taxable=0, cgst=0, sgst=0, igst=0, round_off=0, total=0)
+                cn.number = next_number('CN', inv.site)
+                cn.save()
+                for l, qty, value in picked:
+                    c, s, i = line_tax(value, l.gst_rate, inv.interstate)
+                    CreditNoteLine.objects.create(credit_note=cn, invoice_line=l, quantity=qty, taxable=value, gst_rate=l.gst_rate, cgst=c, sgst=s, igst=i)
+                    cn.taxable += value; cn.cgst += c; cn.sgst += s; cn.igst += i
+                    if qty and cn.returns_stock:
+                        move_stock(request.user, inv.site, l.product, qty, f'cn:{cn.pk}:line:{l.pk}', 'Return', f'{cn.number} against {inv.number}')
+                exact = cn.taxable + cn.cgst + cn.sgst + cn.igst
+                cn.total = exact.quantize(Decimal('1'))
+                cn.round_off = cn.total - exact
+                cn.save()
+                # A credit note first reduces its own invoice; anything left settles other invoices or stays as credit.
+                own = min(cn.total, inv.outstanding)
+                if own > 0:
+                    Settlement.objects.create(invoice=inv, credit_note=cn, amount=own)
+                allocate(inv.partner)
+                AuditEvent.objects.create(actor=request.user, site=inv.site, action='Credit note posted', reference=cn.number, detail=f'{inv.number} · {cn.get_reason_display()} · ₹{cn.total}')
+            messages.success(request, f'Credit note {cn.number} for ₹{cn.total:,.0f} posted against {inv.number}.' + (' Returned stock added back.' if cn.returns_stock else ''))
+            return redirect('credit_note_detail', pk=cn.pk)
+    return render(request, 'erp/credit_note_form.html', {'title': f'Credit note · {inv.number}', 'inv': inv, 'rows': rows, 'errors': errors,
+                                                         'reasons': CREDIT_REASONS, 'reason': reason, 'notes': request.POST.get('notes', '')})
+
+
+@login_required
+def credit_notes(request):
+    permitted(request.user, 'view_creditnote')
+    qs = scope(CreditNote.objects.select_related('partner', 'invoice'), request.user, 'invoice__site')
+    q = request.GET.get('q', '').strip()
+    if q: qs = qs.filter(Q(number__icontains=q) | Q(partner__name__icontains=q) | Q(invoice__number__icontains=q))
+    return render(request, 'erp/credit_notes.html', {'title': 'Credit notes', 'page': Paginator(qs, 50).get_page(request.GET.get('page')), 'q': q,
+                                                     'totals': qs.aggregate(t=Sum('total'), x=Sum('taxable'))})
+
+
+@login_required
+def credit_note_detail(request, pk):
+    permitted(request.user, 'view_creditnote')
+    cn = get_object_or_404(scope(CreditNote.objects.select_related('invoice', 'partner', 'created_by', 'invoice__site'), request.user, 'invoice__site'), pk=pk)
+    return render(request, 'erp/credit_note_detail.html', {'title': cn.number, 'cn': cn, 'inv': cn.invoice, 'lines': cn.lines.select_related('invoice_line'),
+                                                           'company': Organization.objects.defer('logo', 'icon').filter(pk=1).first() or Organization(),
+                                                           'words': in_words(cn.total), 'states': dict(INDIAN_STATES), 'unapplied': credit_unapplied(cn)})
+
+
+# ---------- Ledger & outstanding ----------
+
+@login_required
+def partner_ledger(request, pk):
+    permitted(request.user, 'view_receipt')
+    partner = get_object_or_404(Partner, pk=pk, kind__in=CUSTOMER_KINDS)
+    parse = lambda v: date.fromisoformat(v) if re.fullmatch(r'\d{4}-\d{2}-\d{2}', v or '') else None
+    start, end = parse(request.GET.get('from')), parse(request.GET.get('to'))
+    opening, rows = ledger_rows(partner, start, end)
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="ledger-{partner.code}.csv"'
+        response.write('﻿')
+        w = csv.writer(response)
+        w.writerow(['Date', 'Type', 'Reference', 'Details', 'Debit', 'Credit', 'Balance'])
+        w.writerow([start or '', 'Opening balance', '', '', '', '', opening])
+        for r in rows:
+            w.writerow([r['date'].strftime('%d-%m-%Y'), r['kind'], r['ref'], r['note'], r['debit'] or '', r['credit'] or '', r['balance']])
+        return response
+    invs = open_invoices(partner)
+    from .partner_views import credit_position
+    return render(request, 'erp/ledger.html', {'title': f'Ledger · {partner.name}', 'partner': partner, 'opening': opening, 'rows': rows,
+                                               'closing': rows[-1]['balance'] if rows else opening, 'open': invs, 'age': ageing(invs), 'buckets': AGE_BUCKETS,
+                                               'credit': credit_position(partner), 'filters': {'from': request.GET.get('from', ''), 'to': request.GET.get('to', '')},
+                                               'debits': sum((r['debit'] for r in rows), Decimal('0')), 'credits': sum((r['credit'] for r in rows), Decimal('0')),
+                                               'can_receive': request.user.has_perm('erp.add_receipt')})
+
+
+@login_required
+def outstanding(request):
+    permitted(request.user, 'view_receipt')
+    invs = open_invoices()
+    by_partner = {}
+    for inv in invs:
+        by_partner.setdefault(inv.partner, []).append(inv)
+    rows = []
+    for partner, items in by_partner.items():
+        age = ageing(items)
+        rows.append({'partner': partner, 'age': age, 'count': len(items), 'oldest': items[0], 'limit': partner.credit_limit})
+    advances = []
+    for partner in Partner.objects.filter(kind__in=CUSTOMER_KINDS):
+        b = balance(partner)
+        if b < 0:
+            advances.append((partner, -b))
+    sort = request.GET.get('sort', 'overdue')
+    rows.sort(key=lambda r: -(r['age']['overdue'] if sort == 'overdue' else r['age']['total']))
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="outstanding-{timezone.localdate():%Y%m%d}.csv"'
+        response.write('﻿')
+        w = csv.writer(response)
+        w.writerow(['Customer', 'Code', 'District', 'Invoices'] + [label for _, label in AGE_BUCKETS] + ['Total', 'Credit limit'])
+        for r in rows:
+            w.writerow([r['partner'].name, r['partner'].code, r['partner'].district, r['count']] + [r['age'][k] for k, _ in AGE_BUCKETS] + [r['age']['total'], r['limit']])
+        return response
+    total = ageing(invs)
+    return render(request, 'erp/outstanding.html', {'title': 'Outstanding & ageing', 'rows': rows, 'total': total, 'buckets': AGE_BUCKETS, 'sort': sort,
+                                                    'advances': advances, 'can_receive': request.user.has_perm('erp.add_receipt')})

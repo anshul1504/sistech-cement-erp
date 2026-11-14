@@ -30,17 +30,20 @@
   <div class="acc-grid">
     {% if credit %}
     <section class="org-card org-view">
-      <header class="acc-card-head"><h2>Credit position</h2></header>
+      <header class="acc-card-head"><h2>Credit position</h2>{% if perms.erp.view_receipt %}<a href="{% url 'partner_ledger' partner.pk %}">Ledger</a>{% endif %}</header>
       <div class="mst-credit is-{{ credit.state }}">
         <div class="mst-credit-top"><span>Used</span><strong>₹{{ credit.exposure|indian }}</strong></div>
         <div class="mst-credit-bar"><span style="width: {{ credit.used_pct }}%"></span></div>
         <div class="mst-credit-foot"><span>Limit ₹{{ credit.limit|indian }}</span><span>{% if credit.limit %}Available ₹{{ credit.available|indian }}{% else %}Advance payment only{% endif %}</span></div>
       </div>
       <dl>
+        <div><dt>Ledger balance</dt><dd>₹{{ credit.balance|indian }}</dd></div>
+        <div><dt>Not yet invoiced</dt><dd>₹{{ credit.pipeline|indian }}</dd></div>
+        <div><dt>Overdue</dt><dd>{% if credit.overdue_count %}<span class="mst-missing">₹{{ credit.overdue|indian }} · {{ credit.overdue_count }} inv.</span>{% else %}—{% endif %}</dd></div>
         <div><dt>Payment terms</dt><dd>{% if partner.payment_terms_days %}{{ partner.payment_terms_days }} days{% else %}Advance / COD{% endif %}</dd></div>
         <div><dt>Security deposit</dt><dd>₹{{ partner.security_deposit|indian }}</dd></div>
       </dl>
-      <p class="acc-note">Used = approved and completed sales orders. Payments received are not deducted yet (receipts arrive with Finance).</p>
+      {% if perms.erp.add_receipt %}<a class="org-btn is-light is-sm inf-add" href="{% url 'receipt_new' %}?partner={{ partner.pk }}">Record receipt</a>{% endif %}
     </section>
     {% endif %}
     <section class="org-card org-view">

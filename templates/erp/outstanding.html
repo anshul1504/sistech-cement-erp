@@ -1,0 +1,34 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow">FINANCE</div><h1>Outstanding &amp; ageing</h1><p>What every customer owes, by days past due. Customers with overdue invoices cannot get new orders approved.</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="?export=csv"><svg><use href="#ic-download"/></svg>Export</a>{% if can_receive %}<a class="org-btn is-primary" href="{% url 'receipt_new' %}"><svg><use href="#ic-plus"/></svg>Record receipt</a>{% endif %}</div>
+  </div>
+  <section class="org-card" style="margin-bottom:16px">
+    <header><h2>All customers</h2><p>₹{{ total.total|indian }} open · ₹{{ total.overdue|indian }} overdue</p></header>
+    <div class="led-age">{% for key, label in buckets %}<div class="{% if key != 'current' and total|get_item:key %}is-late{% endif %}"><span>{{ label }}</span><strong>₹{{ total|get_item:key|indian }}</strong></div>{% endfor %}</div>
+  </section>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Customers with open invoices</h2><p>{{ rows|length }} customer{{ rows|length|pluralize }}</p></div>
+      <form method="get" class="doc-filter"><select class="form-select" name="sort" aria-label="Sort" onchange="this.form.submit()"><option value="overdue"{% if sort == 'overdue' %} selected{% endif %}>Most overdue</option><option value="total"{% if sort == 'total' %} selected{% endif %}>Highest outstanding</option></select></form>
+    </header>
+    {% if rows %}
+    <div class="ord-table led-out" role="table">
+      <div class="ord-tr ord-th" role="row"><span>Customer</span>{% for k, label in buckets %}<span>{{ label }}</span>{% endfor %}<span>Total</span></div>
+      {% for r in rows %}
+      <a class="ord-tr" role="row" href="{% url 'partner_ledger' r.partner.pk %}">
+        <span class="ord-name"><strong>{{ r.partner.name }}</strong><small>{{ r.partner.code }}{% if r.partner.district %} · {{ r.partner.district }}{% endif %} · {{ r.count }} invoice{{ r.count|pluralize }} · oldest due {{ r.oldest.due_date|date:'d M' }}</small></span>
+        {% for k, label in buckets %}<span data-label="{{ label }}" class="{% if k != 'current' and r.age|get_item:k %}led-late{% endif %}">{% if r.age|get_item:k %}₹{{ r.age|get_item:k|indian }}{% else %}—{% endif %}</span>{% endfor %}
+        <span data-label="Total"><strong>₹{{ r.age.total|indian }}</strong>{% if r.limit %}<small>limit ₹{{ r.limit|indian }}</small>{% endif %}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-chart"/></svg><strong>Nothing outstanding</strong><span>All invoices are fully paid.</span></div>{% endif %}
+  </section>
+  {% if advances %}<section class="org-card" style="margin-top:16px"><header><h2>Advances held</h2><p>Paid ahead of invoicing; settles automatically on the next invoice.</p></header>
+    <ul class="mst-order-list">{% for p, amt in advances %}<li><a href="{% url 'partner_ledger' p.pk %}"><strong>{{ p.name }}</strong><small>{{ p.code }}</small></a><span class="mst-qty">₹{{ amt|indian:2 }}</span><span></span></li>{% endfor %}</ul></section>{% endif %}
+</div>
+{% endblock %}

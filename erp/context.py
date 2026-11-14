@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.7.0'
+ASSET_VERSION = '0.8.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -48,6 +48,9 @@ NAV_GROUPS = [
     ]),
     ('Finance', [
         _item('invoices', 'Tax invoices', 'receipt', 'view_invoice', match=('invoice_detail', 'invoice_new')),
+        _item('receipts', 'Receipts', 'book', 'view_receipt', match=('receipt_new', 'receipt_detail')),
+        _item('credit_notes', 'Credit notes', 'receipt', 'view_creditnote', match=('credit_note_detail', 'credit_note_new')),
+        _item('outstanding', 'Outstanding & ageing', 'chart', 'view_receipt', match=('partner_ledger',)),
         _soon('Accounts & ledgers', 'book'),
     ]),
     ('Masters', [
@@ -143,6 +146,8 @@ def navigation(request):
         quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
     if user.has_perm('erp.add_product'):
         quick_create.append(('Product', reverse('products_new'), 'package'))
+    if user.has_perm('erp.add_receipt'):
+        quick_create.append(('Receipt', reverse('receipt_new'), 'book'))
     if user.has_perm('erp.add_pricerule'):
         quick_create.append(('Price', reverse('prices_new'), 'receipt'))
     if user.has_perm('erp.add_influencer'):

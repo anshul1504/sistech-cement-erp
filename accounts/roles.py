@@ -9,6 +9,8 @@ MODULES = [
     ('production', 'Production', {'view': 'view_production', 'create': 'add_production', 'post': 'complete_production', 'approve': 'release_production'}),
     ('quality', 'Quality lab', {'view': 'view_qualitytest', 'create': 'add_qualitytest'}),
     ('invoices', 'Tax invoices', {'view': 'view_invoice', 'post': 'post_invoice', 'export': 'export_invoice'}),
+    ('receipts', 'Receipts & ledger', {'view': 'view_receipt', 'create': 'add_receipt', 'cancel': 'bounce_receipt'}),
+    ('credit_notes', 'Credit notes', {'view': 'view_creditnote', 'create': 'add_creditnote'}),
     ('pricing', 'Price list', {'view': 'view_pricerule', 'create': 'add_pricerule', 'edit': 'change_pricerule'}),
     ('influencers', 'Masons & contractors', {'view': 'view_influencer', 'create': 'add_influencer', 'edit': 'change_influencer', 'export': 'export_influencer'}),
     ('partners', 'Business partners', {'view': 'view_partner', 'create': 'add_partner', 'edit': 'change_partner'}),
@@ -28,7 +30,7 @@ PRESETS = {
     'Warehouse operator': {'view_sales_order', 'post_sales_order', 'view_purchase_order', 'post_purchase_order', 'view_stockbalance', 'view_stockmovement', 'view_product', 'view_site'},
     'Production operator': {'view_production', 'add_production', 'complete_production', 'view_product', 'view_site'},
     'Quality manager': {'view_qualitytest', 'add_qualitytest', 'view_production', 'release_production', 'view_product', 'view_site'},
-    'Internal auditor': ALL_VIEWS | {'export_invoice', 'export_stockmovement'},
+    'Internal auditor': ALL_VIEWS | {'export_invoice', 'export_influencer', 'export_stockmovement'},
 }
 
 

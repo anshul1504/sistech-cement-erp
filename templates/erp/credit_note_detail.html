@@ -1,0 +1,35 @@
+{% extends 'erp/base.html' %}{% load erp_format static %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  <div class="org-head adm-crumb inv-noprint"><div class="eyebrow"><a href="{% url 'credit_notes' %}">← Credit notes</a></div></div>
+  <div class="ord-workflow inv-noprint">
+    <div><strong class="inv-tool-title">{{ cn.number }}</strong><span class="acc-muted"> · {{ cn.get_reason_display }} · ₹{{ cn.total|indian }}{% if unapplied %} · ₹{{ unapplied|indian:2 }} held as credit{% endif %}</span></div>
+    <div class="ord-buttons"><a class="org-btn is-light" href="{% url 'invoice_detail' inv.pk %}">Invoice {{ inv.number }}</a><button class="org-btn is-primary" type="button" onclick="window.print()">Print / save PDF</button></div>
+  </div>
+  <article class="inv-sheet" aria-label="Credit note {{ cn.number }}">
+    <header class="inv-top">
+      <div class="inv-brand">{% if org_logo_url %}<img src="{{ org_logo_url }}" alt="{{ inv.seller_name }}">{% endif %}<div><h2>{{ inv.seller_name }}</h2><p>{{ inv.seller_address }}</p><p><b>GSTIN</b> {{ inv.seller_gstin }} · <b>State</b> {{ states|get_item:inv.seller_state }} ({{ inv.seller_state }})</p></div></div>
+      <div class="inv-title"><span>Original for recipient</span><h1>Credit Note</h1><dl>
+        <div><dt>Credit note no.</dt><dd>{{ cn.number }}</dd></div><div><dt>Date</dt><dd>{{ cn.date|date:'d-m-Y' }}</dd></div>
+        <div><dt>Against invoice</dt><dd>{{ inv.number }}</dd></div><div><dt>Invoice date</dt><dd>{{ inv.date|date:'d-m-Y' }}</dd></div>
+        <div><dt>Reason</dt><dd>{{ cn.get_reason_display }}</dd></div></dl></div>
+    </header>
+    <section class="inv-parties">
+      <div><h3>Issued to</h3><strong>{{ inv.buyer_name }}</strong><p>{{ inv.buyer_address|default:'—' }}</p><p><b>GSTIN</b> {{ inv.buyer_gstin|default:'Unregistered' }}</p></div>
+      <div><h3>Place of supply</h3><p>{{ states|get_item:inv.place_of_supply }} ({{ inv.place_of_supply }})</p>{% if cn.returns_stock %}<p><b>Goods returned to</b> {{ inv.site.code }}</p>{% endif %}</div>
+      <div><h3>Notes</h3><p>{{ cn.notes|default:'—' }}</p></div>
+    </section>
+    <table class="inv-lines">
+      <thead><tr><th>#</th><th>Description</th><th>HSN</th><th class="num">Qty</th><th class="num">Taxable</th><th class="num">GST %</th>{% if inv.interstate %}<th class="num">IGST</th>{% else %}<th class="num">CGST</th><th class="num">SGST</th>{% endif %}</tr></thead>
+      <tbody>{% for l in lines %}<tr><td>{{ forloop.counter }}</td><td>{{ l.invoice_line.description }}</td><td data-label="HSN">{{ l.invoice_line.hsn }}</td><td class="num" data-label="Qty">{% if l.quantity %}{{ l.quantity|qty }} {{ l.invoice_line.unit }}{% else %}—{% endif %}</td><td class="num" data-label="Taxable">{{ l.taxable|indian:2 }}</td><td class="num" data-label="GST %">{{ l.gst_rate|qty }}%</td>{% if inv.interstate %}<td class="num" data-label="IGST">{{ l.igst|indian:2 }}</td>{% else %}<td class="num" data-label="CGST">{{ l.cgst|indian:2 }}</td><td class="num" data-label="SGST">{{ l.sgst|indian:2 }}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table>
+    <section class="inv-bottom">
+      <div class="inv-words"><p><b>Amount in words</b><br>{{ words }}</p></div>
+      <dl class="inv-totals"><div><dt>Taxable value</dt><dd>{{ cn.taxable|indian:2 }}</dd></div>{% if inv.interstate %}<div><dt>IGST</dt><dd>{{ cn.igst|indian:2 }}</dd></div>{% else %}<div><dt>CGST</dt><dd>{{ cn.cgst|indian:2 }}</dd></div><div><dt>SGST</dt><dd>{{ cn.sgst|indian:2 }}</dd></div>{% endif %}<div><dt>Round off</dt><dd>{{ cn.round_off|indian:2 }}</dd></div><div class="is-grand"><dt>Credit total</dt><dd>₹{{ cn.total|indian:2 }}</dd></div></dl>
+    </section>
+    <footer class="inv-foot"><div>{% if company.document_footer %}<p class="inv-terms">{{ company.document_footer }}</p>{% endif %}</div><div class="inv-sign"><p>For {{ inv.seller_name }}</p><span></span><p>{{ company.signatory_name|default:'Authorised signatory' }}</p></div></footer>
+    <p class="inv-credit">Computer-generated credit note · Sistech ERP · Design &amp; developed by The Webfix</p>
+  </article>
+</div>
+{% endblock %}

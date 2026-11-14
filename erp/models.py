@@ -296,7 +296,7 @@ class StockMovement(Document):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=14, decimal_places=3)
     source = models.CharField(max_length=100, unique=True)
-    kind = models.CharField(max_length=20, choices=[('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output')])
+    kind = models.CharField(max_length=20, choices=[('Opening', 'Opening stock'), ('Receipt', 'Purchase receipt'), ('Dispatch', 'Sales dispatch'), ('Production', 'Production output'), ('Return', 'Sales return')])
     class Meta(Document.Meta):
         permissions = [('post_opening', 'Post opening stock'), ('export_stockmovement', 'Export stock ledger')]
 
@@ -748,6 +748,18 @@ class Invoice(models.Model):
     def is_b2b(self):
         return bool(self.buyer_gstin)
 
+    @property
+    def settled(self):
+        return sum((s.amount for s in self.settlements.all()), Decimal('0'))
+
+    @property
+    def outstanding(self):
+        return self.grand_total - self.settled
+
+    @property
+    def days_overdue(self):
+        return max((timezone.localdate() - self.due_date).days, 0) if self.outstanding > 0 else 0
+
 
 class InvoiceLine(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='lines')
@@ -766,3 +778,96 @@ class InvoiceLine(models.Model):
 
     class Meta:
         ordering = ['id']
+
+
+# ---------- Receipts, credit notes & settlement (Step 2c) ----------
+
+RECEIPT_MODES = [('neft', 'NEFT / RTGS / IMPS'), ('upi', 'UPI'), ('cheque', 'Cheque'), ('dd', 'Demand draft'), ('cash', 'Cash')]
+CASH_LIMIT = Decimal('200000')  # Income-tax Act s.269ST: no cash receipt of ₹2 lakh or more from one person in a day / transaction
+
+
+class Receipt(models.Model):
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    date = models.DateField(default=timezone.localdate)
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='receipts', verbose_name='Received from')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, validators=POSITIVE)
+    mode = models.CharField(max_length=8, choices=RECEIPT_MODES, default='neft')
+    reference = models.CharField('UTR / cheque no.', max_length=40, blank=True)
+    instrument_date = models.DateField('Cheque / DD date', null=True, blank=True)
+    drawn_on = models.CharField('Bank (payer)', max_length=80, blank=True)
+    deposited_to = models.CharField('Deposited to', max_length=80, blank=True, help_text='Our bank account.')
+    status = models.CharField(max_length=8, default='posted', choices=[('posted', 'Posted'), ('bounced', 'Bounced')])
+    bounced_on = models.DateField(null=True, blank=True)
+    bounce_reason = models.CharField(max_length=120, blank=True)
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-id']
+        permissions = [('bounce_receipt', 'Mark cheques as bounced')]
+
+    def __str__(self): return self.number
+
+    @property
+    def allocated(self):
+        return sum((s.amount for s in self.settlements.all()), Decimal('0'))
+
+    @property
+    def unallocated(self):
+        return Decimal('0') if self.status == 'bounced' else self.amount - self.allocated
+
+
+CREDIT_REASONS = [('rate', 'Rate difference / discount'), ('return', 'Goods returned'), ('damage', 'Damaged / short supply'),
+                  ('scheme', 'Scheme / incentive'), ('other', 'Other correction')]
+
+
+class CreditNote(models.Model):
+    """GST credit note against one posted invoice. Tax follows the invoice (same rates, same CGST/SGST or IGST)."""
+    number = models.CharField(max_length=16, unique=True, editable=False)
+    date = models.DateField(default=timezone.localdate)
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='credit_notes')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='credit_notes')
+    reason = models.CharField(max_length=8, choices=CREDIT_REASONS)
+    returns_stock = models.BooleanField(default=False, editable=False)
+    taxable = models.DecimalField(max_digits=16, decimal_places=2)
+    cgst = models.DecimalField(max_digits=16, decimal_places=2)
+    sgst = models.DecimalField(max_digits=16, decimal_places=2)
+    igst = models.DecimalField(max_digits=16, decimal_places=2)
+    round_off = models.DecimalField(max_digits=6, decimal_places=2)
+    total = models.DecimalField(max_digits=16, decimal_places=2)
+    notes = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-id']
+
+    def __str__(self): return self.number
+
+    @property
+    def tax(self):
+        return self.cgst + self.sgst + self.igst
+
+
+class CreditNoteLine(models.Model):
+    credit_note = models.ForeignKey(CreditNote, on_delete=models.CASCADE, related_name='lines')
+    invoice_line = models.ForeignKey(InvoiceLine, on_delete=models.PROTECT, related_name='credit_lines')
+    quantity = models.DecimalField('Returned qty', max_digits=14, decimal_places=3, default=0)
+    taxable = models.DecimalField(max_digits=16, decimal_places=2)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    cgst = models.DecimalField(max_digits=16, decimal_places=2)
+    sgst = models.DecimalField(max_digits=16, decimal_places=2)
+    igst = models.DecimalField(max_digits=16, decimal_places=2)
+
+
+class Settlement(models.Model):
+    """Money or credit applied to an invoice. Outstanding = invoice total − settlements."""
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='settlements')
+    receipt = models.ForeignKey(Receipt, null=True, blank=True, on_delete=models.CASCADE, related_name='settlements')
+    credit_note = models.ForeignKey(CreditNote, null=True, blank=True, on_delete=models.CASCADE, related_name='settlements')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, validators=POSITIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(receipt__isnull=False) | models.Q(credit_note__isnull=False), name='settlement_has_source')]

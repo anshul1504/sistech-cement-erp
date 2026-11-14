@@ -111,3 +111,32 @@
 .ord-page .acc-grid > .ord-items { grid-column: 1 / -1; }
 .ord-tr > span:nth-child(n+3) strong, .ord-tr > span:nth-child(n+3) { white-space: nowrap; }
 @media (max-width: 1199.98px) { .ord-tr > span:nth-child(n+3) { white-space: normal; } }
+
+/* Ledger & ageing */
+.led-age { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.led-age > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px; border-radius: 10px; background: #f8fafc; }
+.led-age span { color: var(--o-ink-3); font-size: 12px; }
+.led-age strong { color: #082859; font-size: 16px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.led-age .is-late { background: #fef3f2; }
+.led-age .is-late strong { color: #b42318; }
+.led-table .ord-tr { grid-template-columns: 100px 120px minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr); }
+.led-table .ord-tr > span:nth-child(3), .led-table .ord-tr > span:nth-child(4) { text-align: left; }
+.led-open { background: #f8fafc; }
+.led-out .ord-tr { grid-template-columns: minmax(0, 2.2fr) repeat(6, minmax(0, 1fr)); color: inherit; text-decoration: none; }
+a.ord-tr:hover { background: #fafbfd; }
+.led-late { color: #b42318; font-weight: 600; }
+.cn-line { grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr); }
+.cn-line [hidden] { display: none !important; }
+@media (max-width: 1199.98px) {
+  .led-table .ord-tr, .led-out .ord-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .led-out .ord-tr .ord-name { grid-column: 1 / -1; }
+  .led-table .ord-tr > span:nth-child(4) { grid-column: span 2; }
+}
+@media (max-width: 991.98px) {
+  .led-age { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cn-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767.98px) {
+  .led-age { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .led-table .ord-tr, .led-out .ord-tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

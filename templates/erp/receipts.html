@@ -1,0 +1,40 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow">FINANCE</div><h1>Receipts</h1><p>Payments from dealers and customers. Each receipt settles the oldest due invoices first; anything extra stays as an advance.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'receipt_new' %}"><svg><use href="#ic-plus"/></svg>Record receipt</a></div>{% endif %}
+  </div>
+  <div class="inf-kpis is-three" role="list">
+    <div role="listitem" class="inf-kpi"><span>Received this month</span><strong>₹{{ stats.month|indian }}</strong><small>{{ stats.month_n }} receipt{{ stats.month_n|pluralize }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Advances not yet used</span><strong>₹{{ stats.advance|indian }}</strong><small>Settle automatically on the next invoice</small></div>
+    <a role="listitem" class="inf-kpi{% if stats.bounced %} is-danger{% endif %}" href="?status=bounced"><span>Bounced cheques</span><strong>{{ stats.bounced }}</strong><small>Follow up for replacement payment</small></a>
+  </div>
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>All receipts</h2><p>{{ page.paginator.count }} shown</p></div>
+      <form method="get" class="doc-filter inf-filter">
+        <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Receipt, customer, UTR / cheque…" aria-label="Search">
+        <select class="form-select" name="mode" aria-label="Mode" onchange="this.form.submit()"><option value="">All modes</option>{% for c, l in modes %}<option value="{{ c }}"{% if filters.mode == c %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+        <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="">All</option><option value="posted"{% if filters.status == 'posted' %} selected{% endif %}>Posted</option><option value="bounced"{% if filters.status == 'bounced' %} selected{% endif %}>Bounced</option></select>
+        <button class="org-btn is-light" type="submit">Search</button>
+      </form>
+    </header>
+    {% if page.object_list %}
+    <ul class="mst-list prc-list">
+      {% for r in page.object_list %}
+      <li class="{% if r.status == 'bounced' %}is-inactive{% endif %}">
+        <a class="mst-main" href="{% url 'receipt_detail' r.pk %}"><span class="mst-icon is-retailer"><svg><use href="#ic-book"/></svg></span><span><strong>{{ r.partner.name }}</strong><small>{{ r.number }} · {{ r.date|date:'d M Y' }}</small></span></a>
+        <div class="mst-cell"><small>{{ r.get_mode_display }}</small>{{ r.reference|default:'—' }}</div>
+        <div class="mst-cell"><span class="prc-rate">₹{{ r.amount|indian:2 }}</span></div>
+        <div class="mst-cell">{% if r.status == 'bounced' %}<span class="doc-badge is-danger">Bounced</span>{% else %}<span class="doc-badge is-ok">Posted</span>{% endif %}</div>
+        <div class="mst-cell"><small>Recorded by</small>{{ r.created_by.get_full_name|default:r.created_by.username }}</div>
+        <a class="org-btn is-light is-sm mst-open" href="{% url 'receipt_detail' r.pk %}">Open</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-book"/></svg><strong>No receipts yet</strong><span>Record NEFT, UPI, cheque or cash payments from customers.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

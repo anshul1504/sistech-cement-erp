@@ -1,0 +1,41 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'receipts' %}">← Receipts</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-retailer"><svg><use href="#ic-book"/></svg></span>
+    <div class="org-hero-text"><h1>{{ r.number }}</h1><p>{{ r.partner.name }} · {{ r.date|date:'d M Y' }} · {{ r.get_mode_display }}{% if r.reference %} {{ r.reference }}{% endif %}</p>
+      <div class="org-chips">{% if r.status == 'bounced' %}<span class="org-chip ord-status is-cancelled">● Bounced {{ r.bounced_on|date:'d M Y' }}</span>{% else %}<span class="org-chip ord-status is-completed">● Posted</span>{% endif %}{% if r.unallocated %}<span class="org-chip">Advance ₹{{ r.unallocated|indian:2 }}</span>{% endif %}</div></div>
+    <div class="org-hero-side"><small>Amount</small><span class="mst-total">₹{{ r.amount|indian:2 }}</span><small>{{ words }}</small></div>
+  </section>
+  {% if r.status == 'bounced' %}<ul class="ord-checks"><li class="is-danger">Returned unpaid: {{ r.bounce_reason }}. The amount is outstanding again on the customer's ledger.</li></ul>{% endif %}
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Adjusted against</h2><a href="{% url 'partner_ledger' r.partner.pk %}">Customer ledger</a></header>
+      {% if settlements %}<ul class="mst-order-list">{% for s in settlements %}<li><a href="{% url 'invoice_detail' s.invoice.pk %}"><strong>{{ s.invoice.number }}</strong><small>{{ s.invoice.date|date:'d M Y' }} · invoice ₹{{ s.invoice.grand_total|indian }}</small></a><span class="mst-qty">₹{{ s.amount|indian:2 }}</span><span></span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">{% if r.status == 'bounced' %}Nothing — the cheque bounced.{% else %}Not adjusted yet — kept as an advance for the next invoice.{% endif %}</p>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Details</h2></header>
+      <dl>
+        <div><dt>Mode</dt><dd>{{ r.get_mode_display }}</dd></div>
+        <div><dt>Reference</dt><dd class="is-mono">{{ r.reference|default:'—' }}</dd></div>
+        {% if r.instrument_date %}<div><dt>Cheque / DD date</dt><dd>{{ r.instrument_date|date:'d M Y' }}</dd></div><div><dt>Drawn on</dt><dd>{{ r.drawn_on|default:'—' }}</dd></div>{% endif %}
+        <div><dt>Deposited to</dt><dd>{{ r.deposited_to|default:'—' }}</dd></div>
+        <div><dt>Recorded by</dt><dd>{{ r.created_by.get_full_name|default:r.created_by.username }}</dd></div>
+      </dl>
+      {% if r.notes %}<p class="acc-note">{{ r.notes }}</p>{% endif %}
+    </section>
+    {% if can_bounce and r.status == 'posted' and r.mode in 'cheque dd' %}
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Cheque returned?</h2></header>
+      <form method="post" action="{% url 'receipt_bounce' r.pk %}" data-confirm="Mark {{ r.number }} as bounced? Its adjustments will be reversed.">{% csrf_token %}
+        <div class="org-field"><label class="form-label" for="bounce-reason">Reason from the bank</label><input class="form-control" id="bounce-reason" name="reason" maxlength="120" placeholder="e.g. Insufficient funds"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit">Mark as bounced</button></div>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

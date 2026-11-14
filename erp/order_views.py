@@ -139,7 +139,9 @@ def order_detail(request, pk):
         if order.status != 'Approved':
             from .partner_views import credit_position
             credit = credit_position(order.partner)
-            if credit['limit'] and credit['exposure'] + tax['grand_total'] > credit['limit']:
+            if credit['overdue_count']:
+                checks.append(('danger', f'{credit["overdue_count"]} invoice(s) past due — ₹{credit["overdue"]:,.0f}. Approval will be blocked until paid.'))
+            if credit['exposure'] + tax['grand_total'] > credit['limit']:
                 checks.append(('danger', f'Credit limit will be exceeded: exposure ₹{credit["exposure"]:,.0f} + this order ₹{tax["grand_total"]:,.0f} > limit ₹{credit["limit"]:,.0f}.'))
         for l in lines:
             bal = StockBalance.objects.filter(site=order.site, product=l.product).values_list('quantity', flat=True).first() or Decimal('0')

@@ -86,3 +86,6 @@
   .inv-lines th, .inv-hsn th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .inv-lines tr { break-inside: avoid; }
 }
+
+.inv-paid { margin-top: 4px; }
+.inv-paid small { font-size: 12px; }

@@ -1,0 +1,46 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head">
+    <div><div class="eyebrow"><a href="{% url 'partner_detail' partner.pk %}">← {{ partner.name }}</a></div><h1>Customer ledger</h1><p>{{ partner.code }}{% if partner.gstin %} · GSTIN {{ partner.gstin }}{% endif %} · payment terms {{ partner.payment_terms_days }} days</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="?from={{ filters.from }}&to={{ filters.to }}&export=csv"><svg><use href="#ic-download"/></svg>Export</a>{% if can_receive %}<a class="org-btn is-primary" href="{% url 'receipt_new' %}?partner={{ partner.pk }}"><svg><use href="#ic-plus"/></svg>Record receipt</a>{% endif %}</div>
+  </div>
+  {% if credit.overdue_count %}<ul class="ord-checks"><li class="is-danger">{{ credit.overdue_count }} invoice{{ credit.overdue_count|pluralize }} past due — ₹{{ credit.overdue|indian }}. New orders will not be approved until paid.</li></ul>{% endif %}
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi{% if closing > 0 %} is-warn{% endif %}"><span>{% if closing < 0 %}Advance with us{% else %}Balance due{% endif %}</span><strong>₹{{ credit.balance|indian }}</strong><small>Invoices − receipts − credit notes</small></div>
+    <div role="listitem" class="inf-kpi"><span>Orders not yet invoiced</span><strong>₹{{ credit.pipeline|indian }}</strong><small>Approved or dispatched</small></div>
+    <div role="listitem" class="inf-kpi{% if credit.state == 'danger' %} is-danger{% endif %}"><span>Credit available</span><strong>₹{{ credit.available|indian }}</strong><small>Limit ₹{{ credit.limit|indian }} · {{ credit.used_pct }}% used</small></div>
+    <div role="listitem" class="inf-kpi{% if age.overdue %} is-danger{% endif %}"><span>Overdue</span><strong>₹{{ age.overdue|indian }}</strong><small>of ₹{{ age.total|indian }} open</small></div>
+  </div>
+
+  <section class="org-card" style="margin-bottom:16px">
+    <header><h2>Ageing</h2><p>Open invoice amounts by days past due date.</p></header>
+    <div class="led-age">{% for key, label in buckets %}<div class="{% if key != 'current' and age|get_item:key %}is-late{% endif %}"><span>{{ label }}</span><strong>₹{{ age|get_item:key|indian }}</strong></div>{% endfor %}</div>
+    {% if open %}<ul class="mst-order-list" style="margin-top:12px">{% for i in open %}<li><a href="{% url 'invoice_detail' i.pk %}"><strong>{{ i.number }}</strong><small>{{ i.date|date:'d M Y' }} · due {{ i.due_date|date:'d M Y' }}{% if i.days_overdue %} · <span class="mst-missing">{{ i.days_overdue }} days late</span>{% endif %}</small></a><span class="mst-qty">₹{{ i.outstanding|indian:2 }}</span><small class="acc-muted">of ₹{{ i.grand_total|indian }}</small></li>{% endfor %}</ul>{% endif %}
+  </section>
+
+  <section class="org-card doc-list-card">
+    <header class="doc-list-head">
+      <div><h2>Statement</h2><p>Opening ₹{{ opening|indian:2 }} · debits ₹{{ debits|indian:2 }} · credits ₹{{ credits|indian:2 }} · closing ₹{{ closing|indian:2 }}</p></div>
+      <form method="get" class="doc-filter"><input class="form-control" type="date" name="from" value="{{ filters.from }}" aria-label="From"><input class="form-control" type="date" name="to" value="{{ filters.to }}" aria-label="To"><button class="org-btn is-light" type="submit">Apply</button></form>
+    </header>
+    <div class="ord-table led-table" role="table">
+      <div class="ord-tr ord-th" role="row"><span>Date</span><span>Type</span><span>Reference</span><span>Details</span><span>Debit</span><span>Credit</span><span>Balance</span></div>
+      <div class="ord-tr led-open" role="row"><span data-label="Date">{{ filters.from|default:'—' }}</span><span>Opening balance</span><span></span><span></span><span></span><span></span><span data-label="Balance"><strong>₹{{ opening|indian:2 }}</strong></span></div>
+      {% for r in rows %}
+      <div class="ord-tr" role="row">
+        <span data-label="Date">{{ r.date|date:'d M Y' }}</span>
+        <span data-label="Type"><span class="doc-badge{% if r.kind == 'Receipt' %} is-ok{% elif r.kind == 'Cheque bounced' %} is-danger{% elif r.kind == 'Credit note' %} is-warning{% endif %}">{{ r.kind }}</span></span>
+        <span data-label="Reference">{% if r.kind == 'Invoice' %}<a href="{% url 'invoice_detail' r.obj.pk %}">{{ r.ref }}</a>{% elif r.kind == 'Credit note' %}<a href="{% url 'credit_note_detail' r.obj.pk %}">{{ r.ref }}</a>{% else %}<a href="{% url 'receipt_detail' r.obj.pk %}">{{ r.ref }}</a>{% endif %}</span>
+        <span data-label="Details">{{ r.note|default:'—' }}</span>
+        <span data-label="Debit">{% if r.debit %}₹{{ r.debit|indian:2 }}{% endif %}</span>
+        <span data-label="Credit">{% if r.credit %}₹{{ r.credit|indian:2 }}{% endif %}</span>
+        <span data-label="Balance"><strong>₹{{ r.balance|indian:2 }}</strong></span>
+      </div>
+      {% empty %}<p class="acc-muted" style="padding:12px 0">No entries in this period.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

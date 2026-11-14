@@ -20,13 +20,16 @@ KIND_ICONS = {'Dealer': 'handshake', 'Distributor': 'truck', 'Retailer': 'buildi
 
 
 def credit_position(partner):
-    """Provisional exposure = approved + completed sales orders incl. GST (collections are not recorded yet)."""
-    orders = Order.objects.filter(kind='Sale', partner=partner, status__in=['Approved', 'Completed']).select_related('site', 'partner').prefetch_related('lines')
-    exposure = sum((o.grand_total for o in orders), Decimal('0'))
+    """Exposure = ledger balance (invoices − receipts − credit notes) + approved / dispatched orders not yet invoiced, all incl. GST."""
+    from .ledger import exposure, overdue
+    exp = exposure(partner)
+    late = overdue(partner)
     limit = partner.credit_limit or Decimal('0')
-    used = int(min(100, (exposure / limit * 100))) if limit else (100 if exposure else 0)
-    return {'limit': limit, 'exposure': exposure, 'available': max(limit - exposure, Decimal('0')), 'used_pct': used,
-            'state': 'danger' if limit and exposure >= limit else 'warn' if used >= 80 else 'ok'}
+    total = exp['total']
+    used = int(max(0, min(100, (total / limit * 100)))) if limit else (100 if total > 0 else 0)
+    return {'limit': limit, 'exposure': total, 'balance': exp['balance'], 'pipeline': exp['pipeline'], 'available': max(limit - total, Decimal('0')),
+            'used_pct': used, 'overdue': sum((i.outstanding for i in late), Decimal('0')), 'overdue_count': len(late),
+            'state': 'danger' if late or (limit and total >= limit) or (not limit and total > 0) else 'warn' if used >= 80 else 'ok'}
 
 
 def is_used(partner):

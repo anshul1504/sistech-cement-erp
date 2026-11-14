@@ -18,6 +18,7 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 | Masons & contractors (Step 1d) | Influencer master with district/dealer views, coverage gaps, activities and referral leads, CSV import/export |
 | Price list & numbering (Step 2a) | Versioned price rules with slabs and scopes, number series per site and FY, GST snapshot and CGST/SGST/IGST on orders |
 | GST tax invoice (Step 2b) | Invoice from dispatched order, frozen snapshot, FY series ≤16 chars, A4 print/PDF, register with GSTR-1 style export |
+| Receivables (Step 2c) | Receipts with FIFO settlement and advances, s.269ST cash limit, cheque bounce, GST credit notes with stock return, customer ledger, ageing, overdue-aware credit control |
 | Web shell | Responsive app shell, toasts, Indian number formats, My account, Administration, System settings |
 
 ## Build sequence
@@ -30,14 +31,14 @@ idempotent external integrations, month-end reconciliation, maker-checker, no ed
 4. Activity: meets/visits, site referrals and projects (feeds Step 8 loyalty/schemes and lead pipeline).
 5. Duplicate check by mobile number; import from Excel/CSV.
 
-### Step 2 — Order-to-cash core (SRS Phase 1, §4.1, §5.2, §5.9, §5.11)
+### Step 2 — Order-to-cash core (SRS Phase 1, §4.1, §5.2, §5.9, §5.11) — mostly done (remaining: partial supply & revisions move into Step 3 dispatch)
 1. ✅ Number series per document type and financial year. (Financial period open/close moves to Step 7.)
 2. ✅ Price lists: product × plant × district × buyer type × dealer, quantity slab, effective dates; price snapshot on orders.
 3. Sales order upgrade: bill-to/ship-to, freight terms, partial supply, full status set (Approved → Allocated → Part dispatched → Dispatched → Invoiced → Closed), revisions after approval.
-4. Validations (VAL-001/002/003/004): dealer active + KYC, credit **and overdue**, price validity, stock (ATP with reservations).
+4. ✅ Validations: dealer active, credit **and overdue** (block), price below list (flag), free stock after reservations (warn). KYC-document gating is configurable later.
 5. ✅ Dispatch advice → **GST tax invoice**: CGST+SGST vs IGST from place of supply, HSN, invoice series per GSTIN, PDF print with company/bank/terms, immutable after posting.
-6. Credit / debit notes and sales returns linked to the original invoice.
-7. Dealer ledger and receipts (allocation to invoices), so credit exposure uses real outstanding.
+6. ✅ Credit notes and sales returns linked to the original invoice (debit notes with procurement, Step 4).
+7. ✅ Dealer ledger and receipts (allocation to invoices), so credit exposure uses real outstanding.
 
 ### Step 3 — Gate, weighbridge & dispatch (SRS Phase 2, §4.4, §5.8)
 1. Vehicles and drivers master (permit/insurance/fitness expiry); transporter link.
