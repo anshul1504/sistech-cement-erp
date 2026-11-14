@@ -597,7 +597,15 @@ def my_queue(user, sites=None):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
     if has('approve_freightbill'):
         add('Freight bills to check', FreightBill.objects.filter(status='submitted').exclude(created_by=user), reverse('freight_bills'), 'Against contracted freight')
-    from .models import ReturnRequest
+    from .models import BeatPlan,BeatStop,ReturnRequest
+    if has('view_beatplan'):
+        if has('approve_beatplan') and has('view_team_beats'):
+            add('Beat plans to approve',BeatPlan.objects.filter(site__in=sites,status='submitted').exclude(owner=user).exclude(created_by=user).exclude(submitted_by=user).exclude(contributors=user),reverse('beat_plans')+'?status=submitted','Independent route review')
+        if has('record_beatstop'):
+            add('Daily routes with visits due',BeatPlan.objects.filter(site__in=sites,owner=user,status='approved',on__lte=today,stops__status='planned').distinct(),reverse('beat_plans')+'?status=due','Record each planned stop')
+            add('Field follow-ups due',BeatStop.objects.filter(plan__site__in=sites,plan__owner=user,status='completed',next_action_on__lte=today,followed_at__isnull=True),reverse('beat_report'),'Retain the next-action result')
+        if fin and has('publish_beatpromise') and has('add_receipt') and has('view_team_beats'):
+            add('Field promises to review',BeatStop.objects.filter(plan__site__in=sites,status='completed',outcome='promise',collection_followup__isnull=True).exclude(plan__owner=user).exclude(recorded_by=user),reverse('beat_report'),'Accept into collections; no receipt')
     if has('view_returnrequest') and has('approve_returnrequest'):
         add('Customer returns to approve', ReturnRequest.objects.filter(status='requested', site__in=sites).exclude(created_by=user), reverse('returns') + '?status=requested', 'Before pickup')
     if has('view_returnrequest') and has('inspect_returnrequest'):

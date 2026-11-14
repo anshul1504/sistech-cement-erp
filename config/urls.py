@@ -319,3 +319,18 @@ urlpatterns += [
     path('complaints/<int:pk>/', cmv.complaint_detail, name='complaint_detail'),
     path('complaints/<int:pk>/do/<str:action>/', cmv.complaint_action, name='complaint_action'),
 ]
+
+from erp import beat_views as btv
+urlpatterns += [
+    path('territories/',btv.territories,name='territories'),
+    path('territories/new/<str:kind>/',btv.master_form,name='territory_new'),
+    path('territories/<str:kind>/<int:pk>/',btv.territory_action,name='territory_action'),
+    path('beats/',btv.plans,name='beat_plans'),
+    path('beats/new/',btv.plan_form,name='beat_new'),
+    path('beats/coverage/',btv.report,name='beat_report'),
+    path('beats/plans/<int:pk>/',btv.detail,name='beat_detail'),
+    path('beats/plans/<int:pk>/edit/',btv.plan_form,name='beat_edit'),
+    path('beats/plans/<int:pk>/<str:action>/',btv.plan_action,name='beat_action'),
+    path('beats/stops/<int:pk>/outcome/',btv.outcome,name='beat_outcome'),
+    path('beats/stops/<int:pk>/<str:action>/',btv.stop_action,name='beat_stop_action'),
+]

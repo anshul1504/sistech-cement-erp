@@ -3,6 +3,10 @@ from django.contrib.auth.models import Group, Permission
 
 ACTIONS = [('view', 'View'), ('create', 'Create'), ('edit', 'Edit'), ('submit', 'Submit'), ('approve', 'Approve'), ('post', 'Post'), ('cancel', 'Cancel'), ('export', 'Export')]
 MODULES = [
+    ('territories', 'Sales territories & ownership', {'view':'view_salesterritory','edit':'manage_salesterritory'}),
+    ('beats', 'Beat & visit plans', {'view':'view_beatplan','create':'add_beatplan','edit':'change_beatplan','submit':'submit_beatplan','approve':'approve_beatplan','export':'export_beatplan'}),
+    ('team_beats', 'Team field coverage', {'view':'view_team_beats'}),
+    ('beat_outcomes', 'Field visit outcomes', {'create':'record_beatstop','approve':'publish_beatpromise'}),
     ('schemes', 'Incentive scheme rules', {'view': 'view_incentivescheme', 'create': 'add_incentivescheme', 'edit': 'change_schemeversion', 'submit': 'submit_schemeversion', 'approve': 'approve_schemeversion'}),
     ('scheme_calculations', 'Incentive calculation previews', {'view': 'view_schemeevaluation', 'create': 'add_schemeevaluation', 'export': 'export_schemeevaluation'}),
     ('crm', 'Dealer CRM', {'view': 'view_crmlead', 'create': 'add_crmlead', 'edit': 'change_crmlead', 'export': 'export_crmlead'}),
@@ -74,7 +78,7 @@ MODULES = [
     ('organisation', 'Organisation setup', {'view': 'view_organization', 'edit': 'change_organization'}),
 ]
 MANAGED_CODES = {code for _, _, permissions in MODULES for code in permissions.values()}
-ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm', 'view_schemeevaluation', 'view_executive_dashboard'}
+ALL_VIEWS = {p['view'] for _, _, p in MODULES if 'view' in p} - {'access_company_finance', 'view_team_crm', 'view_schemeevaluation', 'view_executive_dashboard', 'view_team_beats'}
 PRESETS = {
     'Operations maker': ALL_VIEWS | {'create_sales_order', 'submit_sales_order', 'cancel_sales_order', 'post_sales_order', 'create_purchase_order', 'submit_purchase_order', 'cancel_purchase_order', 'post_purchase_order', 'add_production', 'complete_production', 'add_qualitytest'},
     'Operations approver': ALL_VIEWS | {'approve_stockcount', 'approve_stocktransfer', 'decide_damagereport', 'approve_purchaserequest', 'post_invoice', 'approve_sales_order', 'approve_purchase_order', 'post_sales_order', 'post_purchase_order', 'release_production'},
@@ -117,6 +121,12 @@ PRESETS['Sales executive'] |= {'view_returnrequest', 'add_returnrequest'}
 PRESETS['Sales manager'] |= {'view_returnrequest', 'add_returnrequest', 'approve_returnrequest'}
 PRESETS['Warehouse operator'] |= {'view_returnrequest', 'inspect_returnrequest'}
 PRESETS['Quality manager'] |= {'view_returnrequest', 'inspect_returnrequest'}
+PRESETS['Sales executive'] |= {'view_salesterritory','view_beatplan','add_beatplan','change_beatplan','submit_beatplan','record_beatstop'}
+PRESETS['Sales manager'] |= {'view_salesterritory','manage_salesterritory','view_beatplan','view_team_beats','add_beatplan','change_beatplan','submit_beatplan','approve_beatplan','record_beatstop','export_beatplan'}
+PRESETS['Finance controller'] |= {'view_salesterritory','view_beatplan','view_team_beats'}
+PRESETS['Accountant'] |= {'view_beatplan','view_team_beats','publish_beatpromise'}
+PRESETS['Internal auditor'] |= {'view_team_beats','export_beatplan'}
+PRESETS['Management'] |= {'view_team_beats'}
 PRESETS['Support desk'] = {'handle_supportticket'}
 
 

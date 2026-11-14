@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -2973,3 +2973,117 @@ class ReturnLine(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['request', 'invoice_line'], name='unique_return_invoice_line')]
+
+
+# ---------- Sales territories and field visit plans ----------
+class SalesTerritory(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='sales_territories')
+    code = models.CharField(max_length=30)
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=8, choices=[('state', 'State'), ('district', 'District'), ('area', 'Area / beat')])
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT, related_name='children')
+    state = models.CharField(max_length=2, choices=INDIAN_STATES, blank=True)
+    active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['site__code', 'code']
+        constraints = [models.UniqueConstraint(fields=['site', 'code'], name='unique_territory_site_code')]
+        permissions = [('manage_salesterritory', 'Manage sales territories and dated dealer assignments')]
+
+    def __str__(self): return f'{self.site.code} · {self.code} · {self.name}'
+
+
+class DealerTerritoryAssignment(models.Model):
+    territory = models.ForeignKey(SalesTerritory, on_delete=models.PROTECT, related_name='assignments')
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='dealer_territory_assignments')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='territory_assignments')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    starts_on = models.DateField(default=timezone.localdate)
+    ends_on = models.DateField(null=True, blank=True)
+    note = models.CharField(max_length=300)
+    end_note = models.CharField(max_length=300, blank=True)
+    ended_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-starts_on', '-pk']
+        constraints = [models.CheckConstraint(condition=models.Q(ends_on__isnull=True) | models.Q(ends_on__gte=models.F('starts_on')), name='territory_assignment_valid_dates')]
+
+    def __str__(self): return f'{self.partner.code} · {self.territory.code} · {self.owner.get_username()}'
+
+
+class BeatPlan(models.Model):
+    number = models.CharField(max_length=25, unique=True, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='beat_plans')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='beat_plans')
+    on = models.DateField(default=timezone.localdate)
+    title = models.CharField(max_length=120)
+    status = models.CharField(max_length=12, default='draft', choices=[('draft','Draft'),('submitted','Review pending'),('approved','Approved'),('finished','Finished'),('cancelled','Cancelled')])
+    revision = models.PositiveIntegerField(default=0)
+    decision_note = models.CharField(max_length=300, blank=True)
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    contributors = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='+', blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-on','-pk']
+        constraints = [models.UniqueConstraint(fields=['site','owner','on'], condition=~models.Q(status='cancelled'), name='one_live_daily_beat_plan')]
+        permissions = [('view_team_beats','View assigned-site team beat plans'), ('approve_beatplan','Approve or return beat plans'),
+                       ('submit_beatplan','Submit beat plans'), ('export_beatplan','Export scoped field visit reports')]
+
+    def __str__(self): return self.number
+
+
+BEAT_PURPOSES = [('visit','Dealer visit'),('order','Order enquiry'),('collection','Collection follow-up'),('complaint','Complaint follow-up')]
+BEAT_OUTCOMES = [('visited','Visit completed'),('enquiry','Order enquiry'),('promise','Payment promise reported'),('complaint','Complaint discussed')]
+
+
+class BeatStop(models.Model):
+    plan = models.ForeignKey(BeatPlan, on_delete=models.CASCADE, related_name='stops')
+    assignment = models.ForeignKey(DealerTerritoryAssignment, on_delete=models.PROTECT, related_name='stops')
+    sequence = models.PositiveSmallIntegerField()
+    purpose = models.CharField(max_length=12, choices=BEAT_PURPOSES, default='visit')
+    instructions = models.CharField(max_length=200, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True, editable=False)
+    status = models.CharField(max_length=10, default='planned', choices=[('planned','Planned'),('completed','Completed'),('missed','Missed')])
+    visited_on = models.DateField(null=True, blank=True)
+    outcome = models.CharField(max_length=12, choices=BEAT_OUTCOMES, blank=True)
+    note = models.TextField(blank=True)
+    next_action_on = models.DateField(null=True, blank=True)
+    promised_amount = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True, validators=POSITIVE)
+    promised_on = models.DateField(null=True, blank=True)
+    lead = models.ForeignKey(CRMLead, null=True, blank=True, on_delete=models.PROTECT, related_name='beat_stops')
+    order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.PROTECT, related_name='beat_stops')
+    complaint = models.ForeignKey(Complaint, null=True, blank=True, on_delete=models.PROTECT, related_name='beat_stops')
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    recorded_at = models.DateTimeField(null=True, blank=True)
+    collection_followup = models.OneToOneField(CollectionFollowUp, null=True, blank=True, on_delete=models.PROTECT, related_name='beat_stop')
+    followup_note = models.CharField(max_length=300, blank=True)
+    followed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    followed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['sequence','pk']
+        constraints = [models.UniqueConstraint(fields=['plan','assignment'],name='unique_beat_assignment_stop'),
+                       models.UniqueConstraint(fields=['plan','sequence'],name='unique_beat_stop_sequence')]
+        permissions = [('record_beatstop','Record assigned field visit outcomes'), ('publish_beatpromise','Review field promises into collections')]
+
+
+class BeatReview(models.Model):
+    plan = models.ForeignKey(BeatPlan, on_delete=models.PROTECT, related_name='reviews')
+    revision = models.PositiveIntegerField()
+    action = models.CharField(max_length=20)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    note = models.CharField(max_length=300)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at','-pk']

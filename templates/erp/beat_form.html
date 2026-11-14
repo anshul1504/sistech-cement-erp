@@ -1,0 +1,9 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_beat_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page crm-page beat-page"><div class="org-head"><div><div class="eyebrow"><a href="{% url back %}">← FIELD SALES</a></div><h1>{{ title }}</h1><p>{{ description }}</p></div></div>
+<form method="post" class="org-card crm-card crm-form" novalidate>{% csrf_token %}
+{% for error in form.non_field_errors %}<div class="org-alert" role="alert">{{ error }}</div>{% endfor %}
+<div class="org-grid">{% for field in form %}<div class="org-field{% if field.name == 'note' or field.name == 'instructions' %} is-wide{% endif %}{% if field.errors %} has-error{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<small class="form-text">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<div class="org-error">{{ error }}</div>{% endfor %}</div>{% endfor %}</div>
+<div class="crm-form-actions"><a class="org-btn is-light" href="{% url back %}">Cancel</a><button class="org-btn is-primary" type="submit">Save</button></div></form></div>
+{% endblock %}

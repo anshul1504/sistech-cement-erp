@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.17.5'
+ASSET_VERSION = '0.18.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -31,6 +31,7 @@ NAV_GROUPS = [
         _item('crm_leads', 'Dealer CRM', 'crm', 'view_crmlead', match=('crm_lead_new', 'crm_lead_edit', 'crm_lead_detail', 'crm_applications', 'crm_application_detail', 'crm_application_edit', 'crm_performance', 'crm_policy', 'crm_review_detail', 'crm_performance_detail')),
         _item('influencers', 'Masons & contractors', 'hardhat', 'view_influencer',
               match=('influencer_districts', 'influencer_dealers', 'influencers_new', 'influencer_import', 'influencer_detail', 'influencers_edit')),
+        _item('beat_plans', 'Territories & visits', 'truck', 'view_beatplan', match=('territories','territory_new','beat_new','beat_detail','beat_edit','beat_outcome','beat_report')),
         _item('returns', 'Customer returns', 'truck', 'view_returnrequest', match=('return_new', 'return_detail')),
         _item('complaints', 'Complaints & CAPA', 'shield', 'view_complaint', match=('complaint_new', 'complaint_detail')),
         _item('recognition', 'Star programmes', 'gift', 'view_recognitionprogram', match=('recognition_detail', 'recognition_action', 'influencer_usage')),
@@ -159,6 +160,8 @@ def navigation(request):
             groups.append({'label': label, 'items': visible, 'live': any(not i['soon'] for i in visible)})
 
     quick_create = []
+    if user.has_perm('erp.add_beatplan'):
+        quick_create.append(('Daily beat plan', reverse('beat_new'), 'truck'))
     if user.has_perm('erp.add_returnrequest'):
         quick_create.append(('Customer return', reverse('return_new'), 'truck'))
     if user.has_perm('erp.add_crmlead'):

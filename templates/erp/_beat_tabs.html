@@ -1,0 +1,5 @@
+<nav class="crm-tabs" aria-label="Field sales">
+{% if perms.erp.view_beatplan %}<a class="org-btn {% if tab == 'plans' %}is-primary{% else %}is-light{% endif %}" href="{% url 'beat_plans' %}">Daily visit plans</a>{% endif %}
+{% if perms.erp.view_salesterritory %}<a class="org-btn {% if tab == 'territories' %}is-primary{% else %}is-light{% endif %}" href="{% url 'territories' %}">Territories &amp; ownership</a>{% endif %}
+{% if perms.erp.view_beatplan %}<a class="org-btn {% if tab == 'report' %}is-primary{% else %}is-light{% endif %}" href="{% url 'beat_report' %}">Coverage &amp; follow-ups</a>{% endif %}
+</nav>

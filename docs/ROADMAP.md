@@ -108,7 +108,11 @@ ledger-credit or bank payouts with maker-checker, dealer scheme statement.
 independent finance credit, good/damaged stock separation at exact original dispatch value, retry protection and scoped queues.
 See [Customer returns and migration verification](CUSTOMER_RETURNS.md).
 
-Remaining in Step 8: territory hierarchy / beat plan, unified project pipeline, collection routes, dealer portal (with Step 10 apps).
+✅ Territory & beat planning: site-scoped state/district/area hierarchy, dated dealer ownership, independently approved
+daily routes, immutable visit/missed outcomes, retained review snapshots, field follow-ups and coverage gaps.
+Collection promises enter the collections desk only after independent finance review. See [Territories & beats](TERRITORIES_BEATS.md).
+
+Remaining in Step 8: unified project pipeline, recurring/optimized visits, cash pickup/receipting routes, dealer portal (with Step 10 apps).
 
 ### Step 9 — Dashboards & reports (§11)
 Executive, sales, stock, dispatch, plant, quality, finance and credit dashboards with drill-down to source documents.
