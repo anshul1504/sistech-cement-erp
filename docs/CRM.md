@@ -62,3 +62,5 @@ python manage.py makemigrations --check --dry-run
 python manage.py test
 RUN_BROWSER_TESTS=1 python manage.py test erp.test_crm_browser erp.test_business_browser erp.test_finance_browser accounts.test_browser
 ```
+
+Policy UI follow-up: required-document options now use compact native checkboxes inside labelled, selected-state cards, with a separate GSTIN setting and responsive single-column layout. The browser regression checks all nine checkbox dimensions at each viewport, label toggling and GSTIN persistence after saving. CRM workflow tests (22) and the opt-in CRM browser test passed after this fix.

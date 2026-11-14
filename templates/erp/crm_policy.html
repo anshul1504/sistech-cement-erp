@@ -1,0 +1,18 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_crm_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page crm-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'crm_leads' %}">← Dealer CRM</a></div><h1>{{ title }}</h1><p>Set the evidence your team must collect before a customer can be approved.</p></div></div>
+  {% include 'erp/_crm_tabs.html' with tab='policy' %}
+  <form method="post" class="org-card crm-card crm-policy" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="org-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <fieldset class="crm-policy-group"><legend>Required documents</legend><p id="document-help" class="crm-note">Select the documents required for every application. Leave a document unchecked to make it optional.</p>
+      <div class="crm-policy-options" aria-describedby="document-help">{% for option in form.required_documents %}<label class="crm-policy-option" for="{{ option.id_for_label }}">{{ option.tag }}<span>{{ option.choice_label }}</span></label>{% endfor %}</div>
+      {% for error in form.required_documents.errors %}<div class="org-error" role="alert">{{ error }}</div>{% endfor %}
+    </fieldset>
+    <section class="crm-policy-registration" aria-labelledby="registration-heading"><h2 id="registration-heading">GST registration</h2><label class="crm-policy-option" for="{{ form.require_gstin.id_for_label }}">{{ form.require_gstin }}<span><strong>{{ form.require_gstin.label }}</strong><small>Every new submission must include a GSTIN and its certificate when enabled.</small></span></label>{% for error in form.require_gstin.errors %}<div class="org-error" role="alert">{{ error }}</div>{% endfor %}</section>
+    <div class="crm-policy-info"><strong>Additional evidence rules</strong><p>A GST certificate is required whenever a GSTIN is supplied. A cancelled cheque is required whenever bank account details are supplied.</p><p>Saved changes apply to new submissions and resubmissions. Existing reviews keep their submitted policy version.</p></div>
+    <div class="crm-form-actions"><a class="org-btn is-light" href="{% url 'crm_leads' %}">Cancel</a><button class="org-btn is-primary" type="submit">Save policy</button></div>
+  </form>
+</div>
+{% endblock %}

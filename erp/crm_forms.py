@@ -12,7 +12,7 @@ PROTECTED_CUSTOMER_FIELDS = ['kind', 'name', 'gstin', 'pan', 'address', 'city', 
 
 def style(form):
     for field in form.fields.values():
-        field.widget.attrs.setdefault('class', 'form-check-input' if isinstance(field.widget, forms.CheckboxInput) else 'form-select' if isinstance(field.widget, forms.Select) else 'form-control')
+        field.widget.attrs.setdefault('class', 'form-check-input' if isinstance(field.widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple)) else 'form-select' if isinstance(field.widget, forms.Select) else 'form-control')
     return form
 
 
@@ -81,6 +81,7 @@ class PolicyForm(forms.ModelForm):
     class Meta:
         model = CRMPolicy
         fields = ['required_documents', 'require_gstin']
+        labels = {'require_gstin': 'Require GSTIN for all new submissions'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -2,5 +2,5 @@
   {% if perms.erp.view_crmlead %}<a class="org-btn {% if tab == 'leads' %}is-primary{% else %}is-light{% endif %}" {% if tab == 'leads' %}aria-current="page"{% endif %} href="{% url 'crm_leads' %}">Pipeline &amp; follow-ups</a>{% endif %}
   {% if perms.erp.view_dealerapplication %}<a class="org-btn {% if tab == 'applications' %}is-primary{% else %}is-light{% endif %}" {% if tab == 'applications' %}aria-current="page"{% endif %} href="{% url 'crm_applications' %}">Dealer onboarding</a>{% endif %}
   {% if perms.erp.view_crmperformance %}<a class="org-btn {% if tab == 'performance' %}is-primary{% else %}is-light{% endif %}" {% if tab == 'performance' %}aria-current="page"{% endif %} href="{% url 'crm_performance' %}">Targets &amp; performance</a>{% endif %}
-  {% if perms.erp.manage_crmpolicy %}<a class="org-btn is-light" href="{% url 'crm_policy' %}">Onboarding policy</a>{% endif %}
+  {% if perms.erp.manage_crmpolicy %}<a class="org-btn {% if tab == 'policy' %}is-primary{% else %}is-light{% endif %}" {% if tab == 'policy' %}aria-current="page"{% endif %} href="{% url 'crm_policy' %}">Onboarding policy</a>{% endif %}
 </nav>

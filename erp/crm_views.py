@@ -254,7 +254,7 @@ def policy(request):
         crm.save_policy(request.user, form.cleaned_data['required_documents'], form.cleaned_data['require_gstin'])
         messages.success(request, 'Onboarding policy version updated. New submissions use the new policy; existing reviews retain their submitted policy.')
         return redirect('crm_policy')
-    return render(request, 'erp/crm_form.html', dict(title='Dealer onboarding policy', form=form, back='crm_leads', submit='Save policy',
+    return render(request, 'erp/crm_policy.html', dict(title='Dealer onboarding policy', form=form, back='crm_leads', submit='Save policy',
         description='Choose the company’s required evidence. GST certificates are also required when a GSTIN is supplied; cancelled cheques when bank details are supplied. These are manual reviews, not external registry verification.'))
 
 

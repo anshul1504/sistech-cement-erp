@@ -66,3 +66,20 @@
 @container crm (max-width:760px) { .crm-layout { grid-template-columns:minmax(0,1fr); } .crm-stage-strip { grid-template-columns:repeat(3,minmax(0,1fr)); } .crm-lead-row, .crm-lead-row.is-application { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .crm-main { grid-column:1 / -1; } .crm-checklist .form-control { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:767.98px) { .crm-tabs .org-btn { flex:1 1 140px; } .crm-filters, .crm-filters.is-short { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-filters > div:first-child, .crm-filters > button { grid-column:1 / -1; } .crm-filters .form-control, .crm-filters .form-select, .crm-form input, .crm-form select { font-size:16px; } .crm-details { grid-template-columns:minmax(0,1fr); } .crm-review-steps { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-card { padding:18px 16px; } .crm-performance-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-inline-filter { justify-content:flex-start; width:100%; } .crm-inline-filter input { flex:1 1 140px; } }
 @container crm (max-width:340px) { .crm-filters, .crm-filters.is-short { grid-template-columns:minmax(0,1fr); } .crm-stage-strip { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+/* Policy options use native checkboxes rather than text-field dimensions. */
+.crm-policy-group { border:0; padding:0; margin:0; min-width:0; }
+.crm-policy-group legend { float:none; width:auto; margin:0 0 6px; color:#082859; font-size:16px; font-weight:600; }
+.crm-policy-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.crm-policy .crm-policy-option { display:flex; align-items:center; gap:12px; min-height:58px; padding:14px 16px; margin:0; border:1px solid #dce3ee; border-radius:10px; color:#34445c; background:#fff; font-size:13px; cursor:pointer; }
+.crm-policy-option > span { min-width:0; overflow-wrap:anywhere; }
+.crm-policy .crm-policy-option input[type=checkbox] { appearance:auto; -webkit-appearance:checkbox; flex:0 0 18px; width:18px; height:18px; min-height:18px; padding:0; margin:0; border-radius:4px; accent-color:#073777; box-shadow:none; cursor:pointer; }
+.crm-policy-option:has(input:checked) { border-color:#073777; background:#f0f5fc; }
+.crm-policy-option:has(input:focus-visible) { outline:3px solid #f5bd22; outline-offset:3px; }
+.crm-policy-registration { margin-top:24px; padding-top:24px; border-top:1px solid #e7ecf3; }
+.crm-policy-registration h2 { margin-bottom:12px; }
+.crm-policy-option strong { display:block; font-size:13px; font-weight:600; }
+.crm-policy-option small { display:block; margin-top:4px; font-size:12px; color:#657389; }
+.crm-policy-info { margin-top:20px; padding:16px; border-radius:10px; background:#f7f9fc; border-left:3px solid #f5bd22; font-size:12px; }
+.crm-policy-info p { margin:6px 0 0; color:#657389; }
+.crm-policy .crm-form-actions { margin-top:24px; }
+@container crm (max-width:600px) { .crm-policy-options { grid-template-columns:minmax(0,1fr); } }
