@@ -1,3 +1,4 @@
+from accounts.delegation import authorize, can_approve
 from decimal import Decimal
 from .gst import inr
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -76,7 +77,10 @@ def transition_order(user, pk, action, **data):
     order = scope(Order.objects.select_for_update(), user).get(pk=pk)
     from accounts.roles import order_permission
     from . import sales
-    if action in ['submit', 'approve', 'post', 'cancel', 'close'] and not order_permission(user, order.kind, 'post' if action == 'close' else action):
+    if action == 'approve':
+        authorize(user, 'approve_sales_order' if order.kind == 'Sale' else 'approve_purchase_order', order.site,
+                  makers=(order.created_by_id,), reference=order.number)
+    if action in ['submit', 'post', 'cancel', 'close'] and not order_permission(user, order.kind, 'post' if action == 'close' else action):
         raise PermissionDenied
     reason = (data.get('reason') or '').strip()
     fields = ['status', 'approved_by']
@@ -104,8 +108,10 @@ def transition_order(user, pk, action, **data):
             _purchase_checks(order)
             from .procurement import approval_limit
             limit = approval_limit()
-            if order.grand_total > limit and not user.has_perm('erp.approve_high_value_purchase'):
+            if order.grand_total > limit and not can_approve(user, 'approve_high_value_purchase', order.site, makers=(order.created_by_id,)):
                 raise ValidationError(f'PO value ₹{inr(order.grand_total, 0)} is above the ₹{inr(limit, 0)} approval limit — a senior purchase approver must approve it.')
+            if order.grand_total > limit:
+                authorize(user, 'approve_high_value_purchase', order.site, makers=(order.created_by_id,), reference=order.number)
             order.status, order.approved_by = 'Approved', user
     elif action == 'post':
         if order.status != 'Approved': raise ValidationError('Only approved orders can be posted, once.')

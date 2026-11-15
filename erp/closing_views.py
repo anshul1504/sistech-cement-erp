@@ -1,4 +1,5 @@
 """Reviewable month-end and year-end workflows for central finance."""
+from accounts.delegation import can_approve
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -42,8 +43,8 @@ def period_detail(request, pk):
     return render(request, 'erp/period_detail.html', dict(title=f'{period} close review', period=period, result=result, review=review,
         reviews=period.reviews.select_related('prepared_by', 'approved_by').order_by('-prepared_at', '-pk'),
         can_prepare=request.user.has_perm('erp.prepare_periodclose') and period.status == 'open',
-        can_approve=request.user.has_perm('erp.close_period') and period.status == 'open' and review and not review.approved_at and review.prepared_by_id != request.user.pk and not result['blockers'],
-        can_reopen=request.user.has_perm('erp.close_period') and period.status == 'closed',
+        can_approve=can_approve(request.user, 'close_period', makers=(review.prepared_by_id,) if review else ()) and period.status == 'open' and review and not review.approved_at and review.prepared_by_id != request.user.pk and not result['blockers'],
+        can_reopen=can_approve(request.user, 'close_period') and period.status == 'closed',
         banks=Account.objects.filter(is_bank=True).exclude(system_key='cash'),
         history=AuditEvent.objects.filter(reference=str(period), action__startswith='Period').select_related('actor').order_by('-created_at')[:20]))
 
@@ -83,9 +84,9 @@ def year_detail(request, pk):
         submissions=row.history.select_related('actor'),
         months=FinancialPeriod.objects.filter(start__gte=row.start, end__lte=row.end),
         history=AuditEvent.objects.filter(reference=str(row)).select_related('actor').order_by('-created_at')[:30],
-        can_decide=row.status == 'proposed' and request.user.has_perm('erp.approve_yearclose') and row.prepared_by_id != request.user.pk,
+        can_decide=row.status == 'proposed' and can_approve(request.user, 'approve_yearclose', makers=(row.prepared_by_id,)) and row.prepared_by_id != request.user.pk,
         can_request_reopen=row.status == 'closed' and request.user.has_perm('erp.prepare_yearclose'),
-        can_decide_reopen=row.status == 'reopen_requested' and request.user.has_perm('erp.approve_yearclose') and row.reopen_requested_by_id != request.user.pk))
+        can_decide_reopen=row.status == 'reopen_requested' and can_approve(request.user, 'approve_yearclose', makers=(row.prepared_by_id, row.reopen_requested_by_id)) and row.reopen_requested_by_id != request.user.pk))
 
 
 @login_required

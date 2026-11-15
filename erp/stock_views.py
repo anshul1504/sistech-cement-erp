@@ -1,4 +1,5 @@
 """Inventory screens: stock position by state, stock card (ledger with running balance and cost), transfers, damaged stock."""
+from accounts.delegation import can_approve
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -220,7 +221,7 @@ def damage_detail(request, pk):
     d = get_object_or_404(scope(DamageReport.objects.select_related('site', 'product', 'created_by', 'decided_by'), request.user), pk=pk)
     return render(request, 'erp/damage_detail.html', {'title': d.number, 'd': d,
                                                       'history': AuditEvent.objects.filter(reference=d.number).select_related('actor').order_by('-created_at')[:10],
-                                                      'can_decide': d.status == 'reported' and request.user.has_perm('erp.decide_damagereport') and d.created_by_id != request.user.pk})
+                                                      'can_decide': d.status == 'reported' and can_approve(request.user, 'decide_damagereport', d.site, makers=(d.created_by_id,)) and d.created_by_id != request.user.pk})
 
 
 @login_required
@@ -286,7 +287,7 @@ def count_detail(request, pk):
     lines = list(c.lines.select_related('product'))
     u = request.user
     entering = c.status in ('counting', 'recount') and u.has_perm('erp.add_stockcount')
-    reviewing = c.status == 'submitted' and u.has_perm('erp.approve_stockcount') and c.submitted_by_id != u.pk
+    reviewing = c.status == 'submitted' and can_approve(u, 'approve_stockcount', c.site, makers=(c.submitted_by_id,)) and c.submitted_by_id != u.pk
     show_system = not c.blind or c.status in ('submitted', 'posted', 'cancelled') and not entering or reviewing
     return render(request, 'erp/count_detail.html', {
         'title': c.number, 'c': c, 'lines': lines, 'entering': entering, 'reviewing': reviewing, 'show_system': show_system,

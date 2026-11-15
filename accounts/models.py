@@ -73,3 +73,39 @@ class EmergencyContact(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.get_relationship_display()})'
+
+
+class ApprovalDelegation(models.Model):
+    """Immutable authority window; revocation retains the original grant and its uses."""
+    principal = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='approval_delegations_given')
+    deputy = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='approval_delegations_received')
+    permission = models.CharField(max_length=80)
+    site = models.ForeignKey('erp.Site', null=True, blank=True, on_delete=models.PROTECT)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    reason = models.CharField(max_length=250)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    revocation_reason = models.CharField(max_length=250, blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        constraints = [
+            models.CheckConstraint(condition=models.Q(ends_at__gt=models.F('starts_at')), name='delegation_positive_window'),
+            models.CheckConstraint(condition=~models.Q(principal=models.F('deputy')), name='delegation_distinct_people'),
+        ]
+
+    def __str__(self):
+        return f'DEL-{self.pk}'
+
+
+class ApprovalDelegationUse(models.Model):
+    delegation = models.ForeignKey(ApprovalDelegation, on_delete=models.PROTECT, related_name='uses')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    reference = models.CharField(max_length=160)
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-used_at', '-pk']

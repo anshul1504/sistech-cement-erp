@@ -1,4 +1,5 @@
 """Quotation screens: list, form, printable quotation with GST, approval, outcome, revisions, WhatsApp share and conversion."""
+from accounts.delegation import can_approve
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import quote as urlquote
@@ -130,7 +131,7 @@ def quotation_detail(request, pk):
         'whatsapp': f'https://wa.me/91{phone}?text={urlquote(msg)}' if len(phone) == 10 and st in ('ready', 'sent') else '',
         'history': AuditEvent.objects.filter(reference=q.number).select_related('actor').order_by('-created_at')[:12],
         'can': {'edit': st == 'draft' and u.has_perm('erp.change_quotation'), 'submit': st == 'draft' and u.has_perm('erp.change_quotation'),
-                'approve': st == 'approval' and u.has_perm('erp.approve_quotation') and q.created_by_id != u.pk,
+                'approve': st == 'approval' and can_approve(u, 'approve_quotation', q.site, makers=(q.created_by_id,)) and q.created_by_id != u.pk,
                 'send': st == 'ready' and u.has_perm('erp.change_quotation'), 'outcome': st == 'sent' and u.has_perm('erp.change_quotation'),
                 'revise': st in ('approval', 'ready', 'sent', 'accepted', 'rejected', 'expired') and u.has_perm('erp.add_quotation') and not hasattr(q, 'next_revision'),
                 'convert': st == 'accepted' and u.has_perm('erp.create_sales_order')}})

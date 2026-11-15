@@ -67,6 +67,7 @@ DETAIL_ROUTES = {
     'member_status': 'member_detail', 'member_sign_out': 'member_detail',
     'member_set_password': 'member_detail', 'role_delete': 'roles', 'role_duplicate': 'roles',
     'scheme_payout_decide': 'scheme_payouts', 'scheme_payout_new': 'scheme_payouts',
+    'delegation_revoke': 'delegation_detail',
 }
 
 
@@ -95,6 +96,7 @@ def sensitive(request, match):
         'partners_new', 'partners_edit', 'organization_edit', 'crm_application_edit',
         'scheme_payout_new', 'scheme_payout_decide', 'damage_decide',
         'member_new', 'member_edit', 'member_status', 'member_set_password',
+        'delegation_new', 'delegation_revoke',
         'role_new', 'role_edit', 'role_delete', 'role_duplicate',
         'prices_new', 'prices_edit', 'price_revise', 'price_end',
     }:

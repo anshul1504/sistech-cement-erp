@@ -10,6 +10,7 @@ Controls:
   dealer's outstanding and settles invoices like a credit note, a bank payout needs the UTR;
 - the dealer statement shows earned, pending approval, paid and recovered amounts (FR-INC-010).
 """
+from accounts.delegation import authorize, can_approve
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -80,9 +81,10 @@ def create_batch(user, evaluation_pk, note=''):
 
 @transaction.atomic
 def decide_batch(user, pk, approve, note=''):
-    _need(user, 'approve_schemeentitlementbatch')
+    require_company_finance(user)
     b = SchemeEntitlementBatch.objects.select_for_update().select_related('version__scheme__site').get(pk=pk)
     require_site(user, b.version.scheme.site)
+    authorize(user, 'approve_schemeentitlementbatch', b.version.scheme.site, makers=(b.created_by_id, b.evaluation.created_by_id), reference=str(b))
     if b.status != 'submitted':
         raise ValidationError('Only batches waiting for approval can be decided.')
     if user.pk in (b.created_by_id, b.evaluation.created_by_id):
@@ -144,8 +146,9 @@ def propose_payout(user, partner, mode, bank=None, note=''):
 
 @transaction.atomic
 def decide_payout(user, pk, approve, reference='', note=''):
-    _need(user, 'approve_schemesettlement')
+    require_company_finance(user)
     s = SchemeSettlement.objects.select_for_update().select_related('partner', 'bank').get(pk=pk)
+    authorize(user, 'approve_schemesettlement', makers=(s.created_by_id,), reference=s.number)
     if s.status != 'proposed':
         raise ValidationError('Only proposed payouts can be decided.')
     if s.created_by_id == user.pk:

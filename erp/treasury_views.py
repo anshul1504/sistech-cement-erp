@@ -1,4 +1,5 @@
 """Treasury screens: supplier payments, bank file, bank reconciliation, GST summary, fixed assets, cash flow."""
+from accounts.delegation import can_approve
 import csv
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -82,10 +83,10 @@ def payment_detail(request, pk):
     return render(request, 'erp/payment_detail.html', {'title': pay.number, 'pay': pay,
                                                        'allocs': pay.allocations.select_related('supplier_invoice', 'freight_bill', 'debit_note', 'fixed_asset'),
                                                        'history': AuditEvent.objects.filter(reference=pay.number).select_related('actor').order_by('-created_at')[:10],
-                                                       'can': {'decide': pay.status == 'proposed' and u.has_perm('erp.approve_supplierpayment') and pay.created_by_id != u.pk,
-                                                               'cancel': pay.status == 'approved' and u.has_perm('erp.approve_supplierpayment') and pay.created_by_id != u.pk,
-                                                               'release': pay.status == 'approved' and u.has_perm('erp.release_supplierpayment') and pay.created_by_id != u.pk,
-                                                               'fail': pay.status == 'paid' and u.has_perm('erp.release_supplierpayment')}})
+                                                       'can': {'decide': pay.status == 'proposed' and can_approve(u, 'approve_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
+                                                               'cancel': pay.status == 'approved' and can_approve(u, 'approve_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
+                                                               'release': pay.status == 'approved' and can_approve(u, 'release_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
+                                                               'fail': pay.status == 'paid' and can_approve(u, 'release_supplierpayment', makers=(pay.created_by_id,))}})
 
 
 @login_required

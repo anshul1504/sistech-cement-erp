@@ -8,6 +8,7 @@ Controls:
 - statement rows are imported once (duplicate rows ignored); a ledger line can be matched to one statement row only;
 - depreciation posts once per asset per month; disposal books gain or loss against book value.
 """
+from accounts.delegation import authorize, can_approve
 import calendar
 import csv
 import io
@@ -141,8 +142,9 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
 
 @transaction.atomic
 def decide(user, pk, approve, note=''):
-    _need(user, 'approve_supplierpayment')
+    require_company_finance(user)
     pay = SupplierPayment.objects.select_for_update().select_related('payee').get(pk=pk)
+    authorize(user, 'approve_supplierpayment', makers=(pay.created_by_id,), reference=pay.number)
     if pay.status != 'proposed' and not (not approve and pay.status == 'approved'):
         raise ValidationError('Only proposed payments can be approved; proposed or approved payments can be cancelled.')
     if pay.created_by_id == user.pk:
@@ -158,8 +160,9 @@ def decide(user, pk, approve, note=''):
 
 @transaction.atomic
 def release(user, pk, reference, on=None):
-    _need(user, 'release_supplierpayment')
+    require_company_finance(user)
     pay = SupplierPayment.objects.select_for_update().select_related('payee', 'bank').get(pk=pk)
+    authorize(user, 'release_supplierpayment', makers=(pay.created_by_id,), reference=pay.number)
     if pay.status != 'approved':
         raise ValidationError('Only approved payments can be released.')
     if pay.created_by_id == user.pk:
@@ -188,8 +191,9 @@ def release(user, pk, reference, on=None):
 
 @transaction.atomic
 def fail(user, pk, reason):
-    _need(user, 'release_supplierpayment')
+    require_company_finance(user)
     pay = SupplierPayment.objects.select_for_update().get(pk=pk)
+    authorize(user, 'release_supplierpayment', makers=(pay.created_by_id,), reference=pay.number)
     if pay.status != 'paid':
         raise ValidationError('Only released payments can be marked failed.')
     if not (reason or '').strip():

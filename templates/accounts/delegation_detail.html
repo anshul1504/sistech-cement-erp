@@ -1,0 +1,19 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'delegations' %}">← Approval delegations</a></div><h1>{{ grant }}</h1><p>{{ grant.action_label }} · {{ grant.state }}</p></div></div>
+  <section class="org-card org-view"><dl>
+    <div><dt>Principal</dt><dd>{{ grant.principal }}</dd></div><div><dt>Deputy</dt><dd>{{ grant.deputy }}</dd></div>
+    <div><dt>Scope</dt><dd>{{ grant.site|default:'Company finance' }}</dd></div>
+    <div><dt>Starts</dt><dd>{{ grant.starts_at|date:'d M Y, H:i T' }}</dd></div><div><dt>Ends</dt><dd>{{ grant.ends_at|date:'d M Y, H:i T' }}</dd></div>
+    <div><dt>Recorded by</dt><dd>{{ grant.created_by }} · {{ grant.created_at|date:'d M Y, H:i T' }}</dd></div>
+    <div class="is-wide"><dt>Reason</dt><dd>{{ grant.reason }}</dd></div>
+    {% if grant.revoked_at %}<div class="is-wide"><dt>Revoked</dt><dd>{{ grant.revoked_by }} · {{ grant.revoked_at|date:'d M Y, H:i T' }} · {{ grant.revocation_reason }}</dd></div>{% endif %}
+  </dl><p class="form-text">Being in the date window does not guarantee approval: both people must retain valid access, and the transaction must pass its normal checks. Earlier uses remain recorded after expiry or revocation.</p></section>
+  {% if user.is_superuser %}
+  {% if not grant.revoked_at %}<form method="post" action="{% url 'delegation_revoke' grant.pk %}" class="org-card">{% csrf_token %}<label class="form-label" for="revoke-reason">Reason to revoke</label><input id="revoke-reason" class="form-control" name="reason" maxlength="250" required><div class="org-actions"><button class="org-btn is-light" type="submit">Revoke delegation</button></div></form>{% endif %}
+  <section class="org-card"><h2>Retained approval uses</h2><div class="table-responsive"><table class="table"><thead><tr><th>Document</th><th>Actual approver</th><th>Used at</th></tr></thead><tbody>{% for use in uses %}<tr><td>{{ use.reference }}</td><td>{{ use.actor }}</td><td>{{ use.used_at|date:'d M Y, H:i T' }}</td></tr>{% empty %}<tr><td colspan="3">No recorded uses.</td></tr>{% endfor %}</tbody></table></div></section>
+  {% endif %}
+</div>
+{% endblock %}

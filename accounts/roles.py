@@ -144,5 +144,8 @@ def initialize_roles(update=False):
             group.permissions.set(Permission.objects.filter(content_type__app_label='erp', codename__in=codes))
 
 
-def order_permission(user, kind, action):
+def order_permission(user, kind, action, site=None, makers=()):
+    if action == 'approve' and site is not None:
+        from .delegation import can_approve
+        return can_approve(user, f'approve_{"sales" if kind == "Sale" else "purchase"}_order', site, makers=makers)
     return user.has_perm(f'erp.{action}_{"sales" if kind == "Sale" else "purchase"}_order')

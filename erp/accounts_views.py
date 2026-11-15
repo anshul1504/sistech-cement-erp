@@ -1,4 +1,5 @@
 """Accounts screens: journals and vouchers, trial balance, profit & loss, balance sheet, account ledger, chart of accounts, periods."""
+from accounts.delegation import can_approve
 import csv
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -68,7 +69,7 @@ def journal_detail(request, pk):
     from .journal_sources import document_link
     return render(request, 'erp/journal_detail.html', {'title': je.number, 'je': je, 'source_document': document_link(je, u), 'lines': je.lines.select_related('account', 'partner'),
                                                        'reversed_by': getattr(je, 'reversed_by', None),
-                                                       'can_decide': je.kind == 'manual' and je.status == 'draft' and u.has_perm('erp.approve_journalentry') and je.created_by_id != u.pk,
+                                                       'can_decide': je.kind == 'manual' and je.status == 'draft' and can_approve(u, 'approve_journalentry', makers=(je.created_by_id,)) and je.created_by_id != u.pk,
                                                        'can_reverse': je.kind == 'manual' and je.source is None and je.status == 'posted' and not hasattr(je, 'reversed_by') and je.reversal_of_id is None and u.has_perm('erp.add_journalentry') and u.has_perm('erp.approve_journalentry')})
 
 
@@ -211,7 +212,7 @@ def periods(request):
     for p in rows:
         p.vouchers = JournalEntry.objects.filter(date__range=(p.start, p.end), status='posted').count()
         p.drafts = JournalEntry.objects.filter(date__range=(p.start, p.end), status='draft').count()
-    return render(request, 'erp/periods.html', {'title': 'Periods & close', 'periods': rows, 'checks': gl.subledger_check(), 'can_close': request.user.has_perm('erp.close_period')})
+    return render(request, 'erp/periods.html', {'title': 'Periods & close', 'periods': rows, 'checks': gl.subledger_check(), 'can_close': can_approve(request.user, 'close_period')})
 
 
 @login_required

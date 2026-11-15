@@ -7,6 +7,7 @@ Controls:
 - an expired quotation cannot be accepted; only an accepted quotation for a registered customer converts, once, into a draft
   sales order that still goes through the normal credit / approval workflow.
 """
+from accounts.delegation import authorize, can_approve
 from datetime import timedelta
 from decimal import Decimal
 
@@ -113,8 +114,8 @@ def submit(user, pk):
 
 @transaction.atomic
 def approve(user, pk, ok, note=''):
-    _need(user, 'approve_quotation')
     q = _lock(user, pk)
+    authorize(user, 'approve_quotation', q.site, makers=(q.created_by_id,), reference=q.number)
     if q.status != 'approval':
         raise ValidationError('This quotation is not waiting for price approval.')
     if q.created_by_id == user.pk:

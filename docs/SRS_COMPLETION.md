@@ -9,7 +9,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 | Area | Implemented baseline | Remaining scope / acceptance gate |
 |---|---|---|
-| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated approval delegation; remaining cross-module audit; approval reassignment; security acceptance |
+| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated delegation for configured risk actions implemented; remaining approval integrations and cross-module audit; approval reassignment; security acceptance |
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
 | CRM (§5.1) | Leads, onboarding, KYC review, targets, territories/beats, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
@@ -42,4 +42,6 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 - Scheme finance/site boundaries and preserved custom role assignments: commit 3271810.
 - Temporary-access expiry: developer verified (405 full-suite tests passed; eight optional browser checks skipped; authentication browser and seven expiry checks passed explicitly); see [access hardening](ACCESS_HARDENING.md).
 
-- Sensitive web reauthentication: implemented; see [controls and verification](SENSITIVE_AUTHENTICATION.md). Dated delegation and approval reassignment remain next in the access workstream.
+- Sensitive web reauthentication: implemented; see [controls and verification](SENSITIVE_AUTHENTICATION.md). Dated delegation for configured risk actions is now implemented; remaining approval integrations and unavailable-staff reassignment remain in the access workstream.
+
+- Dated approval delegation: 15 configured action types, retained actual approver/use history, expiry/revocation, maker-checker and queue controls; see [scope and evidence](APPROVAL_DELEGATION.md).

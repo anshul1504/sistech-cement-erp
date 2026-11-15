@@ -4,8 +4,13 @@ from django.views.generic import TemplateView, RedirectView
 from . import auth_views as av, views as v, account_views as acc
 
 from .reauth_views import reauthenticate
+from . import delegation_views as dv
 
 urlpatterns = [
+    path('access/delegations/', dv.delegations, name='delegations'),
+    path('access/delegations/new/', dv.delegation_new, name='delegation_new'),
+    path('access/delegations/<int:pk>/', dv.delegation_detail, name='delegation_detail'),
+    path('access/delegations/<int:pk>/revoke/', dv.delegation_revoke, name='delegation_revoke'),
     path('confirm-identity/', reauthenticate, name='reauthenticate'),
     path('login/', av.SignInView.as_view(), name='login'),
     path('otp/verify/', av.OTPVerifyView.as_view(), name='otp_verify'),

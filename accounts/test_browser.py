@@ -22,6 +22,11 @@ class BrowserFlowTests(StaticLiveServerTestCase):
         admin = User.objects.get(username='admin')
         admin.email = 'admin@example.com'
         admin.save(update_fields=['email'])
+        from erp.models import Site
+        from django.utils import timezone
+        from datetime import timedelta
+        deputy_id = User.objects.get(username='operator').pk
+        delegation_site_id = Site.objects.filter(siteaccess__user_id=deputy_id).first().pk
         role_id = Group.objects.get(name='Sales executive').pk
         out = settings.BASE_DIR / 'test-results'
         out.mkdir(exist_ok=True)
@@ -62,6 +67,7 @@ class BrowserFlowTests(StaticLiveServerTestCase):
                 ('dashboard', '/'), ('sales', '/sales/'), ('inventory', '/inventory/'),
                 ('production', '/production/'), ('quality', '/quality/'),
                 ('access', '/accounts/access/'), ('roles', f'/accounts/access/roles/{role_id}/'),
+                ('delegations', '/accounts/access/delegations/'), ('delegation-new', '/accounts/access/delegations/new/'),
                 ('member', '/accounts/access/users/new/'), ('profile', '/accounts/profile/'),
                 ('password', '/accounts/password/change/'),
             ]:
@@ -97,6 +103,29 @@ class BrowserFlowTests(StaticLiveServerTestCase):
             page.get_by_role('button', name='Create role', exact=True).click()
             page.wait_for_url(re.compile(r'.*/accounts/access/roles/\d+/'))
             self.assertTrue(db_call(lambda: Group.objects.filter(name='Confirmed browser role').exists()))
+            page.goto(self.live_server_url + '/accounts/access/delegations/new/')
+            page.locator('#id_principal').select_option(str(admin.pk))
+            page.locator('#id_deputy').select_option(str(deputy_id))
+            page.locator('#id_permission').select_option('approve_sales_order')
+            page.locator('#id_site').select_option(str(delegation_site_id))
+            page.locator('#id_ends_at').fill((timezone.localtime() + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M'))
+            page.locator('#id_reason').fill('Planned browser verification cover')
+            page.get_by_role('button', name='Record delegation', exact=True).click()
+            page.wait_for_url(re.compile(r'.*/accounts/access/delegations/\d+/'))
+            delegation_path = page.url.removeprefix(self.live_server_url)
+            for width in (320, 390, 768, 1440):
+                page.set_viewport_size({'width': width, 'height': 900})
+                for path in ('/accounts/access/delegations/', '/accounts/access/delegations/new/', delegation_path):
+                    response = page.goto(self.live_server_url + path)
+                    self.assertEqual(response.status, 200)
+                    self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'delegation {path} {width}')
+                    ids = page.locator('[id]').evaluate_all('(els) => els.map(el => el.id)')
+                    self.assertEqual(len(ids), len(set(ids)))
+            page.goto(self.live_server_url + delegation_path)
+            page.locator('#revoke-reason').fill('Verification cover finished')
+            page.get_by_role('button', name='Revoke delegation', exact=True).click()
+            page.wait_for_load_state('networkidle')
+            expect(page.get_by_text('Delegation revoked; earlier approvals remain in history.', exact=True)).to_be_visible()
             page.goto(self.live_server_url + '/')
             page.get_by_role('button', name='Account menu', exact=True).click()
             page.get_by_role('button', name='Sign out', exact=True).click()

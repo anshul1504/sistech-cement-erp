@@ -8,6 +8,7 @@ Controls enforced here (screens and the future API both call these functions):
 - damaged stock leaves available as soon as it is reported (with reason, location, owner and photo) and a different user
   decides how much is recovered and how much is scrapped (FR-INV-008).
 """
+from accounts.delegation import authorize, can_approve
 from collections import defaultdict
 from decimal import Decimal
 
@@ -286,9 +287,9 @@ def report_damage(user, site, product, quantity, reason, location, owner, descri
 
 @transaction.atomic
 def decide_damage(user, pk, recovered, scrapped, note):
-    _need(user, 'decide_damagereport')
     d = DamageReport.objects.select_for_update().select_related('site', 'product').get(pk=pk)
     require_site(user, d.site)
+    authorize(user, 'decide_damagereport', d.site, makers=(d.created_by_id,), reference=d.number)
     recovered, scrapped = Decimal(recovered or 0), Decimal(scrapped or 0)
     note = (note or '').strip()
     if d.status != 'reported':
@@ -376,9 +377,9 @@ def save_count(user, pk, counted, reasons, submit=False):
 @transaction.atomic
 def review_count(user, pk, action, recount_lines=(), note=''):
     """action 'recount' sends chosen lines back; 'approve' posts each variance as a Count adjustment."""
-    _need(user, 'approve_stockcount')
     c = _count_lock(pk)
     require_site(user, c.site)
+    authorize(user, 'approve_stockcount', c.site, makers=(c.submitted_by_id,), reference=c.number)
     if c.status != 'submitted':
         raise ValidationError('Only submitted counts can be reviewed.')
     if user.pk in (c.submitted_by_id,):

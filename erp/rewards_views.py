@@ -1,4 +1,5 @@
 """Scheme entitlements, payouts and dealer scheme statement."""
+from accounts.delegation import can_approve, approvable
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -23,12 +24,17 @@ def payouts(request):
     permitted(request.user, 'view_schemesettlement')
     ready = [e for e in scope(SchemeEvaluation.objects.filter(batch__isnull=True, version__status='approved'), request.user, 'version__scheme').select_related('version__scheme').order_by('-created_at')[:40]
              if (e.starts_on, e.ends_on) == (e.version.starts_on, e.version.ends_on)]
+    settlements = list(SchemeSettlement.objects.select_related('partner', 'created_by', 'approved_by')[:60])
+    eligible = set(approvable(SchemeSettlement.objects.filter(pk__in=[s.pk for s in settlements]),
+                             request.user, 'approve_schemesettlement').values_list('pk', flat=True))
+    for settlement in settlements:
+        settlement.can_decide = settlement.pk in eligible
     return render(request, 'erp/scheme_payouts.html', {
         'title': 'Scheme entitlements & payouts', 'ready': ready,
         'batches': scope(SchemeEntitlementBatch.objects.select_related('version__scheme', 'created_by', 'decided_by'), request.user, 'version__scheme')[:60],
-        'dealers': RW.payable_dealers(), 'settlements': SchemeSettlement.objects.select_related('partner', 'created_by', 'approved_by')[:60], 'banks': _banks(),
+        'dealers': RW.payable_dealers(), 'settlements': settlements, 'banks': _banks(),
         'can': {'batch': request.user.has_perm('erp.add_schemeentitlementbatch'), 'pay': request.user.has_perm('erp.add_schemesettlement'),
-                'decide_pay': request.user.has_perm('erp.approve_schemesettlement')}})
+                'decide_pay': can_approve(request.user, 'approve_schemesettlement')}})
 
 
 @login_required
@@ -50,7 +56,7 @@ def batch_detail(request, pk):
     b = get_object_or_404(scope(SchemeEntitlementBatch.objects.select_related('version__scheme', 'evaluation', 'created_by', 'decided_by'), request.user, 'version__scheme'), pk=pk)
     u = request.user
     return render(request, 'erp/scheme_batch.html', {'title': str(b), 'b': b, 'rows': b.entitlements.select_related('partner', 'settlement'),
-                                                     'can_decide': b.status == 'submitted' and u.has_perm('erp.approve_schemeentitlementbatch') and u.pk not in (b.created_by_id, b.evaluation.created_by_id)})
+                                                     'can_decide': b.status == 'submitted' and can_approve(u, 'approve_schemeentitlementbatch', b.version.scheme.site, makers=(b.created_by_id, b.evaluation.created_by_id)) and u.pk not in (b.created_by_id, b.evaluation.created_by_id)})
 
 
 @login_required

@@ -16,6 +16,7 @@ Posting map (illustrative SRS §9.2; finance should confirm the accounts):
   Freight bill       Dr Freight outward                    Cr Trade payables — transporters
   Stock movements    COGS on dispatch, WIP on consumption / production, transit on transfers, scrap, count adjustment
 """
+from accounts.delegation import authorize, can_approve
 import calendar
 from collections import defaultdict
 from datetime import date
@@ -186,7 +187,7 @@ def post(user, source, on, site, narration, lines, kind='auto', status='posted',
         return None
     if kind == 'yearend':
         require_company_finance(user)
-        if not user.has_perm('erp.approve_yearclose'):
+        if not can_approve(user, 'approve_yearclose', makers=(year_close.prepared_by_id, year_close.reopen_requested_by_id) if year_close else ()):
             raise PermissionDenied
         if not year_close or year_close.status not in ('proposed', 'reopen_requested') or on != year_close.end:
             raise ValidationError('Year-end entries require the independent year-close workflow.')
@@ -371,9 +372,8 @@ def create_voucher(user, on, site, narration, lines):
 @transaction.atomic
 def decide_voucher(user, pk, approve, note=''):
     require_company_finance(user)
-    if not user.has_perm('erp.approve_journalentry'):
-        raise PermissionDenied
     je = JournalEntry.objects.select_for_update().get(pk=pk)
+    authorize(user, 'approve_journalentry', makers=(je.created_by_id,), reference=je.number)
     if je.kind != 'manual' or je.status != 'draft':
         raise ValidationError('Only draft journal vouchers can be decided.')
     if je.created_by_id == user.pk:

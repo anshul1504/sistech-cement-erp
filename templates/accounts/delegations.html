@@ -1,0 +1,19 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head"><div><div class="eyebrow">ACCESS CONTROL</div><h1>Approval delegations</h1><p>Dated authority windows. Existing roles, site access, finance scope and independent approval checks still apply.</p></div>
+    {% if user.is_superuser %}<a class="org-btn is-primary" href="{% url 'delegation_new' %}">Delegate approval</a>{% endif %}
+  </div>
+  {% if user.is_superuser %}{% with admin_tab='delegations' %}{% include 'accounts/_admin_tabs.html' %}{% endwith %}{% endif %}
+  <section class="org-card">
+    <form method="get" class="org-actions"><label for="delegation-status">Show</label><select name="status" id="delegation-status" class="form-select" style="width:auto"><option value="all">All authority windows</option><option value="current" {% if status == 'current' %}selected{% endif %}>Currently in window</option></select><button class="org-btn is-light" type="submit">Apply</button></form>
+    <div class="table-responsive"><table class="table"><thead><tr><th>Reference</th><th>Principal → deputy</th><th>Action / scope</th><th>Window</th><th>Status</th></tr></thead><tbody>
+      {% for g in page %}<tr><td><a href="{% url 'delegation_detail' g.pk %}">{{ g }}</a></td><td>{{ g.principal }} → {{ g.deputy }}</td><td>{{ g.action_label }}<br><small>{{ g.site|default:'Company finance' }}</small></td><td>{{ g.starts_at|date:'d M Y, H:i' }}<br>{{ g.ends_at|date:'d M Y, H:i T' }}</td><td>{{ g.state }}<br><small>{{ g.use_count }} retained use{{ g.use_count|pluralize }}</small></td></tr>
+      {% empty %}<tr><td colspan="5">No approval delegations in this view.</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if page.has_previous %}<a class="org-btn is-light" href="?status={{ status|urlencode }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+    {% if page.has_next %}<a class="org-btn is-light" href="?status={{ status|urlencode }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+  </section>
+</div>
+{% endblock %}

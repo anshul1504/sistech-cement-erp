@@ -10,6 +10,7 @@ Rules:
 - tonnage converts bags / kg to MT with the product's bag weight (stock.mt_factor); pieces without a weight count 0 MT;
 - nothing here writes: dashboards never post, allocate or change a document.
 """
+from accounts.delegation import approvable
 from collections import defaultdict
 from . import complaints as CM
 from datetime import date, timedelta
@@ -576,22 +577,22 @@ def my_queue(user, sites=None):
         n = qs.count() if hasattr(qs, 'count') else qs
         if n:
             items.append({'label': label, 'count': n, 'url': url, 'hint': hint, 'tone': tone})
-    if has('approve_sales_order'):
-        add('Sales orders to approve', Order.objects.filter(kind='Sale', status='Submitted', site__in=sites).exclude(created_by=user), reverse('sales') + '?status=Submitted', 'Credit and price checked on approval')
-    if has('approve_purchase_order'):
-        add('Purchase orders to approve', Order.objects.filter(kind='Purchase', status='Submitted', site__in=sites).exclude(created_by=user), reverse('purchases') + '?status=Submitted', 'Contract rate and budget')
+    if has('view_sales_order'):
+        add('Sales orders to approve', approvable(Order.objects.filter(kind='Sale', status='Submitted', site__in=sites).exclude(created_by=user), user, 'approve_sales_order'), reverse('sales') + '?status=Submitted', 'Credit and price checked on approval')
+    if has('view_purchase_order'):
+        add('Purchase orders to approve', approvable(Order.objects.filter(kind='Purchase', status='Submitted', site__in=sites).exclude(created_by=user), user, 'approve_purchase_order'), reverse('purchases') + '?status=Submitted', 'Contract rate and budget')
     if has('approve_purchaserequest'):
         add('Purchase requests to approve', PurchaseRequest.objects.filter(status='submitted', site__in=sites).exclude(created_by=user), reverse('purchase_requests'), 'Plant needs')
-    if has('approve_quotation'):
-        add('Quotation discounts to approve', Quotation.objects.filter(status='approval', site__in=sites).exclude(created_by=user), reverse('quotations') + '?status=approval', 'Below list price')
+    if has('view_quotation'):
+        add('Quotation discounts to approve', approvable(Quotation.objects.filter(status='approval', site__in=sites).exclude(created_by=user), user, 'approve_quotation'), reverse('quotations') + '?status=approval', 'Below list price')
     if has('approve_supplycontract'):
         add('Partner rate contracts to approve', SupplyContract.objects.filter(status='draft', site__in=sites).exclude(created_by=user), reverse('mfg_partners'), 'Manufacturing partner rates')
     if has('approve_stocktransfer'):
         add('Stock transfers to approve', StockTransfer.objects.filter(status='requested', from_site__in=sites).exclude(created_by=user), reverse('transfers'), 'Between plants and depots')
-    if has('decide_damagereport'):
-        add('Damaged stock to decide', DamageReport.objects.filter(status='reported', site__in=sites).exclude(created_by=user), reverse('damages'), 'Recover or scrap')
-    if has('approve_stockcount'):
-        add('Stock counts to approve', StockCount.objects.filter(status='submitted', site__in=sites).exclude(created_by=user), reverse('counts'), 'Variance posting')
+    if has('view_damagereport'):
+        add('Damaged stock to decide', approvable(DamageReport.objects.filter(status='reported', site__in=sites).exclude(created_by=user), user, 'decide_damagereport'), reverse('damages'), 'Recover or scrap')
+    if has('view_stockcount'):
+        add('Stock counts to approve', approvable(StockCount.objects.filter(status='submitted', site__in=sites).exclude(created_by=user), user, 'approve_stockcount', maker_fields=('submitted_by_id',)), reverse('counts'), 'Variance posting')
     if has('release_production'):
         add('Batches on quality hold', Production.objects.filter(status='Quality hold', site__in=sites), reverse('production'), 'Release or reject')
     if has('release_goodsreceipt'):
@@ -631,10 +632,10 @@ def my_queue(user, sites=None):
         add('Mason / engineer purchases to verify', InfluencerUsage.objects.filter(status='pending').exclude(created_by=user), reverse('influencer_usage'), 'Star programme points')
     if has('approve_schemeversion'):
         add('Scheme rules to approve', SchemeVersion.objects.filter(status='submitted', scheme__site__in=sites).exclude(created_by=user), reverse('schemes'), 'Incentive versions')
-    if fin and has('approve_schemeentitlementbatch'):
-        add('Scheme entitlements to approve', SchemeEntitlementBatch.objects.filter(status='submitted', version__scheme__site__in=sites).exclude(created_by=user), reverse('scheme_payouts'), 'Accrual')
-    if fin and has('approve_schemesettlement'):
-        add('Scheme payouts to approve', SchemeSettlement.objects.filter(status='proposed').exclude(created_by=user), reverse('scheme_payouts'), 'Dealer credit or bank')
+    if fin and has('view_schemeentitlementbatch'):
+        add('Scheme entitlements to approve', approvable(SchemeEntitlementBatch.objects.filter(status='submitted', version__scheme__site__in=sites).exclude(created_by=user), user, 'approve_schemeentitlementbatch', site_field='version__scheme__site', maker_fields=('created_by_id','evaluation__created_by_id')), reverse('scheme_payouts'), 'Accrual')
+    if fin and has('view_schemesettlement'):
+        add('Scheme payouts to approve', approvable(SchemeSettlement.objects.filter(status='proposed').exclude(created_by=user), user, 'approve_schemesettlement'), reverse('scheme_payouts'), 'Dealer credit or bank')
     for perm, state, label in (('review_dealerkyc', 'submitted', 'Dealer KYC to review'), ('review_dealercredit', 'kyc', 'Dealer credit to review'),
                                ('approve_dealerapplication', 'credit', 'Dealer applications to approve')):
         if has(perm):
@@ -652,12 +653,12 @@ def my_queue(user, sites=None):
         add('Collection follow-ups due', CollectionFollowUp.objects.filter(owner=user, next_action_on__lte=today).exclude(kind='promise'), reverse('collections') + '?mine=1', 'Call or visit the customer')
     if fin and has('approve_supplierinvoice'):
         add('Supplier invoice exceptions', SupplierInvoice.objects.filter(status='exception'), reverse('supplier_invoices'), 'Three-way match differences', 'danger')
-    if fin and has('approve_supplierpayment'):
-        add('Payments to approve', SupplierPayment.objects.filter(status='proposed').exclude(created_by=user), reverse('payments'), 'Supplier and transporter')
-    if fin and has('release_supplierpayment'):
-        add('Approved payments to release', SupplierPayment.objects.filter(status='approved'), reverse('payments'), 'Enter UTR after paying')
-    if fin and has('approve_journalentry'):
-        add('Journal vouchers to approve', JournalEntry.objects.filter(status='draft').exclude(created_by=user), reverse('journals'), 'Manual vouchers')
+    if fin and has('view_supplierpayment'):
+        add('Payments to approve', approvable(SupplierPayment.objects.filter(status='proposed').exclude(created_by=user), user, 'approve_supplierpayment'), reverse('payments'), 'Supplier and transporter')
+    if fin and has('view_supplierpayment'):
+        add('Approved payments to release', approvable(SupplierPayment.objects.filter(status='approved'), user, 'release_supplierpayment'), reverse('payments'), 'Enter UTR after paying')
+    if fin and has('view_journalentry'):
+        add('Journal vouchers to approve', approvable(JournalEntry.objects.filter(status='draft').exclude(created_by=user), user, 'approve_journalentry'), reverse('journals'), 'Manual vouchers')
     return items
 
 

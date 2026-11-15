@@ -1,0 +1,12 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'delegations' %}">← Approval delegations</a></div><h1>Delegate approval authority</h1><p>Grant a specific action for a fixed window. This does not add a role or change site or finance access.</p></div></div>
+  <form method="post" class="org-card" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="org-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="org-grid">{% for field in form %}<div class="org-field{% if field.name == 'reason' %} is-wide{% endif %}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
+    <div class="org-actions"><a class="org-btn is-light" href="{% url 'delegations' %}">Cancel</a><button class="org-btn is-primary" type="submit">Record delegation</button></div>
+  </form>
+</div>
+{% endblock %}

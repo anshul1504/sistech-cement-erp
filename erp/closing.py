@@ -3,6 +3,7 @@
 Effective dates, not present-day allocation status, determine cutoff balances.
 Close reviews retain evidence and a fingerprint of the books they reviewed.
 """
+from accounts.delegation import authorize, can_approve
 import calendar
 import hashlib
 import json
@@ -16,7 +17,7 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 
 from . import gl
-from .finance_access import permitted
+from .finance_access import permitted, require_company_finance
 from .gst import fy_start_month
 from .models import (Account, AuditEvent, BankStatementLine, CreditNote, DebitNote, FinancialPeriod,
                      FinancialYearClose, FinancialYearCloseHistory, FixedAsset, DepreciationEntry, FreightBill, Invoice, JournalEntry, JournalLine,
@@ -199,7 +200,9 @@ def prepare_period(user, on, note, *, tax_reviewed=False, stock_reviewed=False, 
 @transaction.atomic
 def decide_period(user, start, close, reason=''):
     gl.lock_finance()
-    permitted(user, 'close_period')
+    require_company_finance(user)
+    if not can_approve(user, 'close_period'):
+        raise PermissionDenied
     period = gl.period_for(start)
     period = FinancialPeriod.objects.select_for_update().get(pk=period.pk)
     if close:
@@ -208,6 +211,7 @@ def decide_period(user, start, close, reason=''):
         review = PeriodCloseReview.objects.select_for_update().filter(period=period).order_by('-prepared_at', '-pk').first()
         if not review or review.approved_at:
             raise ValidationError('An accountant must prepare a fresh close review first.')
+        authorize(user, 'close_period', makers=(review.prepared_by_id,), reference=str(period))
         if review.prepared_by_id == user.pk:
             raise ValidationError('The review maker cannot approve the month close (maker-checker).')
         result = checklist(period)
@@ -219,6 +223,7 @@ def decide_period(user, start, close, reason=''):
         review.save(update_fields=['approved_by', 'approved_at'])
         period.status, period.closed_by, period.closed_at = 'closed', user, timezone.now()
     else:
+        authorize(user, 'close_period', reference=str(period))
         if period.status != 'closed':
             raise ValidationError('Only a closed month can be reopened.')
         if FinancialYearClose.objects.filter(start__lte=period.start, end__gte=period.end, status__in=['closed', 'reopen_requested']).exists():
@@ -306,8 +311,9 @@ def prepare_year(user, on, note):
 @transaction.atomic
 def decide_year(user, pk, approve, reason=''):
     gl.lock_finance()
-    permitted(user, 'approve_yearclose')
+    require_company_finance(user)
     row = FinancialYearClose.objects.select_for_update().get(pk=pk)
+    authorize(user, 'approve_yearclose', makers=(row.prepared_by_id,), reference=str(row))
     if row.status != 'proposed':
         raise ValidationError('Only a proposed year close can be decided.')
     if row.prepared_by_id == user.pk:
@@ -355,8 +361,9 @@ def request_year_reopen(user, pk, reason):
 @transaction.atomic
 def approve_year_reopen(user, pk, approve, reason=''):
     gl.lock_finance()
-    permitted(user, 'approve_yearclose')
+    require_company_finance(user)
     row = FinancialYearClose.objects.select_for_update().get(pk=pk)
+    authorize(user, 'approve_yearclose', makers=(row.prepared_by_id, row.reopen_requested_by_id), reference=str(row))
     if row.status != 'reopen_requested':
         raise ValidationError('There is no pending reopening request.')
     if row.reopen_requested_by_id == user.pk:

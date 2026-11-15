@@ -9,6 +9,7 @@
 - Hold / release, revision after approval (new draft revision, old one marked Revised), cancellation and short-close with reasons.
 - Dispatch planning re-checks credit unless a valid override exists (FR-AR-003).
 """
+from accounts.delegation import authorize, can_approve
 from datetime import timedelta
 from decimal import Decimal
 
@@ -145,18 +146,20 @@ def approve(user, order, override_reason='', override_until=None, backorder_reas
     checks = {'at': timezone.now().isoformat(timespec='seconds'), 'by': user.get_username()}
     credit = credit_problems(order)
     if credit:
-        if not user.has_perm('erp.override_credit_sales_order'):
+        if not can_approve(user, 'override_credit_sales_order', order.site, makers=(order.created_by_id,)):
             raise ValidationError(credit + ['A user with credit-override authority must approve it, or collect payment first.'])
         if not (override_reason or '').strip():
             raise ValidationError(credit + ['Record why the credit rule is overridden.'])
         if not override_until or override_until < today or override_until > today + timedelta(days=30):
             raise ValidationError('Give the override an expiry date within the next 30 days.')
+        authorize(user, 'override_credit_sales_order', order.site, makers=(order.created_by_id,), reference=order.number)
         order.credit_override_reason, order.credit_override_until, order.credit_override_by = override_reason.strip()[:200], override_until, user
         checks['credit_override'] = credit
     below = [l for l in order.lines.select_related('product') if l.below_list]
     if below:
-        if not user.has_perm('erp.approve_price_exception'):
+        if not can_approve(user, 'approve_price_exception', order.site, makers=(order.created_by_id,)):
             raise ValidationError(f'{len(below)} line(s) below list price — a user with price-exception authority must approve.')
+        authorize(user, 'approve_price_exception', order.site, makers=(order.created_by_id,), reference=order.number)
         checks['below_list'] = [{'product': l.product.code, 'rate': str(l.rate), 'list': str(l.list_rate)} for l in below]
     short = [r for r in atp(order) if r['short'] > 0]
     if short:
