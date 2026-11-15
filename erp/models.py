@@ -2629,6 +2629,7 @@ class RecognitionProgram(models.Model):
                                                             help_text='Dealers with an invoice overdue longer than this at ranking time are not eligible. 0 = no check.')
     notes = models.TextField(blank=True)
     status = models.CharField(max_length=10, default='open', choices=[('open', 'Open'), ('ranked', 'Ranking waiting approval'), ('published', 'Winners published')])
+    contributors = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='+', blank=True)
     ranked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
     ranked_at = models.DateTimeField(null=True, blank=True)
     published_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
@@ -2668,6 +2669,8 @@ class RecognitionAward(models.Model):
     volume = models.DecimalField(max_digits=14, decimal_places=3)
     reward = models.CharField(max_length=120)
     fulfilled = models.BooleanField(default=False)
+    fulfilled_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
     fulfilment_note = models.CharField(max_length=200, blank=True)
 
     class Meta:

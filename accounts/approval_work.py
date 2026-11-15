@@ -23,6 +23,8 @@ class Workflow:
 
 
 CATALOG = {
+    'recognition_publication': Workflow(M.RecognitionProgram,'publish_recognitionprogram','view_recognitionprogram',{'status':'ranked'},'',('created_by_id','ranked_by_id'),'recognition_detail'),
+    'recognition_usage': Workflow(M.InfluencerUsage,'verify_influencerusage','view_influencerusage',{'status':'pending'},'',route='influencer_usage'),
     'complaint_decision': Workflow(M.Complaint,'decide_complaint','view_complaint',{'status':'investigating'},'invoice.site',route='complaint_detail'),
     'complaint_closure': Workflow(M.Complaint,'decide_complaint','view_complaint',{'status':'decided'},'invoice.site',route='complaint_detail'),
     'capa_verification': Workflow(M.CapaAction,'verify_capaaction','view_capaaction',{'status':'done'},'complaint.invoice.site',(), 'capa_detail'),
@@ -114,17 +116,20 @@ def source(kind, pk, lock=False):
         makers.update(D.order_makers(obj))
     if kind in {'scheme_rules','beat_plan'}:
         makers.update(obj.contributors.values_list('pk',flat=True))
+    if kind == 'recognition_publication':
+        makers.update(obj.contributors.values_list('pk',flat=True))
     if kind == 'beat_cover':
         makers.update(obj.plan.contributors.values_list('pk',flat=True))
     if review is not None:
         makers.add(review.prepared_by_id)
     site = path(obj,workflow.site_path) if workflow.site_path else None
     reference = getattr(obj,'number',None) or getattr(obj,'batch',None) or str(obj)
+    if kind == 'recognition_usage':reference=f'Usage {obj.pk} · {obj.influencer.name} · {obj.bill_reference}'
     if kind == 'inbound_quality':
         reference = f'{obj.grn.number} / line {obj.pk}'
     return dict(kind=kind,object_id=obj.pk,object=obj,site=site,makers=tuple(sorted(makers)),
                 reference=reference[:160],permission=workflow.permission,view_permission=workflow.view_permission,
-                scope_label=str(site) if site else ('Private record access' if kind in {'complaint_decision','complaint_closure','capa_verification'} else 'Company finance'),
+                scope_label=str(site) if site else ('Company recognition' if kind in {'recognition_publication','recognition_usage'} else 'Private record access' if kind in {'complaint_decision','complaint_closure','capa_verification'} else 'Company finance'),
                 status=getattr(obj,'status','Quality hold'))
 
 
@@ -187,6 +192,6 @@ def source_url(task):
     route = CATALOG[task['kind']].route
     if not route:
         return reverse('grn_detail',args=[task['object'].grn_id])
-    if route in {'scheme_payouts','mfg_partners'}:
+    if route in {'scheme_payouts','mfg_partners','influencer_usage'}:
         return reverse(route)
     return reverse(route,args=[task['object_id']])

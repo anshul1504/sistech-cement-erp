@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from . import recognition as RC
-from .models import (RecognitionProgram, RecognitionLevel, InfluencerUsage, Influencer, Partner, Product, AuditEvent, RECOGNITION_AUDIENCES, CUSTOMER_KINDS)
+from .models import (RecognitionProgram, RecognitionLevel, RecognitionAward, InfluencerUsage, Influencer, Partner, Product, AuditEvent, RECOGNITION_AUDIENCES, CUSTOMER_KINDS)
 from .services import permitted
 
 DEFAULT_REWARDS = {'district': 'Domestic couple trip', 'state': 'International couple trip', 'national': 'Grand Champion Award — trophy & certificate'}
@@ -61,13 +61,15 @@ def program_detail(request, pk):
     return render(request, 'erp/recognition_detail.html', {'title': p.name, 'p': p, 'board': board,
                                                            'awards': p.awards.select_related('partner', 'influencer'),
                                                            'can': {'rank': p.status != 'published' and u.has_perm('erp.change_recognitionprogram'),
-                                                                   'publish': p.status == 'ranked' and u.has_perm('erp.publish_recognitionprogram') and p.ranked_by_id != u.pk,
+                                                                   'publish': RC.can_publish(u,p),
                                                                    'fulfil': p.status == 'published' and u.has_perm('erp.publish_recognitionprogram')}})
 
 
 @login_required
 @require_POST
 def program_action(request, pk, action):
+    permitted(request.user,'view_recognitionprogram')
+    get_object_or_404(RecognitionProgram,pk=pk)
     P = request.POST
     try:
         if action == 'rank':
@@ -75,7 +77,9 @@ def program_action(request, pk, action):
         elif action in ('publish', 'sendback'):
             RC.publish(request.user, pk, action == 'publish', P.get('note', '')); msg = 'Winners published.' if action == 'publish' else 'Ranking sent back.'
         elif action == 'fulfil':
-            RC.fulfil(request.user, int(P.get('award') or 0), P.get('note', '')); msg = 'Reward marked as given.'
+            raw=P.get('award','')
+            award=get_object_or_404(RecognitionAward,pk=raw if raw.isascii() and raw.isdecimal() else 0,program_id=pk)
+            RC.fulfil(request.user, award.pk, P.get('note', '')); msg = 'Reward marked as given.'
         else:
             raise ValidationError('Unknown action.')
         messages.success(request, msg)
@@ -110,6 +114,8 @@ def usage(request):
     status = request.GET.get('status', 'pending')
     qs = InfluencerUsage.objects.select_related('influencer', 'dealer', 'product', 'created_by')
     if status: qs = qs.filter(status=status)
-    return render(request, 'erp/influencer_usage.html', {'title': 'Influencer usage', 'rows': qs[:200], 'status': status, 'influencers': influencers, 'dealers': dealers,
+    rows=list(qs[:200])
+    for row in rows:row.can_verify=RC.can_verify_usage(request.user,row)
+    return render(request, 'erp/influencer_usage.html', {'title': 'Influencer usage', 'rows': rows, 'status': status, 'influencers': influencers, 'dealers': dealers,
                                                          'bags': bags, 'errors': errors, 'post': P, 'today': timezone.localdate().isoformat(),
                                                          'can_add': request.user.has_perm('erp.add_influencerusage'), 'can_verify': request.user.has_perm('erp.verify_influencerusage')})

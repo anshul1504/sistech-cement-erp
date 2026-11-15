@@ -67,7 +67,7 @@ DETAIL_ROUTES = {
     'member_status': 'member_detail', 'member_sign_out': 'member_detail',
     'member_set_password': 'member_detail', 'role_delete': 'roles', 'role_duplicate': 'roles',
     'scheme_payout_decide': 'scheme_payouts', 'scheme_payout_new': 'scheme_payouts',
-    'capa_action': 'capa_detail', 'complaint_action': 'complaint_detail', 'freight_bill_decide': 'freight_bill_detail', 'delegation_revoke': 'delegation_detail', 'beat_cover_action': 'beat_cover_detail',
+    'recognition_action': 'recognition_detail', 'capa_action': 'capa_detail', 'complaint_action': 'complaint_detail', 'freight_bill_decide': 'freight_bill_detail', 'delegation_revoke': 'delegation_detail', 'beat_cover_action': 'beat_cover_detail',
 }
 
 
@@ -86,6 +86,7 @@ def confirmation_url(request, route, kwargs):
 def sensitive(request, match):
     """Single inventory for every currently exposed sensitive web entry point."""
     route, kw = match.url_name, match.kwargs
+    if request.method=='POST' and route=='influencer_usage' and request.POST.get('action')=='verify':return True
     if request.method == 'POST' and route == 'crm_lead_edit':
         return True
     if request.method == 'GET':
@@ -104,6 +105,7 @@ def sensitive(request, match):
     }:
         return True
     actions = {
+        'recognition_action': {'publish','sendback','fulfil'},
         'complaint_action': {'decide','close','effective','reopen'},
         'capa_action': {'effective','reopen'},
         'payment_action': {'approve', 'release', 'fail'},

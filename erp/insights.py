@@ -640,8 +640,11 @@ def my_queue(user, sites=None):
     if has('view_capaaction'):
         add('CAPA to verify', CM.reviewable(CapaAction.objects.filter(status='done'),user,capa=True), reverse('complaints'), 'Independent effectiveness check')
     add('CAPA actions you own', CM.capa_scope(CapaAction.objects.filter(owner=user, status__in=['open', 'reopened']), user), reverse('complaints'), 'Corrective action due')
-    if has('verify_influencerusage'):
-        add('Mason / engineer purchases to verify', InfluencerUsage.objects.filter(status='pending').exclude(created_by=user), reverse('influencer_usage'), 'Star programme points')
+    if has('view_influencerusage'):
+        add('Mason / engineer purchases to verify', approvable(InfluencerUsage.objects.filter(status='pending'),user,'verify_influencerusage'), reverse('influencer_usage'), 'Independent Star programme evidence review')
+    if has('view_recognitionprogram'):
+        from .models import RecognitionProgram
+        add('Recognition rankings to publish',approvable(RecognitionProgram.objects.filter(status='ranked'),user,'publish_recognitionprogram',maker_fields=('created_by_id','ranked_by_id','contributors__pk')),reverse('recognition'),'Independent ranked winner review')
     if has('view_incentivescheme'):
         add('Scheme rules to approve', approvable(SchemeVersion.objects.filter(status='submitted', scheme__site__in=sites).exclude(created_by=user), user, 'approve_schemeversion', site_field='scheme__site', maker_fields=('created_by_id','updated_by_id','submitted_by_id','contributors__pk')), reverse('schemes'), 'Incentive versions')
     if fin and has('view_schemeentitlementbatch'):

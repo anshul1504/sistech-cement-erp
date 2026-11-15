@@ -8,6 +8,7 @@ Rules:
   a number of winners per area and a minimum volume;
 - the person who ran the ranking cannot publish it; publishing freezes the winners; rewards are then marked fulfilled one by one.
 """
+from accounts.delegation import authorize, can_approve
 from collections import defaultdict
 from decimal import Decimal
 
@@ -26,6 +27,21 @@ STATE_NAMES = dict(INDIAN_STATES)
 def _need(user, perm):
     if not user.has_perm('erp.' + perm):
         raise PermissionDenied
+
+
+
+def makers(program):
+    return {program.created_by_id,program.ranked_by_id,*program.contributors.values_list('pk',flat=True)} - {None}
+
+
+def can_publish(user,program):
+    return (program.status=='ranked' and user.has_perm('erp.view_recognitionprogram') and user.pk not in makers(program)
+        and can_approve(user,'publish_recognitionprogram',makers=makers(program)))
+
+
+def can_verify_usage(user,usage):
+    return (usage.status=='pending' and user.has_perm('erp.view_influencerusage') and user.pk!=usage.created_by_id
+        and can_approve(user,'verify_influencerusage',makers=[usage.created_by_id]))
 
 
 def _log(user, action, reference, detail=''):
@@ -63,12 +79,13 @@ def record_usage(user, influencer, dealer, product, bags, on, bill, site_locatio
 
 @transaction.atomic
 def verify_usage(user, pk, approve, note=''):
-    _need(user, 'verify_influencerusage')
+    _need(user, 'view_influencerusage')
     u = InfluencerUsage.objects.select_for_update().select_related('influencer').get(pk=pk)
     if u.status != 'pending':
         raise ValidationError('Already decided.')
     if u.created_by_id == user.pk:
         raise ValidationError('The person who recorded the usage cannot verify it.')
+    authorize(user,'verify_influencerusage',makers=[u.created_by_id],reference=f'usage:{u.pk}')
     if not approve and not (note or '').strip():
         raise ValidationError('Give the reason for rejecting (e.g. bill not found with dealer).')
     u.status, u.verified_by, u.verified_at, u.note = ('verified' if approve else 'rejected'), user, timezone.now(), (note or '').strip()[:200]
@@ -120,6 +137,8 @@ def rank(user, pk):
     rules = {r.level: r for r in p.levels.all()}
     if not rules:
         raise ValidationError('Set the national / state / district awards first.')
+    p.contributors.add(user,p.created_by)
+    if p.ranked_by_id:p.contributors.add(p.ranked_by_id)
     p.awards.all().delete()
     rows = [r for r in volumes(p) if eligible(p, r[0])]
     taken = set()
@@ -143,18 +162,19 @@ def rank(user, pk):
                 made += 1
     p.status, p.ranked_by, p.ranked_at = 'ranked', user, timezone.now()
     p.save()
-    _log(user, 'Recognition ranked', p.name, f'{made} winner(s) from {len(rows)} eligible participant(s)')
+    _log(user, 'Recognition ranked', f'STAR-{p.pk:05d}', f'{made} winner(s) from {len(rows)} eligible participant(s)')
     return p
 
 
 @transaction.atomic
 def publish(user, pk, approve, note=''):
-    _need(user, 'publish_recognitionprogram')
+    _need(user, 'view_recognitionprogram')
     p = RecognitionProgram.objects.select_for_update().get(pk=pk)
     if p.status != 'ranked':
         raise ValidationError('Run the ranking first.')
-    if p.ranked_by_id == user.pk:
-        raise ValidationError('The person who ran the ranking cannot publish it (maker-checker).')
+    if user.pk in makers(p):
+        raise ValidationError('The creator or a ranking contributor cannot publish this programme (maker-checker).')
+    authorize(user,'publish_recognitionprogram',makers=makers(p),reference=f'STAR-{p.pk:05d}')
     if approve:
         p.status, p.published_by, p.published_at = 'published', user, timezone.now()
     else:
@@ -163,19 +183,26 @@ def publish(user, pk, approve, note=''):
         p.awards.all().delete()
         p.status = 'open'
     p.save()
-    _log(user, 'Recognition published' if approve else 'Recognition sent back', p.name, note or f'{p.awards.count()} winner(s)')
+    _log(user, 'Recognition published' if approve else 'Recognition sent back', f'STAR-{p.pk:05d}', note or f'{p.awards.count()} winner(s)')
     return p
 
 
 @transaction.atomic
 def fulfil(user, award_pk, note):
     _need(user, 'publish_recognitionprogram')
-    a = RecognitionAward.objects.select_for_update().select_related('program').get(pk=award_pk)
+    _need(user, 'view_recognitionprogram')
+    header=RecognitionAward.objects.only('program_id').get(pk=award_pk)
+    RecognitionProgram.objects.select_for_update().get(pk=header.program_id)
+    a = RecognitionAward.objects.select_for_update(of=('self',)).select_related('program').get(pk=award_pk)
     if a.program.status != 'published':
         raise ValidationError('Publish the winners first.')
     if not (note or '').strip():
         raise ValidationError('Record how the reward was given (e.g. trip dates, ticket numbers).')
-    a.fulfilled, a.fulfilment_note = True, note.strip()[:200]
+    note=note.strip()[:200]
+    if a.fulfilled:
+        if a.fulfilment_note!=note:raise ValidationError('This reward already has retained delivery evidence; it cannot be overwritten.')
+        return a
+    a.fulfilled, a.fulfilment_note, a.fulfilled_by, a.fulfilled_at = True, note, user, timezone.now()
     a.save()
-    _log(user, 'Recognition reward given', a.program.name, f'{a.participant} · {a.reward} · {note}')
+    _log(user, 'Recognition reward given', f'STAR-{a.program_id:05d}', f'{a.participant} · {a.reward} · {note}')
     return a

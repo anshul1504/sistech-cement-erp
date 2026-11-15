@@ -22,7 +22,7 @@ Accountable assignments are nonexclusive and do not grant authority or decide an
 
 `/capa/{id}/` now provides scoped action evidence, implementation, effectiveness, actual reviewer and retained history for linked and standalone actions. The open-CAPA register links to this screen. Linked complaint screens retain their existing forms with the same delegated/maker checks. The actual action owner or someone with edit permission can implement within existing scope; independent approval authority is not editing authority.
 
-No schema migration, local role/grant/assignment, live case decision or external message was needed. The implementation uses existing audit/delegation/routing structures. PostgreSQL concurrency/load tests, company quality/customer-service acceptance, broader resource access dimensions, recognition integration, APIs/mobile and the remaining SRS remain pending.
+No schema migration, local role/grant/assignment, live case decision or external message was needed. The implementation uses existing audit/delegation/routing structures. PostgreSQL concurrency/load tests, company quality/customer-service acceptance, broader resource access dimensions, remaining approval inventory, APIs/mobile and the remaining SRS remain pending.
 
 Verification commands: `python manage.py test erp.test_complaint_approvals erp.test_complaints accounts.test_handoff accounts.test_delegation erp.test_insights erp.test_access_hardening` and `RUN_BROWSER_TESTS=1 python manage.py test erp.test_complaint_approval_browser erp.test_business_browser`. All fixtures are fictional and isolated from the local business database.
 
