@@ -9,6 +9,10 @@ class RequireVerifiedEmailSessionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        from .security import access_allowed
+        if request.user.is_authenticated and not access_allowed(request.user):
+            logout(request)
+            return redirect_to_login(request.get_full_path())
         username_session = (settings.EMAIL_OTP_SKIP_FOR_USERNAME
                             and request.user.is_authenticated
                             and request.session.get('password_login_user') == str(request.user.pk))

@@ -45,6 +45,12 @@
           <div class="adm-pick">{% for cb in form.sites %}<label class="adm-pick-item">{{ cb.tag }}<span>{{ cb.choice_label }}</span></label>{% empty %}<p class="acc-muted">No locations yet.</p>{% endfor %}</div>
         </section>
         <section class="org-card">
+          <label class="form-label" for="{{ form.access_expires_at.id_for_label }}">{{ form.access_expires_at.label }}</label>
+          {{ form.access_expires_at }}
+          <div class="form-text">{{ form.access_expires_at.help_text }}</div>
+          {% for e in form.access_expires_at.errors %}<div class="org-error">{{ e }}</div>{% endfor %}
+        </section>
+        <section class="org-card">
           <label class="org-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active }}<span><strong>{{ form.is_active.label }}</strong><small>{{ form.is_active.help_text }}</small></span></label>
         </section>
       </div>

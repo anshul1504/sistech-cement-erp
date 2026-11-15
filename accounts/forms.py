@@ -80,6 +80,9 @@ class MemberForm(forms.ModelForm):
     phone = forms.CharField(label='Mobile number', max_length=20, required=False)
     designation = forms.CharField(max_length=80, required=False)
     department = forms.CharField(max_length=80, required=False)
+    access_expires_at = forms.DateTimeField(label='Access expires at', required=False,
+        widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}),
+        input_formats=['%Y-%m-%dT%H:%M'], help_text='Local time (Asia/Kolkata). Leave blank for ongoing access.')
 
     class Meta:
         model = User
@@ -99,8 +102,15 @@ class MemberForm(forms.ModelForm):
             self.fields['sites'].initial = Site.objects.filter(siteaccess__user=self.instance)
             profile = getattr(self.instance, 'profile', None)
             if profile:
-                for name in ['phone', 'designation', 'department']:
+                for name in ['phone', 'designation', 'department', 'access_expires_at']:
                     self.fields[name].initial = getattr(profile, name)
+
+    def clean_access_expires_at(self):
+        from django.utils import timezone
+        value = self.cleaned_data.get('access_expires_at')
+        if value and value <= timezone.now():
+            raise forms.ValidationError('Choose a future expiry time, or disable the account.')
+        return value
 
     def clean_phone(self):
         import re

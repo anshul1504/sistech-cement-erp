@@ -15,3 +15,13 @@ class EmailOrUsernameBackend(ModelBackend):
         user = candidates[0]
         if user.check_password(password) and self.user_can_authenticate(user):
             return user
+
+    def user_can_authenticate(self, user):
+        from .security import access_allowed
+        return super().user_can_authenticate(user) and access_allowed(user)
+
+    def has_perm(self, user_obj, perm, obj=None):
+        return self.user_can_authenticate(user_obj) and super().has_perm(user_obj, perm, obj)
+
+    def has_module_perms(self, user_obj, app_label):
+        return self.user_can_authenticate(user_obj) and super().has_module_perms(user_obj, app_label)

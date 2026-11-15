@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.crypto import salted_hmac, constant_time_compare
 from erp.models import AuditEvent
 from .models import EmailOTPChallenge
-from .security import allow_attempt
+from .security import allow_attempt, access_allowed
 
 
 def fingerprint(value, purpose):
@@ -33,7 +33,7 @@ def pending_challenge(request):
     except (EmailOTPChallenge.DoesNotExist, ValidationError, ValueError, TypeError):
         return None
     user = challenge.user
-    if (challenge.consumed_at or not user.is_active
+    if (challenge.consumed_at or not access_allowed(user)
             or challenge.password_verified_at < timezone.now()-timedelta(minutes=15)
             or user.email.casefold() != challenge.email.casefold()
             or not constant_time_compare(challenge.session_hash, fingerprint(request.session.session_key or '', 'session'))
@@ -43,6 +43,8 @@ def pending_challenge(request):
 
 
 def issue_challenge(request, user, password_verified_at=None):
+    if not access_allowed(user):
+        raise ValidationError('This account is not available for sign-in. Contact your administrator.')
     email = user.email.strip()
     validate_email(email)
     if email.lower().endswith(('.test', '.invalid', '.example')):
@@ -55,7 +57,7 @@ def issue_challenge(request, user, password_verified_at=None):
     code = f'{secrets.randbelow(1000000):06d}'
     with transaction.atomic():
         locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
-        if not locked_user.is_active or locked_user.password != user.password or locked_user.email != user.email:
+        if not access_allowed(locked_user) or locked_user.password != user.password or locked_user.email != user.email:
             raise ValidationError('Your account changed. Please sign in again.')
         if EmailOTPChallenge.objects.filter(user=user, created_at__gt=now-timedelta(seconds=settings.EMAIL_OTP_RESEND_SECONDS)).exists():
             raise ValidationError('Please wait 60 seconds before requesting another code.')
@@ -100,7 +102,7 @@ def verify_challenge(request, code):
     current_user = get_user_model().objects.select_for_update().get(pk=pending.user_id)
     challenge = EmailOTPChallenge.objects.select_for_update().select_related('user').get(pk=pending.pk)
     now = timezone.now()
-    if (not current_user.is_active or current_user.email.casefold() != challenge.email.casefold()
+    if (not access_allowed(current_user) or current_user.email.casefold() != challenge.email.casefold()
             or not constant_time_compare(challenge.credential_hash, fingerprint(current_user.password, 'password'))):
         return None, 'Your account changed. Start signing in again.'
     if (challenge.consumed_at or not challenge.delivered or challenge.expires_at <= now

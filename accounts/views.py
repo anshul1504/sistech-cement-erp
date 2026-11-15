@@ -108,11 +108,17 @@ def member_edit(request, pk=None):
             SiteAccess.objects.bulk_create([SiteAccess(user=member, site=site) for site in form.cleaned_data['sites']])
             profile = UserProfile.for_user(member)
             profile.phone, profile.designation, profile.department = (form.cleaned_data[k] for k in ('phone', 'designation', 'department'))
+            previous_expiry = profile.access_expires_at
+            profile.access_expires_at = form.cleaned_data['access_expires_at']
+            if pk and previous_expiry != profile.access_expires_at:
+                from .models import EmailOTPChallenge
+                _end_sessions(member)
+                EmailOTPChallenge.objects.filter(user=member, consumed_at__isnull=True).update(consumed_at=timezone.now())
             if not pk:
                 profile.password_changed_at = timezone.now()
             profile.save()
             audit(request, 'User access updated' if pk else 'User created', f'user:{member.pk}',
-                  f'Active: {member.is_active}; roles: {list(member.groups.values_list("name", flat=True))}; sites: {list(form.cleaned_data["sites"].values_list("code", flat=True))}')
+                  f'Active: {member.is_active}; expiry: {profile.access_expires_at.isoformat() if profile.access_expires_at else "none"}; roles: {list(member.groups.values_list("name", flat=True))}; sites: {list(form.cleaned_data["sites"].values_list("code", flat=True))}')
         messages.success(request, 'User saved. Role and location changes apply on their next request.' if pk else f'{member.get_full_name() or member.username} can now sign in.')
         return redirect('member_detail', pk=member.pk)
     return render(request, 'accounts/member_form.html', {'title': 'Edit user' if pk else 'Add user', 'form': form, 'member': member})

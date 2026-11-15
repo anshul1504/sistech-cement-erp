@@ -27,3 +27,23 @@ Fresh role presets move entitlement/payout preparation from Sales manager to Acc
 Regression tests cover foreign-site preparation/approval/read denial, absent-company-finance denial at HTTP and service boundaries, unchanged financial/audit state on denial and scoped work queues. Collections already requires explicit company-finance scope; support tickets intentionally use creator/support-agent visibility rather than plant scope. Broader authorization review remains ongoing.
 
 Verification for this extension: full suite 406 tests (398 passed, eight opt-in browser tests skipped). After the final combined-view permission checks, the relevant rewards/dashboard/account suite ran 90 tests (89 passed, one opt-in browser test skipped). The scheme browser test passed explicitly. Django checks and pending/drift migration checks passed; no database schema changes or live role updates were required.
+
+## Temporary account expiry — 15 November 2026
+
+Administrators can set an optional access expiry in local Asia/Kolkata time on the member form; account details display it. Empty expiry preserves ongoing access. New expiry values must be future dates. Changes retain the expiry in the user-access audit and invalidate old sessions and pending sign-in challenges, so a renewal requires a fresh password/email-code sign-in.
+
+Password authentication, authenticated-user loading, ordinary backend permission checks and OTP issuance/verification deny accounts at or after the persisted expiry. This is enforced on requests without waiting for a cron job. A request already executing when the deadline passes is not retroactively undone. No API/token stack exists yet; its expiry checks remain part of that implementation.
+
+Schedule the management command periodically (for example, once per minute):
+
+```sh
+python manage.py expire_temporary_access
+```
+
+The command disables expired accounts, consumes pending OTPs, deletes their active database sessions and records a single expiration event. It is idempotent. User/policy locks follow the administration lock order; PostgreSQL race validation remains a separate rollout gate. The command is provided but no host scheduler is installed automatically. Re-enabling a cleaned-up account requires an administrator to renew/clear its expiry and explicitly enable it.
+
+Migration accounts.0005 adds one nullable profile field without adding deadlines or changing existing role assignments. A local SQLite backup was created outside Git before application. Counts for 119 existing business/account tables were recorded and remained unchanged. No live account was expired or role changed during this verification.
+
+Scope still pending under SRS §3.2: dated approval delegation, reassignment of pending approvals when staff become unavailable, sensitive-action reauthentication and the remaining dimensional-access audit. Temporary expiry alone does not complete that section.
+
+Expiry verification: full suite 413 tests (405 passed; eight optional browser tests skipped). After final cleanup-lock ordering and expiry-field browser assertions, the targeted run included seven expiry tests plus one explicitly enabled authentication browser test: all eight passed. System checks, applied-migration checks and migration-drift checks pass. The host scheduler and company acceptance were not exercised.

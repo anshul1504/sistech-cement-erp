@@ -61,6 +61,9 @@ class BrowserFlowTests(StaticLiveServerTestCase):
                 ('password', '/accounts/password/change/'),
             ]:
                 capture(name, path)
+                if name == 'member':
+                    expect(page.get_by_label('Access expires at', exact=True)).to_be_visible()
+                    expect(page.locator('#id_access_expires_at')).to_have_attribute('type', 'datetime-local')
             page.goto(self.live_server_url + '/')
             page.get_by_role('button', name='Account menu', exact=True).click()
             page.get_by_role('button', name='Sign out', exact=True).click()

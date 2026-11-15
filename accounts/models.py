@@ -32,6 +32,7 @@ class UserProfile(models.Model):
     department = models.CharField(max_length=80, blank=True)
     photo = models.BinaryField(null=True, blank=True, editable=False)
     photo_type = models.CharField(max_length=20, blank=True, editable=False)
+    access_expires_at = models.DateTimeField(null=True, blank=True)
     password_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 

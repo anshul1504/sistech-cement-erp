@@ -29,3 +29,10 @@ def allow_attempt(request, purpose, identifier='', limit=5):
 def clear_identity_limit(identifier):
     value = f'login:identity:{identifier.strip().casefold()}'
     AuthRateLimit.objects.filter(key=salted_hmac('auth-throttle', value).hexdigest()).delete()
+
+
+def access_allowed(user, now=None):
+    """Expiry is checked against current persisted policy, including cached user instances."""
+    from .models import UserProfile
+    return bool(user and user.is_authenticated and user.is_active and not
+                UserProfile.objects.filter(user_id=user.pk, access_expires_at__lte=now or timezone.now()).exists())

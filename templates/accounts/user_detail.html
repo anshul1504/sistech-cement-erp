@@ -41,6 +41,7 @@
         <div class="is-wide"><dt>Email</dt><dd>{{ member.email|default:'—' }}</dd></div>
         <div><dt>Mobile</dt><dd>{{ member_profile.phone|default:'—' }}</dd></div>
         <div><dt>Designation</dt><dd>{{ member_profile.designation|default:'—' }}</dd></div>
+        <div><dt>Access expires</dt><dd>{{ member_profile.access_expires_at|date:"d M Y, H:i T"|default:"Ongoing access" }}</dd></div>
         <div><dt>Department</dt><dd>{{ member_profile.department|default:'—' }}</dd></div>
         <div><dt>Password changed</dt><dd>{% if member_profile.password_age_days is None %}Not recorded{% elif member_profile.password_age_days == 0 %}Today{% else %}{{ member_profile.password_age_days }} days ago{% endif %}</dd></div>
       </dl>
