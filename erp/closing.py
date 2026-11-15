@@ -20,7 +20,7 @@ from . import gl
 from .finance_access import permitted, require_company_finance
 from .gst import fy_start_month
 from .models import (Account, AuditEvent, BankStatementLine, CreditNote, DebitNote, FinancialPeriod,
-                     FinancialYearClose, FinancialYearCloseHistory, FixedAsset, DepreciationEntry, FreightBill, Invoice, JournalEntry, JournalLine,
+                     FinancialYearClose, FinancialYearCloseHistory, FixedAsset, DepreciationEntry, FreightBill, FreightRecoveryAdjustment, Invoice, JournalEntry, JournalLine,
                      PaymentAllocation, PeriodBankConfirmation, PeriodCloseReview, Receipt,
                      StockMovement, SupplierInvoice, SupplierPayment)
 
@@ -44,7 +44,9 @@ def historical_checks(as_of):
           + _sum(FixedAsset.objects.filter(credit_purchase=True, put_to_use__lte=as_of), 'cost')
           - _sum(DebitNote.objects.filter(date__lte=as_of), 'total')
           - _sum(paid.filter(freight_bill__isnull=True), 'amount'))
-    freight = _sum(FreightBill.objects.filter(status='approved', bill_date__lte=as_of), 'payable') - _sum(paid.filter(freight_bill__isnull=False), 'amount')
+    freight = (_sum(FreightBill.objects.filter(status='approved', bill_date__lte=as_of), 'payable')
+               - _sum(FreightRecoveryAdjustment.objects.filter(status='approved',on__lte=as_of), 'amount')
+               - _sum(paid.filter(freight_bill__isnull=False), 'amount'))
     rows = []
     for name, keys, expected, sign in [
         ('Trade receivables', ['ar'], ar, 1),
@@ -72,6 +74,8 @@ def source_gaps(as_of):
         (FixedAsset, 'fa', dict(put_to_use__lte=as_of)),
     ]:
         expected.extend((f'{prefix}:{pk}', label) for pk, label in model.objects.filter(**query).values_list('pk', 'code' if model is FixedAsset else 'bill_number' if model is FreightBill else 'number'))
+    expected.extend((f'freight-recovery:{pk}', f'Recovery {pk} / {reference}') for pk,reference in
+        FreightRecoveryAdjustment.objects.filter(status='approved',on__lte=as_of,amount__gt=0).values_list('pk','bill__bill_number'))
     for movement in StockMovement.objects.filter(created_at__date__lte=as_of, kind__in=gl.STOCK_MAP).exclude(unit_cost=None):
         if movement.value:
             expected.append((f'stk:{movement.pk}', movement.source))

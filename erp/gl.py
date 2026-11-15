@@ -476,12 +476,13 @@ def subledger_check(as_of=None):
     sub_inv = sum((b.value for b in StockBalance.objects.all()), ZERO)
     out.append(('Inventory', (inv['d'] or ZERO) - (inv['c'] or ZERO), sub_inv))
     from . import payables
-    from .models import FreightBill, PaymentAllocation
+    from .models import FreightBill, FreightRecoveryAdjustment, PaymentAllocation
     ap = _posted().filter(account__system_key='ap').aggregate(d=Sum('debit'), c=Sum('credit'))
     sub_ap = sum((payables.balance(p)['balance'] for p in Partner.objects.filter(kind='Supplier')), ZERO)
     out.append(('Supplier payables', (ap['c'] or ZERO) - (ap['d'] or ZERO), sub_ap))
     freight = _posted().filter(account__system_key='ap_freight').aggregate(d=Sum('debit'), c=Sum('credit'))
     freight_billed = FreightBill.objects.filter(status='approved').aggregate(t=Sum('payable'))['t'] or ZERO
+    freight_billed -= FreightRecoveryAdjustment.objects.filter(status='approved').aggregate(t=Sum('amount'))['t'] or ZERO
     freight_paid = PaymentAllocation.objects.filter(freight_bill__isnull=False, payment__status='paid').aggregate(t=Sum('amount'))['t'] or ZERO
     out.append(('Transporter payables', (freight['c'] or ZERO) - (freight['d'] or ZERO), freight_billed - freight_paid))
     return [{'name': n, 'gl': g, 'sub': s, 'diff': g - s} for n, g, s in out]

@@ -611,6 +611,9 @@ def my_queue(user, sites=None):
         add('Recipe versions to approve',approvable(approval_pending('recipe'),user,'approve_recipe'),reverse('recipes'),'Independent material/yield review')
     if has('pod_dispatch'):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
+    if fin and has('view_freightbill'):
+        from .models import FreightRecoveryAdjustment
+        add('Freight recovery requests to review',approvable(FreightRecoveryAdjustment.objects.filter(status='requested'),user,'approve_freightbill',maker_fields=('created_by_id','bill__created_by_id')),reverse('freight_bills'),'Independent late-POD liability correction')
     if has('view_freightbill'):
         from .freight import visible_bills,can_decide
         candidates=approvable(visible_bills(FreightBill.objects.filter(status='submitted'),user),user,'approve_freightbill')

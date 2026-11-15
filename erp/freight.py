@@ -40,7 +40,7 @@ def can_decide(user,bill):
 
 
 
-def review_state(bill):
+def review_state(bill,ignore_recovery=False):
     """Current financial/POD evidence only; no file bytes or bank data in the fingerprint."""
     rows=[];issues=[]
     for line in bill.lines.select_related('dispatch__freight_rate','dispatch__invoice').order_by('pk'):
@@ -52,7 +52,7 @@ def review_state(bill):
         if trip.transporter_id!=bill.transporter_id or trip.freight_payable_by!='company' or trip.status not in ['gate_out','delivered']:
             issues.append(f'{trip.number}: this trip is no longer billable on this claim.')
         if trip.freight_amount!=line.contracted:issues.append(f'{trip.number}: contracted freight changed after entry.')
-        if recovery!=line.shortage_recovery:
+        if recovery!=line.shortage_recovery and not ignore_recovery:
             issues.append(f'{trip.number}: current POD recovery is ₹{inr(recovery,2)}; this claim records ₹{inr(line.shortage_recovery,2)}.')
         if (trip.shortage_qty or trip.damaged_qty) and (not invoice or invoice_quantity<=0):
             issues.append(f'{trip.number}: shortage recovery requires linked invoice quantities.')

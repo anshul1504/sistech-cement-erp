@@ -12,7 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import freight as F
+from . import freight as F, freight_recovery as FR
+import uuid
 from .influencer_views import district_options
 from .models import FreightRate, FreightBill, Partner, Site, Dispatch, AuditEvent, clean_place
 from .services import permitted, scope
@@ -154,9 +155,20 @@ def freight_bill_detail(request, pk):
     permitted(request.user, 'view_freightbill')
     bill = get_object_or_404(F.visible_bills(FreightBill.objects.select_related('transporter', 'created_by', 'checked_by'), request.user), pk=pk)
     _,issues=F.review_state(bill) if bill.status=='submitted' else ({},[])
+    recovery={};requests=[]
+    if bill.status=='approved' and request.user.has_perm('erp.access_company_finance'):
+        requests=list(bill.recovery_adjustments.select_related('bill','created_by','reviewed_by','journal')[:50])
+        for item in requests:
+            item.can_decide=FR.can_decide(request.user,item)
+            item.can_cancel=item.status=='requested' and (item.created_by_id==request.user.pk or request.user.is_superuser)
+        try:recovery=FR.basis(bill)
+        except ValidationError as error:recovery={'problems':error.messages}
+        from .treasury import allocated
+        recovery.update(effective=FR.effective_payable(bill),balance=FR.effective_payable(bill)-allocated('freight_bill',bill),key=uuid.uuid4(),
+            can_propose=request.user.has_perm('erp.add_freightbill') and recovery.get('changed',False) and not bill.recovery_adjustments.filter(status='requested').exists())
     return render(request, 'erp/freight_bill_detail.html', {'title': f'Freight bill {bill.bill_number}', 'bill': bill,
                                                             'lines': bill.lines.select_related('dispatch__vehicle', 'dispatch__order__partner', 'dispatch__freight_rate'),
-                                                            'review_issues':issues,'review_token':F.review_token(bill) if bill.status=='submitted' else '',
+                                                            'recovery':recovery,'recovery_requests':requests,'today':timezone.localdate(),'review_issues':issues,'review_token':F.review_token(bill) if bill.status=='submitted' else '',
                                                             'can_decide': F.can_decide(request.user,bill)})
 
 
@@ -173,3 +185,25 @@ def freight_bill_decide(request, pk, decision):
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
     return redirect('freight_bill_detail', pk=pk)
+
+
+@login_required
+@require_POST
+def recovery_action(request,pk,action):
+    permitted(request.user,'view_freightbill')
+    get_object_or_404(F.visible_bills(FreightBill.objects.all(),request.user),pk=pk)
+    P=request.POST
+    try:
+        if action=='propose':FR.propose(request.user,pk,forms.DateField(required=False).clean(P.get('date')),P.get('reason',''),P.get('request_key'),P.get('evidence',''))
+        else:
+            from .models import FreightRecoveryAdjustment
+            raw=P.get('recovery','')
+            item=get_object_or_404(FreightRecoveryAdjustment,bill_id=pk,pk=raw if raw.isascii() and raw.isdecimal() else 0)
+            if action=='cancel':FR.cancel(request.user,item.pk,P.get('note',''))
+            elif action in ['approve','reject']:FR.decide(request.user,item.pk,action=='approve',P.get('note',''))
+            else:
+                from django.http import Http404
+                raise Http404
+    except ValidationError as error:messages.error(request,' '.join(error.messages))
+    else:messages.success(request,'Freight recovery request recorded; original bill and payment history remain retained.')
+    return redirect('freight_bill_detail',pk=pk)

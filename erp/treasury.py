@@ -56,8 +56,9 @@ def open_items(payee):
         if due > 0:
             items.append({'kind': 'sinv', 'obj': inv, 'ref': inv.invoice_number, 'date': inv.invoice_date, 'due_date': inv.due_date, 'amount': due})
     for fb in FreightBill.objects.filter(transporter=payee, status='approved').order_by('bill_date', 'pk'):
-        due = fb.payable - allocated('freight_bill', fb)
-        if due > 0:
+        from .freight_recovery import effective_payable,clear_for_payment
+        due = effective_payable(fb) - allocated('freight_bill', fb)
+        if due and (due<0 or clear_for_payment(fb)):
             items.append({'kind': 'frb', 'obj': fb, 'ref': fb.bill_number, 'date': fb.bill_date, 'due_date': fb.bill_date, 'amount': due})
     for asset in FixedAsset.objects.filter(supplier=payee, credit_purchase=True).order_by('put_to_use', 'pk'):
         due = asset.cost - allocated('fixed_asset', asset)
@@ -88,7 +89,7 @@ def payees():
 
 @transaction.atomic
 def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
-    """picks: {('sinv'|'frb'|'dn', pk): amount}. Amounts for debit notes are positive here and stored negative."""
+    """picks: {('sinv'|'frb'|'dn', pk): amount}. Credit selections are positive here and stored negative."""
     _need(user, 'add_supplierpayment')
     # Lock the stable payee row before calculating remaining allocations.
     payee = Partner.objects.select_for_update().get(pk=payee.pk)
@@ -119,7 +120,7 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
         limit = abs(item['amount'])
         if amt < 0 or amt > limit:
             problems.append(f'{item["ref"]}: pay between ₹0 and ₹{inr(limit, 2)}.')
-        allocs.append((item, -amt if key[0] == 'dn' else amt))
+        allocs.append((item, -amt if item['amount']<0 else amt))
     total = sum((a for _, a in allocs), ZERO)
     if total > max(sum((item['amount'] for item in items.values()), ZERO), ZERO):
         problems.append('Payment exceeds the net open balance; apply available debit notes or reduce the payment.')
@@ -147,6 +148,10 @@ def decide(user, pk, approve, note=''):
     authorize(user, 'approve_supplierpayment', makers=(pay.created_by_id,), reference=pay.number)
     if pay.status != 'proposed' and not (not approve and pay.status == 'approved'):
         raise ValidationError('Only proposed payments can be approved; proposed or approved payments can be cancelled.')
+    if approve:
+        Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
+        from .freight_recovery import check_payment
+        check_payment(pay)
     if pay.created_by_id == user.pk:
         raise ValidationError('The person who proposed the payment cannot approve it (maker-checker).')
     if not approve and not (note or '').strip():
@@ -167,6 +172,9 @@ def release(user, pk, reference, on=None):
         raise ValidationError('Only approved payments can be released.')
     if pay.created_by_id == user.pk:
         raise ValidationError('The payment maker cannot release it (maker-checker).')
+    Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
+    from .freight_recovery import check_payment
+    check_payment(pay)
     if on and on > timezone.localdate():
         raise ValidationError('Payment date cannot be in the future.')
     if not pay.bank.active:
@@ -182,8 +190,8 @@ def release(user, pk, reference, on=None):
     ap = sum((a.amount for a in pay.allocations.all() if a.freight_bill_id is None), ZERO)
     apf = sum((a.amount for a in pay.allocations.all() if a.freight_bill_id), ZERO)
     lines = [(pay.bank, 0, pay.amount, None, reference)]
-    if ap: lines.append((gl.acct('ap'), ap, 0, pay.payee, pay.number))
-    if apf: lines.append((gl.acct('ap_freight'), apf, 0, pay.payee, pay.number))
+    if ap: lines.append((gl.acct('ap'), max(ap,ZERO), max(-ap,ZERO), pay.payee, pay.number))
+    if apf: lines.append((gl.acct('ap_freight'), max(apf,ZERO), max(-apf,ZERO), pay.payee, pay.number))
     gl.post(user, f'pay:{pay.pk}', pay.date, None, f'Payment {pay.number} · {pay.payee.name} · {pay.get_mode_display()} {reference}', lines)
     _log(user, 'Payment released', pay.number, f'UTR {reference} · ₹{inr(pay.amount, 2)}')
     return pay
@@ -198,6 +206,7 @@ def fail(user, pk, reason):
         raise ValidationError('Only released payments can be marked failed.')
     if not (reason or '').strip():
         raise ValidationError('Give the bank\'s return reason.')
+    Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
     gl.reverse_source(user, f'pay:{pay.pk}', reason=f'Payment returned: {reason}')
     pay.status, pay.note, pay.returned_on = 'failed', reason.strip()[:200], timezone.localdate()
     pay.save()

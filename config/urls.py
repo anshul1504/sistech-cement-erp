@@ -147,6 +147,7 @@ urlpatterns += [
     path('freight/bills/', frv.freight_bills, name='freight_bills'),
     path('freight/bills/new/<int:transporter_pk>/', frv.freight_bill_new, name='freight_bill_new'),
     path('freight/bills/<int:pk>/', frv.freight_bill_detail, name='freight_bill_detail'),
+    path('freight/bills/<int:pk>/recovery/<str:action>/',frv.recovery_action,name='freight_recovery_action'),
     path('freight/bills/<int:pk>/<str:decision>/', frv.freight_bill_decide, name='freight_bill_decide'),
 ]
 from erp import procurement_views as pcv

@@ -2116,13 +2116,13 @@ class PaymentAllocation(models.Model):
     freight_bill = models.ForeignKey('FreightBill', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
     fixed_asset = models.ForeignKey('FixedAsset', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
     debit_note = models.ForeignKey('DebitNote', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
-    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='Negative for a debit note adjusted in the payment.')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='Negative for a debit note or approved freight recovery credit adjusted in the payment.')
 
     class Meta:
         constraints = [models.CheckConstraint(
             condition=(
                 models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=True, amount__gt=0)
-                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False, debit_note__isnull=True, fixed_asset__isnull=True, amount__gt=0)
+                | (models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False, debit_note__isnull=True, fixed_asset__isnull=True) & ~models.Q(amount=0))
                 | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=False, amount__gt=0)
                 | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=False, fixed_asset__isnull=True, amount__lt=0)
             ), name='payment_allocation_one_source')]
@@ -3241,3 +3241,28 @@ class JournalReversalRequest(models.Model):
         constraints=[models.UniqueConstraint(fields=['entry'],condition=models.Q(status__in=['requested','approved']),name='one_live_manual_reversal_request')]
 
     def __str__(self):return f'Reversal request {self.pk} · {self.entry.number}'
+
+
+class FreightRecoveryAdjustment(models.Model):
+    bill = models.ForeignKey(FreightBill,on_delete=models.PROTECT,related_name='recovery_adjustments')
+    on = models.DateField()
+    reason = models.CharField(max_length=300)
+    amount = models.DecimalField(max_digits=14,decimal_places=2,validators=MONEY)
+    recovery_total = models.DecimalField(max_digits=20,decimal_places=2,validators=MONEY)
+    payable_after = models.DecimalField(max_digits=14,decimal_places=2,validators=MONEY)
+    evidence = models.JSONField(default=dict)
+    source_digest = models.CharField(max_length=64)
+    request_key = models.UUIDField(unique=True)
+    status = models.CharField(max_length=10,default='requested',choices=[('requested','Review pending'),('approved','Approved'),('rejected','Rejected'),('cancelled','Cancelled')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.PROTECT,related_name='+')
+    reviewed_at = models.DateTimeField(null=True,blank=True)
+    review_note = models.CharField(max_length=300,blank=True)
+    journal = models.OneToOneField(JournalEntry,null=True,blank=True,on_delete=models.PROTECT,related_name='freight_recovery_adjustment')
+
+    class Meta:
+        ordering=['-created_at','-pk']
+        constraints=[models.UniqueConstraint(fields=['bill'],condition=models.Q(status='requested'),name='one_pending_freight_recovery')]
+
+    def __str__(self):return f'Freight recovery {self.pk} · {self.bill.bill_number}'

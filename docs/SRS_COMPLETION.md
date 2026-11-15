@@ -17,7 +17,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 | Procurement (§5.4) | PR/RFQ/PO, inbound/GRN, matching, returns and AP | Demand/budget planning, deeper supplier verification, hardware/evidence acceptance |
 | Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Full warehouse/bin/lot balances, allocations/reservations, versioned conversions and recall coverage |
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Demand/capacity/MRP, complete cost allocation, rework/write-off, sampling schedules, automated quarantine/recall |
-| Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry and POD-bound pending approval | Hardware, GPS/ETA, mobile delivery proof, full failure/diversion/return states and advanced freight |
+| Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry, POD-bound pending approval and reviewed post-approval recovery/vendor credits | Hardware, GPS/ETA, mobile delivery proof, full failure/diversion/return states and advanced freight |
 | Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, CSV bank match, assets, close | IRN/EWB, budgets/dimensions, tax scope, combined/split matching, beneficiary approval, signed finance reconciliation |
 | Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, deposit/refund lifecycle, channel ingestion and all downstream corrections |
 | API / Android (§6) | Responsive web only | Versioned API, employee/dealer/driver apps, token/device controls, encrypted offline sync and conflicts |
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- Late-POD recovery after freight approval: retained requests, independent routed/delegated review, source fingerprint, liability journal and paid vendor-credit offset in future net payments. Current/historical control totals and missing-posting checks include adjustments. Pending allocations must be cancelled/reviewed explicitly. Decreased recovery, pure zero-cash settlement, cash refunds, excess damages, PostgreSQL concurrency and company acceptance remain pending. Migration 0050 adds request history and signed freight allocations; existing original bill/line/payment history is preserved.
 
 - Complaint/CAPA and quotation access boundaries: commit d8d63bb.
 - Scheme finance/site boundaries and preserved custom role assignments: commit 3271810.
