@@ -2075,7 +2075,7 @@ class JournalLine(models.Model):
 
 # ---------- Payments, bank reconciliation, fixed assets (Step 7b/7c, FR-FIN-007/008/012) ----------
 
-PAYMENT_MODES = [('neft', 'NEFT'), ('rtgs', 'RTGS'), ('cheque', 'Cheque'), ('upi', 'UPI / IMPS'), ('offset', 'Non-cash offset')]
+PAYMENT_MODES = [('neft', 'NEFT'), ('rtgs', 'RTGS'), ('cheque', 'Cheque'), ('upi', 'UPI / IMPS'), ('offset', 'Non-cash offset'), ('refund', 'Vendor refund (incoming)')]
 PAYMENT_STATUSES = [('proposed', 'Waiting approval'), ('approved', 'Approved — to pay'), ('paid', 'Paid'), ('failed', 'Failed / returned'), ('cancelled', 'Cancelled')]
 
 
@@ -2109,12 +2109,16 @@ class SupplierPayment(models.Model):
     class Meta:
         ordering = ['-created_at']
         permissions = [('approve_supplierpayment', 'Approve supplier payments'), ('release_supplierpayment', 'Record payment release (UTR) and failures')]
-        constraints=[models.CheckConstraint(condition=(models.Q(mode='offset',bank__isnull=True,amount=0) | (~models.Q(mode='offset') & models.Q(bank__isnull=False,amount__gt=0))),name='payment_cash_or_offset')]
+        constraints=[models.CheckConstraint(condition=(models.Q(mode='offset',bank__isnull=True,amount=0) | models.Q(mode='refund',bank__isnull=False,amount__lt=0) | (~models.Q(mode__in=['offset','refund']) & models.Q(bank__isnull=False,amount__gt=0))),name='payment_cash_or_offset')]
 
     def __str__(self): return self.number
 
     @property
+    def cash_amount(self):return abs(self.amount)
+
+    @property
     def status_label(self):
+        if self.mode=='refund':return {'proposed':'Refund awaiting approval','approved':'Approved — awaiting receipt','paid':'Refund received','failed':'Refund reversed','cancelled':'Cancelled'}.get(self.status,self.get_status_display())
         if self.mode=='offset':return {'proposed':'Offset awaiting approval','approved':'Approved — to settle','paid':'Settled without cash','failed':'Settlement reversed','cancelled':'Cancelled'}.get(self.status,self.get_status_display())
         return self.get_status_display()
 

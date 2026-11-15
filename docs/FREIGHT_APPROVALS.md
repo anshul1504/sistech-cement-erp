@@ -86,3 +86,6 @@ POD-correction verification on 15 November 2026: final full suite **621 tests: 6
 
 
 Zero-cash offsets of recognized freight credits against equal bills are now implemented with the existing independent payment stages, bank-free execution, retained findings, explicit reversal and historical reconciliation. Same-control offsets create no empty journal; cross-control offsets retain balanced GL/reversal entries. The earlier zero-cash pending notes are superseded by [non-cash settlement controls](NON_CASH_SETTLEMENT.md). Cash refunds and excess contractual damages remain pending.
+
+
+Recognized freight credits now support [incoming vendor-credit bank refunds](VENDOR_REFUNDS.md), with independent review, credit reservation/backing checks, actual bank value date/reference, incoming journal and retained reversal. Customer/deposit refunds and excess contractual damages remain pending.

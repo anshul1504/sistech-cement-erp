@@ -2,11 +2,11 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
-  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'payments' %}">← Payments</a></div><h1>Pay / offset {{ payee.name }}</h1><p>{% if payee.bank_account_number %}To {{ payee.bank_name|default:'bank' }} · {{ payee.masked_account }} · {{ payee.bank_ifsc }}{% else %}No bank account on file — NEFT/RTGS will be refused.{% endif %} Tick the bills; leave the amount empty to pay the full balance. Credits reduce the payment. Choose Non-cash offset when selected bills and credits net to zero. No bank account or UTR applies to an offset.</p></div></div>
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'payments' %}">← Payments</a></div><h1>Pay / offset {{ payee.name }}</h1><p>{% if payee.bank_account_number %}To {{ payee.bank_name|default:'bank' }} · {{ payee.masked_account }} · {{ payee.bank_ifsc }}{% else %}No bank account on file — NEFT/RTGS will be refused.{% endif %} Tick the bills; leave the amount empty to pay the full balance. Credits reduce the payment. Choose Non-cash offset when selected bills and credits net to zero. No bank account or UTR applies to an offset. For money returned by a vendor, choose Vendor refund (incoming) and select credits only; choose the receiving bank.</p></div></div>
   {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
   <form method="post" class="doc-form" novalidate>{% csrf_token %}
     <section class="org-card"><header><h2>Payment</h2></header><div class="org-grid">
-      <div class="org-field"><label class="form-label" for="py-b">From bank <span class="required" id="py-bank-required">*</span></label><select class="form-select" id="py-b" name="bank"><option value="">No bank (non-cash offset only)</option>{% for b in banks %}{% if b.system_key != 'cash' %}<option value="{{ b.pk }}"{% if post.bank == b.pk|stringformat:'s' %} selected{% endif %}>{{ b.code }} · {{ b.name }}</option>{% endif %}{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="py-b">Bank (pay from / receive into) <span class="required" id="py-bank-required">*</span></label><select class="form-select" id="py-b" name="bank"><option value="">No bank (non-cash offset only)</option>{% for b in banks %}{% if b.system_key != 'cash' %}<option value="{{ b.pk }}"{% if post.bank == b.pk|stringformat:'s' %} selected{% endif %}>{{ b.code }} · {{ b.name }}</option>{% endif %}{% endfor %}</select></div>
       <div class="org-field"><label class="form-label" for="py-m">Mode</label><select class="form-select" id="py-m" name="mode">{% for k, l in modes %}<option value="{{ k }}"{% if post.mode == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
       <div class="org-field"><label class="form-label" for="py-d">Value date</label><input class="form-control" id="py-d" type="date" name="date" value="{{ post.date|default:today }}"></div>
       <div class="org-field is-wide"><label class="form-label" for="py-n">Note</label><input class="form-control" id="py-n" name="note" maxlength="200" value="{{ post.note }}"></div></div></section>
@@ -19,7 +19,7 @@
 </div>
 <script>
 (() => { const mode=document.querySelector('#py-m'), bank=document.querySelector('#py-b');
-function update(){ bank.disabled=mode.value==='offset'; if(bank.disabled) bank.value=''; document.querySelector('#py-submit').textContent=bank.disabled?'Propose offset':'Propose payment'; document.querySelector('#py-bank-required').hidden=bank.disabled; }
+function update(){ bank.disabled=mode.value==='offset'; if(bank.disabled) bank.value=''; document.querySelector('#py-submit').textContent=bank.disabled?'Propose offset':mode.value==='refund'?'Propose refund':'Propose payment'; document.querySelector('#py-bank-required').hidden=bank.disabled; }
 mode.addEventListener('change',update);update(); })();
 </script>
 {% endblock %}
