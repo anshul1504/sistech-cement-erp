@@ -22,7 +22,7 @@ OWNER_WORK = {
     'project': (M.SalesProject,'owner',{},'site',('view_salesproject','change_salesproject')),
     'collection': (M.CollectionFollowUp,'owner',{'resolved':False},'',('view_receipt','add_receipt','access_company_finance')),
     'crm': (M.CRMLead,'owner',{},'site',('view_crmlead','change_crmlead')),
-    'beat': (M.BeatPlan,'owner',{'status__in':['draft','submitted','approved']},'site',('view_beatplan','record_beatstop')),
+    'beat': (M.BeatPlan,'owner',{'status__in':['draft','submitted','approved','finished']},'site',('view_beatplan','record_beatstop')),
 }
 
 
@@ -56,6 +56,17 @@ def _note(value):
 
 
 def _owner_pending(kind,obj):
+    if kind == 'beat':
+        from erp.beat_cover import _outstanding, executes
+        if obj.status == 'finished' and not _outstanding(obj):return False
+        for cover in obj.execution_covers.filter(status='approved').select_related('recipient'):
+            if executes(cover.recipient,obj):
+                try:
+                    from erp.beats import _owner
+                    _owner(cover.recipient,obj.site)
+                except (ValidationError,PermissionDenied):
+                    continue
+                return False
     if kind == 'project':
         return obj.stage not in {'won','lost'}
     if kind == 'crm':

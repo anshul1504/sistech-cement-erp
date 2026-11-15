@@ -19,7 +19,11 @@ def scope(qs,user,prefix=''):
     root=prefix+'__' if prefix else ''
     if user.is_superuser:return qs
     qs=qs.filter(**{root+'site__in':sites_for(user)})
-    return qs if user.has_perm('erp.view_team_beats') else qs.filter(**{root+'owner':user})
+    if user.has_perm('erp.view_team_beats'):return qs
+    if qs.model in (BeatPlan, BeatStop):
+        from .beat_cover import mine
+        return mine(qs,user,prefix)
+    return qs.filter(**{root+'owner':user})
 
 
 def eligible_owners():
@@ -28,7 +32,8 @@ def eligible_owners():
 
 
 def _owner(owner,site):
-    if not owner.is_active or not owner.has_perm('erp.view_beatplan') or not owner.has_perm('erp.record_beatstop'):
+    from accounts.security import access_allowed
+    if not access_allowed(owner) or not owner.has_perm('erp.view_beatplan') or not owner.has_perm('erp.record_beatstop'):
         raise ValidationError('The owner needs active field-plan view and visit-recording access.')
     require_site(owner,site)
 
@@ -127,8 +132,15 @@ def _plan(user,pk):
     require_site(user,header.site)
     Site.objects.select_for_update().get(pk=header.site_id)
     plan=BeatPlan.objects.select_for_update().select_related('site','owner').get(pk=pk)
-    if not user.is_superuser and not user.has_perm('erp.view_team_beats') and plan.owner_id!=user.pk:raise PermissionDenied
+    if not user.is_superuser and not user.has_perm('erp.view_team_beats') and plan.owner_id!=user.pk:
+        from .beat_cover import executes
+        if not executes(user,plan):raise PermissionDenied
     return plan
+
+
+def _executor(user,plan):
+    from .beat_cover import executes
+    if plan.owner_id!=user.pk and not user.has_perm('erp.manage_salesterritory') and not executes(user,plan):raise PermissionDenied
 
 
 def _editor(user,plan):
@@ -256,7 +268,7 @@ def cancel_plan(user,pk,note):
 def record_stop(user,pk,data,missed=False):
     permitted(user,'record_beatstop')
     header=BeatStop.objects.only('plan_id').get(pk=pk)
-    plan=_plan(user,header.plan_id);_editor(user,plan)
+    plan=_plan(user,header.plan_id);_executor(user,plan)
     stop=plan.stops.select_for_update().select_related('assignment__partner','assignment__territory').get(pk=pk)
     if plan.status!='approved' or stop.status!='planned':raise ValidationError('Record an outstanding stop on an approved route once.')
     if plan.on>timezone.localdate():raise ValidationError('A future visit cannot be recorded as completed or missed.')
@@ -286,7 +298,7 @@ def record_stop(user,pk,data,missed=False):
 @transaction.atomic
 def close_followup(user,pk,note):
     permitted(user,'record_beatstop')
-    header=BeatStop.objects.only('plan_id').get(pk=pk);plan=_plan(user,header.plan_id);_editor(user,plan)
+    header=BeatStop.objects.only('plan_id').get(pk=pk);plan=_plan(user,header.plan_id);_executor(user,plan)
     stop=plan.stops.select_for_update().get(pk=pk)
     if stop.status!='completed' or not stop.next_action_on or stop.followed_at or not (note or '').strip():raise ValidationError('Close an open follow-up with an outcome note.')
     stop.followup_note,stop.followed_by,stop.followed_at=note,user,timezone.now();stop.full_clean();stop.save()

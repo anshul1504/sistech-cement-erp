@@ -74,3 +74,24 @@ RUN_BROWSER_TESTS=1 python manage.py test erp.test_beats_browser erp.test_return
 The unified project pipeline is now implemented separately. Remaining: bulk ownership transfers/import, recurring/optimized beats, mobile/offline synchronization and GPS/proof capture, cash pickup/receipting routes, external notifications and dealer portals. Territory classifications are currently independent of shared legacy text fields. Direct database edits remain outside the application audit boundary. PostgreSQL concurrency/load testing and actual sales/finance UAT remain rollout requirements.
 
 Verification on 14 November 2026: the full suite ran 374 tests (367 passed; seven opt-in browser checks skipped by default). All seven browser tests were then run explicitly and passed. `check`, `migrate --check` and `makemigrations --check --dry-run` passed. Local migration `0042–0043` preserved the recorded business row counts after an external backup. No real route, customer assignment, payment, email or notification was created during verification.
+
+
+## Temporary execution cover
+
+For an approved route with pending visits, or a finished route with open field follow-ups, a site manager with team-beat visibility can propose an existing qualified executor and a finite expiry. Use **Route detail → Propose cover**. The route owner, dated dealer assignment, approved revision, customer snapshots and previous outcomes stay fixed. No role, site or finance grant is added.
+
+A different checker with direct or valid delegated beat approval authority reviews the proposal. Route owner, original preparer/submitter/contributors, proposer and recipient are excluded; delegated principals must also be independent. Approval compares the retained outstanding-work evidence to the current route. If work changed or the window expired, reject and prepare a fresh proposal. Pending/approved unexpired cover blocks another overlapping proposal; rejected/revoked/expired records remain retained.
+
+Only visits and follow-up execution are added. Draft editing, stop changes, cancellation, submission and route approval retain their original permissions and ownership checks. Each outcome/follow-up records the actual executor. Existing independently reviewed payment-promise acceptance remains separate. Cover can handle a partially visited route after the original owner's account is disabled; recorded visits are never reassigned.
+
+Every request checks existing read/record roles, account availability, site access, the cover window and matching approved route revision. Expiry/revocation/access loss removes covered access immediately. Manager revocation needs a reason; proposal/review/revocation require recent identity confirmation and CSRF. My Work includes covered visits/follow-ups and eligible independent cover reviews. The plan register offers a cover-review filter; the approval-routing catalog can route the proposal to an eligible independent checker. Routing does not approve it.
+
+Unavailable-staff attention omits a route while a current qualified approved cover executes it, and returns it on cover expiry/revocation/access loss if work remains. Finished routes with pending follow-ups are included. Draft/submitted route ownership and dated commercial dealer transfers still require their own reviewed transition; this execution workflow does not silently rewrite assignments.
+
+Migration `erp.0045` adds the retained execution-cover table. Before local application, a SQLite backup and row-count inventory were saved outside Git. All 129 pre-existing non-metadata business/account table counts remained unchanged. Expected metadata additions were one content type, four default model permissions and the migration entry. No live execution cover was created.
+
+PostgreSQL race/load verification, real backup staffing, company acceptance and mobile/GPS execution remain rollout work.
+
+Reproduce execution-cover verification with `python manage.py test erp.test_beat_cover erp.test_beats accounts.test_handoff erp.test_insights` and `RUN_BROWSER_TESTS=1 python manage.py test erp.test_beat_cover_browser erp.test_beats_browser`. Browser checks exercise proposal → independent approval → actual cover execution and narrow/mobile layouts, in isolated fictional test databases.
+
+Execution-cover verification on 15 November 2026: final full suite 488 tests, 479 passed and nine opt-in browser checks skipped. Both affected beat/cover browser checks passed explicitly. Eleven cover regressions cover partial routes, retained actual actors, stale evidence, replay/overlap denial, delegated review, independent makers, identity confirmation, expiry/revocation/site loss and unavailable-work attention. Django, applied-migration, migration-drift and diff checks passed. SQLite verification does not establish PostgreSQL concurrency acceptance.

@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
-from . import beats
+from . import beats, beat_cover
 from .crm import sites_for
 from .crm_views import _safe
 from .models import SalesTerritory,DealerTerritoryAssignment,BeatPlan,BeatStop,AuditEvent
@@ -91,13 +91,14 @@ def plans(request):
     today=timezone.localdate()
     qs=beats.scope(BeatPlan.objects.select_related('site','owner').prefetch_related('stops'),request.user)
     status=request.GET.get('status','')
-    if status=='due':qs=qs.filter(status='approved',on__lte=today,stops__status='planned').distinct()
+    if status=='covers':qs=qs.filter(pk__in=beat_cover.reviewable(request.user).values('plan_id'))
+    elif status=='due':qs=qs.filter(status='approved',on__lte=today,stops__status='planned').distinct()
     elif status in ['draft','submitted','approved','finished','cancelled']:qs=qs.filter(status=status)
     try:
         start=_day(request.GET.get('from'),today-timedelta(days=7));end=_day(request.GET.get('to'),today+timedelta(days=14))
         if start>end:raise ValidationError('The end date must be on/after the start date.')
     except ValidationError as e:_error(request,e);start,end=today-timedelta(days=7),today+timedelta(days=14)
-    if status!='due' and (status!='submitted' or request.GET.get('from') or request.GET.get('to')):qs=qs.filter(on__range=(start,end))
+    if status not in ['due','covers'] and (status!='submitted' or request.GET.get('from') or request.GET.get('to')):qs=qs.filter(on__range=(start,end))
     q=request.GET.get('q','').strip()
     if q:qs=qs.filter(Q(number__icontains=q)|Q(title__icontains=q)|Q(owner__username__icontains=q))
     return render(request,'erp/beat_plans.html',dict(title='Beat & visit plans',page=Paginator(qs,25).get_page(request.GET.get('page')),start=start,end=end,q=q,status=status))
@@ -123,17 +124,19 @@ def plan_form(request,pk=None):
 def detail(request,pk):
     permitted(request.user,'view_beatplan');plan=_plan(request,pk);u=request.user
     editor=plan.owner_id==u.pk or u.has_perm('erp.manage_salesterritory')
+    executor=editor or beat_cover.executes(u,plan)
     can_decide=can_approve(u, 'approve_beatplan', plan.site, makers=[plan.owner_id, plan.created_by_id, plan.submitted_by_id, *plan.contributors.values_list('pk', flat=True)]) and plan.status=='submitted' and u.pk not in [plan.owner_id,plan.created_by_id,plan.submitted_by_id] and not plan.contributors.filter(pk=u.pk).exists()
     stops=list(plan.stops.select_related('assignment__partner','assignment__territory__parent__parent','assignment__site','assignment__owner','recorded_by','followed_by','collection_followup'))
     for stop in stops:
         stop.customer=stop.snapshot or beats._stop_snapshot(stop)
-        stop.can_record=editor and plan.status=='approved' and stop.status=='planned' and plan.on<=timezone.localdate() and u.has_perm('erp.record_beatstop')
+        stop.can_record=executor and plan.status=='approved' and stop.status=='planned' and plan.on<=timezone.localdate() and u.has_perm('erp.record_beatstop')
         stop.can_publish=(stop.status=='completed' and stop.outcome=='promise' and not stop.collection_followup_id and u.pk not in [plan.owner_id,stop.recorded_by_id]
             and all(u.has_perm('erp.'+p) for p in ['publish_beatpromise','add_receipt','access_company_finance']))
     return render(request,'erp/beat_detail.html',dict(title=plan.number,plan=plan,stops=stops,stop_form=StopForm(plan=plan),can_decide=can_decide,
         can_edit=editor and plan.status=='draft' and u.has_perm('erp.change_beatplan'),can_submit=editor and plan.status=='draft' and u.has_perm('erp.submit_beatplan'),
         can_cancel=editor and u.has_perm('erp.change_beatplan') and plan.status not in ['finished','cancelled'] and all(s.status=='planned' for s in stops),
-        can_follow=editor and u.has_perm('erp.record_beatstop'),reviews=plan.reviews.select_related('actor'),
+        can_follow=executor and u.has_perm('erp.record_beatstop'),reviews=plan.reviews.select_related('actor'),covers=plan.execution_covers.select_related('recipient'),
+        can_cover=u.has_perm('erp.manage_salesterritory') and u.has_perm('erp.view_team_beats') and plan.status in ['approved','finished'],
         history=AuditEvent.objects.filter(reference=plan.number,site=plan.site).select_related('actor').order_by('-created_at')[:30]))
 
 
@@ -162,7 +165,7 @@ def plan_action(request,pk,action):
 
 @login_required
 def outcome(request,pk):
-    permitted(request.user,'record_beatstop');stop=_stop(request,pk);beats._editor(request.user,stop.plan)
+    permitted(request.user,'record_beatstop');stop=_stop(request,pk);beats._executor(request.user,stop.plan)
     if stop.status!='planned' or stop.plan.status!='approved' or stop.plan.on>timezone.localdate():
         messages.error(request,'Only an outstanding approved visit due today or earlier can be recorded.');return redirect('beat_detail',pk=stop.plan_id)
     form=OutcomeForm(request.POST or None,user=request.user,stop=stop)

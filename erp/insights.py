@@ -613,10 +613,13 @@ def my_queue(user, sites=None):
         add('Project follow-ups due',project_scope(SalesProject.objects.filter(next_action_on__lte=today).exclude(stage__in=['won','lost']),user),reverse('projects')+'?due=due','Current and overdue project next actions')
     if has('view_beatplan'):
         if has('view_team_beats'):
+            from .beat_cover import reviewable
+            add('Execution covers to review',reviewable(user),reverse('beat_plans')+'?status=covers','Independent temporary route cover review')
             add('Beat plans to approve',approvable(BeatPlan.objects.filter(site__in=sites,status='submitted'),user,'approve_beatplan',maker_fields=('owner_id','created_by_id','submitted_by_id','contributors__pk')),reverse('beat_plans')+'?status=submitted','Independent route review')
         if has('record_beatstop'):
-            add('Daily routes with visits due',BeatPlan.objects.filter(site__in=sites,owner=user,status='approved',on__lte=today,stops__status='planned').distinct(),reverse('beat_plans')+'?status=due','Record each planned stop')
-            add('Field follow-ups due',BeatStop.objects.filter(plan__site__in=sites,plan__owner=user,status='completed',next_action_on__lte=today,followed_at__isnull=True),reverse('beat_report'),'Retain the next-action result')
+            from .beat_cover import mine
+            add('Daily routes with visits due',mine(BeatPlan.objects.filter(site__in=sites,status='approved',on__lte=today,stops__status='planned'),user).distinct(),reverse('beat_plans')+'?status=due','Record each planned stop')
+            add('Field follow-ups due',mine(BeatStop.objects.filter(plan__site__in=sites,status='completed',next_action_on__lte=today,followed_at__isnull=True),user,'plan'),reverse('beat_report'),'Retain the next-action result')
         if fin and has('publish_beatpromise') and has('add_receipt') and has('view_team_beats'):
             add('Field promises to review',BeatStop.objects.filter(plan__site__in=sites,status='completed',outcome='promise',collection_followup__isnull=True).exclude(plan__owner=user).exclude(recorded_by=user),reverse('beat_report'),'Accept into collections; no receipt')
     if has('view_returnrequest'):

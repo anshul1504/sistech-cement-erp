@@ -43,6 +43,7 @@ CATALOG = {
     'scheme_payout': Workflow(M.SchemeSettlement,'approve_schemesettlement','view_schemesettlement',{'status':'proposed'},'',route='scheme_payouts'),
     'supply_rate': Workflow(M.SupplyContract,'approve_supplycontract','view_supplycontract',{'status':'draft'},route='mfg_partners'),
     'customer_return': Workflow(M.ReturnRequest,'approve_returnrequest','view_returnrequest',{'status':'requested'},route='return_detail'),
+    'beat_cover': Workflow(M.BeatExecutionCover,'approve_beatplan','view_beatplan',{'status':'submitted'},'plan.site',('created_by_id','recipient_id','plan.owner_id','plan.created_by_id','plan.submitted_by_id'),'beat_cover_detail'),
     'beat_plan': Workflow(M.BeatPlan,'approve_beatplan','view_beatplan',{'status':'submitted'},maker_paths=('created_by_id','owner_id','submitted_by_id'),route='beat_detail'),
     'period_close': Workflow(M.FinancialPeriod,'close_period','view_financials',{'status':'open'},'',(), 'period_detail'),
     'year_close': Workflow(M.FinancialYearClose,'approve_yearclose','view_financialyearclose',{'status':'proposed'},'',('prepared_by_id',),'year_detail'),
@@ -95,6 +96,8 @@ def source(kind, pk, lock=False):
         makers.update(D.order_makers(obj))
     if kind in {'scheme_rules','beat_plan'}:
         makers.update(obj.contributors.values_list('pk',flat=True))
+    if kind == 'beat_cover':
+        makers.update(obj.plan.contributors.values_list('pk',flat=True))
     if review is not None:
         makers.add(review.prepared_by_id)
     site = path(obj,workflow.site_path) if workflow.site_path else None
@@ -135,7 +138,7 @@ def eligible(person, task):
         from erp.procurement import approval_limit
         if task['object'].grand_total > approval_limit() and not D.can_approve(person,'approve_high_value_purchase',task['site'],makers=task['makers']):
             return False, 'The recipient also needs high-value purchase authority.'
-    if task['kind'] == 'beat_plan' and not person.has_perm('erp.view_team_beats'):
+    if task['kind'] in {'beat_plan','beat_cover'} and not person.has_perm('erp.view_team_beats'):
         return False, 'The recipient needs team-beat visibility.'
     if task['kind'] == 'scheme_payout' and not person.has_perm('erp.view_schemeentitlementbatch'):
         return False, 'The combined finance workspace also needs entitlement read access.'

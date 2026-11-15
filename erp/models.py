@@ -3173,3 +3173,30 @@ class ProjectEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:ordering=['-created_at','-pk']
+
+
+class BeatExecutionCover(models.Model):
+    """Retained independent authorization to execute, never rewrite, a route."""
+    plan = models.ForeignKey(BeatPlan, on_delete=models.PROTECT, related_name='execution_covers')
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    revoked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    starts_at = models.DateTimeField(default=timezone.now, editable=False)
+    ends_at = models.DateTimeField()
+    revision = models.PositiveIntegerField()
+    evidence = models.JSONField(default=dict)
+    status = models.CharField(max_length=12, default='submitted', choices=[('submitted','Review pending'),('approved','Approved'),('rejected','Rejected'),('revoked','Revoked')])
+    reason = models.CharField(max_length=300)
+    review_note = models.CharField(max_length=300, blank=True)
+    revoke_note = models.CharField(max_length=300, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(ends_at__gt=models.F('starts_at')), name='beat_cover_finite_window')]
+        indexes = [models.Index(fields=['recipient','status','ends_at'])]
+
+    def __str__(self):
+        return f'Beat cover {self.pk}'

@@ -321,10 +321,14 @@ urlpatterns += [
 ]
 
 from erp import beat_views as btv
+from erp import beat_cover_views as bcv
 urlpatterns += [
     path('territories/',btv.territories,name='territories'),
     path('territories/new/<str:kind>/',btv.master_form,name='territory_new'),
     path('territories/<str:kind>/<int:pk>/',btv.territory_action,name='territory_action'),
+    path('beats/covers/<int:pk>/',bcv.detail,name='beat_cover_detail'),
+    path('beats/covers/<int:pk>/<str:action>/',bcv.action,name='beat_cover_action'),
+    path('beats/plans/<int:pk>/cover/new/',bcv.new,name='beat_cover_new'),
     path('beats/',btv.plans,name='beat_plans'),
     path('beats/new/',btv.plan_form,name='beat_new'),
     path('beats/coverage/',btv.report,name='beat_report'),
