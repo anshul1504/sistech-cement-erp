@@ -1,0 +1,13 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'approval_board' %}">← Approval routing</a></div><h1>Pending work handoff</h1><p>Preview current work and recipient eligibility. Closed/posted documents, maker identities, dates and transaction values remain intact.</p></div></div>
+  <form method="post" class="org-card" novalidate>{% csrf_token %}<input type="hidden" name="request_key" value="{{ request_key }}"><input type="hidden" name="preview_digest" value="{{ preview_digest }}">
+    {% if form.non_field_errors %}<div class="org-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="org-grid">{% for field in form %}<div class="org-field"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
+    <div class="org-actions"><button class="org-btn is-light" name="action" value="preview" type="submit">Preview handoff</button>{% if rows != None %}<button class="org-btn is-primary" name="action" value="transfer" type="submit">Transfer eligible work</button>{% endif %}</div>
+    {% if rows != None %}<div class="table-responsive"><table class="table"><thead><tr><th>Work</th><th>State</th><th>Preview result</th></tr></thead><tbody>{% for row in rows %}<tr><td>{{ row.reference }}<br><small>{{ row.kind }}</small></td><td>{{ row.status }}</td><td>{% if row.eligible %}Eligible to transfer{% else %}Needs review: {{ row.reason }}{% endif %}</td></tr>{% empty %}<tr><td colspan="3">No pending assigned work.</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+  </form>
+</div>
+{% endblock %}

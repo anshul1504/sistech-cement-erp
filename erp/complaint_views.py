@@ -78,12 +78,15 @@ def complaint_detail(request, pk):
     c = get_object_or_404(CM.scope(Complaint.objects.select_related('partner', 'invoice', 'dispatch__vehicle', 'batch', 'product', 'owner', 'decided_by', 'credit_note',
                                                           'replacement_order', 'created_by', 'closed_by'), request.user), pk=pk)
     u = request.user
+    capas = list(c.capas.select_related('owner', 'verified_by'))
+    for capa in capas:
+        capa.can_verify = u.has_perm('erp.verify_capaaction') and u.pk not in CM.capa_makers(capa)
     return render(request, 'erp/complaint_detail.html', {
-        'title': c.number, 'c': c, 'capas': c.capas.select_related('owner', 'verified_by'), 'users': _users(), 'problems': CM.closure_problems(c) if c.status == 'decided' else [],
+        'title': c.number, 'c': c, 'capas': capas, 'users': _users(), 'problems': CM.closure_problems(c) if c.status == 'decided' else [],
         'credit_notes': CreditNote.objects.filter(invoice=c.invoice) if c.invoice_id else [], 'orders': site_scope(Order.objects.filter(kind='Sale', partner=c.partner), request.user).order_by('-created_at')[:20],
         'history': AuditEvent.objects.filter(reference=c.number).select_related('actor').order_by('-created_at')[:15], 'today': timezone.localdate().isoformat(),
         'can': {'investigate': c.status in ('open', 'investigating') and u.has_perm('erp.change_complaint'),
-                'decide': c.status == 'investigating' and u.has_perm('erp.decide_complaint') and u.pk not in (c.created_by_id, c.owner_id),
+                'decide': c.status == 'investigating' and u.has_perm('erp.decide_complaint') and u.pk not in CM.complaint_makers(c),
                 'settle': c.status == 'decided' and c.resolution in ('credit', 'replace') and u.has_perm('erp.change_complaint'),
                 'close': c.status == 'decided' and u.has_perm('erp.decide_complaint'), 'capa': c.status != 'closed' and u.has_perm('erp.add_capaaction'),
                 'verify': u.has_perm('erp.verify_capaaction')}})

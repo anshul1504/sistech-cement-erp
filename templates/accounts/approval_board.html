@@ -1,0 +1,16 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head"><div><div class="eyebrow">ACCESS CONTROL</div><h1>Approval routing</h1><p>Assign an accountable reviewer with existing authority. Other qualified independent reviewers remain able to decide; assignment grants no permissions.</p></div><a class="org-btn is-primary" href="{% url 'work_handoff' %}">Transfer pending work</a></div>
+  {% with admin_tab='routing' %}{% include 'accounts/_admin_tabs.html' %}{% endwith %}
+  {% if unavailable %}<section class="org-card"><h2>Unavailable staff with pending work</h2><div class="table-responsive"><table class="table"><thead><tr><th>Owner / backup</th><th>Live pending work</th><th>Next step</th></tr></thead><tbody>{% for row in unavailable %}<tr><td>{{ row.user }} → {{ row.backup|default:'No backup configured' }}</td><td>{{ row.total }} pending · {{ row.eligible }} eligible · {{ row.attention }} need review</td><td><a href="{% url 'work_handoff' %}?source_user={{ row.user.pk }}">Review handoff</a></td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+  <section class="org-card"><form method="get" class="org-grid"><div class="org-field"><label class="form-label" for="approval-kind">Workflow</label><select name="kind" id="approval-kind" class="form-select">{% for value,label in kinds %}<option value="{{ value }}" {% if value == kind %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div><div class="org-actions"><button class="org-btn is-light" type="submit">Show pending work</button></div></form>
+    <div class="table-responsive"><table class="table"><thead><tr><th>Source</th><th>Scope / status</th><th>Accountable reviewer</th><th>Action</th></tr></thead><tbody>
+    {% for row in rows %}<tr><td><a href="{{ row.url }}">{{ row.task.reference }}</a></td><td>{{ row.task.site|default:'Company finance' }}<br>{{ row.task.status }}</td><td>{% if row.routing %}{{ row.routing.assignee }}{% else %}Shared role pool{% endif %}{% if not row.eligible %}<div class="form-text">{{ row.problem }}</div>{% endif %}</td><td><a href="{% url 'approval_assign' kind row.task.object_id %}">Assign reviewer</a></td></tr>{% empty %}<tr><td colspan="4">No pending sources in this view.</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if page.has_previous %}<a class="org-btn is-light" href="?kind={{ kind|urlencode }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}{% if page.has_next %}<a class="org-btn is-light" href="?kind={{ kind|urlencode }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+  </section>
+  <section class="org-card"><h2>Recent handoffs and exceptions</h2><div class="table-responsive"><table class="table"><thead><tr><th>Receipt</th><th>Current → new owner</th><th>Result</th></tr></thead><tbody>{% for run in runs %}<tr><td><a href="{% url 'work_handoff_detail' run.pk %}">{{ run }}</a></td><td>{{ run.source_user|default:'Initial assignment' }} → {{ run.recipient|default:'No backup' }}</td><td>{{ run.get_status_display }} · {{ run.transferred }} transferred · {{ run.blocked }} need attention</td></tr>{% empty %}<tr><td colspan="3">No handoff attempts yet.</td></tr>{% endfor %}</tbody></table></div></section>
+</div>
+{% endblock %}

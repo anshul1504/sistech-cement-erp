@@ -37,7 +37,7 @@ def editable_member(pk):
 
 
 def audit(request, action, reference, detail=''):
-    AuditEvent.objects.create(actor=request.user, action=action, reference=reference, detail=detail)
+    return AuditEvent.objects.create(actor=request.user, action=action, reference=reference, detail=detail)
 
 
 # ===================== Users =====================
@@ -109,6 +109,7 @@ def member_edit(request, pk=None):
             profile = UserProfile.for_user(member)
             profile.phone, profile.designation, profile.department = (form.cleaned_data[k] for k in ('phone', 'designation', 'department'))
             previous_expiry = profile.access_expires_at
+            profile.work_backup = form.cleaned_data['work_backup']
             profile.access_expires_at = form.cleaned_data['access_expires_at']
             if pk and previous_expiry != profile.access_expires_at:
                 from .models import EmailOTPChallenge
@@ -117,8 +118,14 @@ def member_edit(request, pk=None):
             if not pk:
                 profile.password_changed_at = timezone.now()
             profile.save()
-            audit(request, 'User access updated' if pk else 'User created', f'user:{member.pk}',
-                  f'Active: {member.is_active}; expiry: {profile.access_expires_at.isoformat() if profile.access_expires_at else "none"}; roles: {list(member.groups.values_list("name", flat=True))}; sites: {list(form.cleaned_data["sites"].values_list("code", flat=True))}')
+            event = audit(request, 'User access updated' if pk else 'User created', f'user:{member.pk}',
+                  f'Active: {member.is_active}; backup: {profile.work_backup_id}; expiry: {profile.access_expires_at.isoformat() if profile.access_expires_at else "none"}; roles: {list(member.groups.values_list("name", flat=True))}; sites: {list(form.cleaned_data["sites"].values_list("code", flat=True))}')
+            if pk and not member.is_active:
+                from .models import EmailOTPChallenge
+                from .work_handoff import schedule_unavailable
+                _end_sessions(member)
+                EmailOTPChallenge.objects.filter(user=member, consumed_at__isnull=True).update(consumed_at=timezone.now())
+                schedule_unavailable(member.pk, event.pk)
         messages.success(request, 'User saved. Role and location changes apply on their next request.' if pk else f'{member.get_full_name() or member.username} can now sign in.')
         return redirect('member_detail', pk=member.pk)
     return render(request, 'accounts/member_form.html', {'title': 'Edit user' if pk else 'Add user', 'form': form, 'member': member})
@@ -126,6 +133,7 @@ def member_edit(request, pk=None):
 
 @login_required
 @require_POST
+@transaction.atomic
 def member_status(request, pk):
     require_admin(request)
     member = editable_member(pk)
@@ -135,7 +143,12 @@ def member_status(request, pk):
     member.save(update_fields=['is_active'])
     if not member.is_active:
         _end_sessions(member)
-    audit(request, 'User enabled' if member.is_active else 'User disabled', f'user:{member.pk}')
+    event = audit(request, 'User enabled' if member.is_active else 'User disabled', f'user:{member.pk}')
+    if not member.is_active:
+        from .models import EmailOTPChallenge
+        from .work_handoff import schedule_unavailable
+        EmailOTPChallenge.objects.filter(user=member, consumed_at__isnull=True).update(consumed_at=timezone.now())
+        schedule_unavailable(member.pk, event.pk)
     messages.success(request, f'{member.get_full_name() or member.username} {"can sign in again" if member.is_active else "is disabled and has been signed out"}.')
     return redirect('member_detail', pk=member.pk)
 

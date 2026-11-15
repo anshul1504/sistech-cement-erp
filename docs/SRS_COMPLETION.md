@@ -9,7 +9,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 | Area | Implemented baseline | Remaining scope / acceptance gate |
 |---|---|---|
-| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated delegation for configured risk actions implemented; remaining approval integrations and cross-module audit; approval reassignment; security acceptance |
+| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated delegation for configured risk actions implemented; configured approval routing and eligible unavailable-staff handoff implemented; remaining approval integrations/cross-module audit, reviewed CRM/beat ownership handoff and security acceptance |
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
 | CRM (§5.1) | Leads, onboarding, KYC review, targets, territories/beats, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
@@ -42,8 +42,10 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 - Scheme finance/site boundaries and preserved custom role assignments: commit 3271810.
 - Temporary-access expiry: developer verified (405 full-suite tests passed; eight optional browser checks skipped; authentication browser and seven expiry checks passed explicitly); see [access hardening](ACCESS_HARDENING.md).
 
-- Sensitive web reauthentication: implemented; see [controls and verification](SENSITIVE_AUTHENTICATION.md). Dated delegation for configured risk actions is now implemented; remaining approval integrations and unavailable-staff reassignment remain in the access workstream.
+- Sensitive web reauthentication: implemented; see [controls and verification](SENSITIVE_AUTHENTICATION.md). Dated delegation for configured risk actions is now implemented; configured approval routing and unavailable-staff handoff are now implemented; remaining approval integrations and reviewed CRM/beat ownership handoff remain in the access workstream.
 
 - Dated approval delegation: 25 configured action types, retained actual approver/use history, expiry/revocation, maker-checker and queue controls; see [scope and evidence](APPROVAL_DELEGATION.md).
 
 - Extended site approvals include PR/RFQ, inbound/production QC, RMA, beats, supply contracts, incentive rules, AP exceptions and transfers. RFQ proxy makers remain excluded from later PO approval. Sourcing write/read site boundaries are enforced. CRM/freight/service/recognition approvals and unavailable-staff handoff remain pending.
+
+- Approval routing and unavailable-staff handoff: explicit qualified reviewers/backups, bound previews, retained partial/attention receipts, automatic disable/expiry retry and historical maker protection. CRM/beat evidence-bound ownership changes and remaining approval types are still pending. See [work handoff](WORK_HANDOFF.md).

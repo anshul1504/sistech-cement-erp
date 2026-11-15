@@ -22,7 +22,16 @@ class BrowserFlowTests(StaticLiveServerTestCase):
         admin = User.objects.get(username='admin')
         admin.email = 'admin@example.com'
         admin.save(update_fields=['email'])
-        from erp.models import Site
+        from erp.models import Site, Order, SupportTicket
+        from erp import support as support_service
+        from django.contrib.auth.models import Permission
+        operator = User.objects.get(username='operator')
+        approver = User.objects.get(username='approver')
+        operator.user_permissions.add(Permission.objects.get(codename='handle_supportticket'))
+        approver.user_permissions.add(Permission.objects.get(codename='handle_supportticket'))
+        ticket = support_service.raise_ticket(admin, 'Browser handoff verification', 'Verification work to transfer')
+        support_service.assign(admin, ticket.pk, operator)
+        approval_order_id = Order.objects.filter(kind='Sale', status='Submitted', created_by=operator).first().pk
         from django.utils import timezone
         from datetime import timedelta
         deputy_id = User.objects.get(username='operator').pk
@@ -126,6 +135,44 @@ class BrowserFlowTests(StaticLiveServerTestCase):
             page.get_by_role('button', name='Revoke delegation', exact=True).click()
             page.wait_for_load_state('networkidle')
             expect(page.get_by_text('Delegation revoked; earlier approvals remain in history.', exact=True)).to_be_visible()
+            page.goto(self.live_server_url + '/accounts/access/handoff/')
+            page.locator('#id_source_user').select_option(str(operator.pk))
+            page.locator('#id_recipient').select_option(str(approver.pk))
+            page.locator('#id_reason').fill('Planned browser handoff')
+            page.get_by_role('button', name='Preview handoff', exact=True).click()
+            page.wait_for_load_state('networkidle')
+            expect(page.get_by_text('Eligible to transfer', exact=True)).to_be_visible()
+            self.assertEqual(db_call(lambda: SupportTicket.objects.get(pk=ticket.pk).assigned_to_id), operator.pk)
+            page.get_by_role('button', name='Transfer eligible work', exact=True).click()
+            page.wait_for_url(re.compile(r'.*/accounts/access/handoff/\d+/'))
+            handoff_path = page.url.removeprefix(self.live_server_url)
+            self.assertEqual(db_call(lambda: SupportTicket.objects.get(pk=ticket.pk).assigned_to_id), approver.pk)
+            page.goto(self.live_server_url + f'/accounts/access/users/{approver.pk}/edit/')
+            page.locator('#id_email').fill('approver@sistech.co.in')
+            page.locator('#id_work_backup').select_option(str(admin.pk))
+            page.get_by_role('button', name='Save changes', exact=True).click()
+            page.wait_for_url(self.live_server_url + f'/accounts/access/users/{approver.pk}/')
+            assign_path = f'/accounts/access/approval-routing/sales_order/{approval_order_id}/assign/'
+            page.goto(self.live_server_url + assign_path)
+            page.locator('#id_recipient').select_option(str(approver.pk))
+            page.locator('#id_reason').fill('Browser independent reviewer')
+            page.get_by_role('button', name='Assign reviewer', exact=True).click()
+            page.wait_for_url(re.compile(r'.*/accounts/access/handoff/\d+/'))
+            page.goto(self.live_server_url + f'/accounts/access/users/{approver.pk}/')
+            page.once('dialog', lambda dialog: dialog.accept())
+            page.get_by_role('button', name=re.compile('Disable account')).click()
+            page.wait_for_load_state('networkidle')
+            from accounts.models import ApprovalRouting
+            self.assertEqual(db_call(lambda: ApprovalRouting.objects.get(kind='sales_order',object_id=approval_order_id).assignee_id), admin.pk)
+            self.assertFalse(db_call(lambda: User.objects.get(pk=approver.pk).is_active))
+            for width in (320, 390, 768, 1440):
+                page.set_viewport_size({'width': width, 'height': 900})
+                for path in ('/accounts/access/approval-routing/', assign_path, '/accounts/access/handoff/', handoff_path, '/accounts/approval-inbox/'):
+                    response = page.goto(self.live_server_url + path)
+                    self.assertEqual(response.status, 200)
+                    self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'handoff {path} {width}')
+                    ids = page.locator('[id]').evaluate_all('(els) => els.map(el => el.id)')
+                    self.assertEqual(len(ids), len(set(ids)))
             page.goto(self.live_server_url + '/')
             page.get_by_role('button', name='Account menu', exact=True).click()
             page.get_by_role('button', name='Sign out', exact=True).click()

@@ -63,6 +63,23 @@ def _require_capa(user, capa):
         raise PermissionDenied
 
 
+
+def complaint_makers(complaint):
+    from accounts.work_handoff import former_owners
+    makers = {complaint.created_by_id, complaint.owner_id}
+    makers.update(AuditEvent.objects.filter(reference=complaint.number, action='Complaint investigated').values_list('actor_id', flat=True))
+    makers.update(former_owners('complaint', complaint.pk))
+    return makers - {None}
+
+
+def capa_makers(capa):
+    from accounts.work_handoff import former_owners
+    makers = {capa.owner_id}
+    makers.update(AuditEvent.objects.filter(reference__in=[f'CAPA-{capa.pk:05d}',str(capa)], action='CAPA implemented').values_list('actor_id', flat=True))
+    makers.update(former_owners('capa', capa.pk))
+    return makers - {None}
+
+
 def _log(user, c, action, detail=''):
     AuditEvent.objects.create(actor=user, site=c.invoice.site if c.invoice_id else None, action=action, reference=c.number, detail=detail[:250])
 
@@ -134,7 +151,7 @@ def decide(user, pk, decision, accepted_quantity, resolution, note):
     c = _lock(user, pk)
     if c.status != 'investigating':
         raise ValidationError('Record the investigation findings first.')
-    if user.pk in (c.created_by_id, c.owner_id):
+    if user.pk in complaint_makers(c):
         raise ValidationError('The person who logged or investigated the complaint cannot decide it.')
     note = (note or '').strip()
     if decision not in ('accept', 'partial', 'reject'):
@@ -229,7 +246,7 @@ def add_capa(user, complaint, title, root_cause, corrective, owner, due_on, cont
         raise ValidationError('Due date cannot be in the past.')
     x = CapaAction.objects.create(complaint=complaint, title=title.strip()[:150], root_cause=root_cause.strip(), corrective=corrective.strip(), owner=owner, due_on=due_on,
                                   containment=(containment or '').strip(), preventive=(preventive or '').strip(), created_by=user)
-    AuditEvent.objects.create(actor=user, action='CAPA opened', reference=str(x), detail=(complaint.number + ' · ' if complaint else '') + f'owner {owner} · due {due_on}')
+    AuditEvent.objects.create(actor=user, action='CAPA opened', reference=f'CAPA-{x.pk:05d}', detail=(complaint.number + ' · ' if complaint else '') + f'owner {owner} · due {due_on}')
     return x
 
 
@@ -245,7 +262,7 @@ def implement(user, pk, note):
         raise ValidationError('Describe what was done.')
     x.status, x.implementation_note, x.implemented_at = 'done', note.strip()[:300], timezone.now()
     x.save()
-    AuditEvent.objects.create(actor=user, action='CAPA implemented', reference=str(x), detail=note[:200])
+    AuditEvent.objects.create(actor=user, action='CAPA implemented', reference=f'CAPA-{x.pk:05d}', detail=note[:200])
     return x
 
 
@@ -256,11 +273,11 @@ def verify(user, pk, effective, note):
     _require_capa(user, x)
     if x.status != 'done':
         raise ValidationError('Verify after the action is implemented.')
-    if user.pk == x.owner_id:
+    if user.pk in capa_makers(x):
         raise ValidationError('The action owner cannot verify their own CAPA.')
     if not (note or '').strip():
         raise ValidationError('Record the evidence of effectiveness (e.g. no repeat in 3 months, test results).')
     x.status, x.verified_by, x.verified_at, x.effectiveness_note = ('effective' if effective else 'reopened'), user, timezone.now(), note.strip()[:300]
     x.save()
-    AuditEvent.objects.create(actor=user, action='CAPA verified' if effective else 'CAPA reopened', reference=str(x), detail=note[:200])
+    AuditEvent.objects.create(actor=user, action='CAPA verified' if effective else 'CAPA reopened', reference=f'CAPA-{x.pk:05d}', detail=note[:200])
     return x

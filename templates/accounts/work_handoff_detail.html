@@ -1,0 +1,9 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'approval_board' %}">← Approval routing</a></div><h1>{{ run }}</h1><p>{{ run.get_status_display }} · {{ run.transferred }} transferred · {{ run.blocked }} need attention</p></div></div>
+  <section class="org-card org-view"><dl><div><dt>Previous owner</dt><dd>{{ run.source_user|default:'Initial assignment' }}</dd></div><div><dt>Recipient</dt><dd>{{ run.recipient|default:'No backup configured' }}</dd></div><div><dt>Recorded by</dt><dd>{{ run.actor|default:'System' }} · {{ run.created_at|date:'d M Y, H:i T' }}</dd></div><div class="is-wide"><dt>Reason</dt><dd>{{ run.reason }}</dd></div></dl></section>
+  <section class="org-card"><div class="table-responsive"><table class="table"><thead><tr><th>Work</th><th>Scope</th><th>Outcome</th><th>Evidence / next step</th></tr></thead><tbody>{% for item in items %}<tr><td>{{ item.reference }}<br><small>{{ item.kind }}</small></td><td>{{ item.site|default:'No site / company scope' }}</td><td>{{ item.get_outcome_display }}</td><td>{{ item.note }}</td></tr>{% empty %}<tr><td colspan="4">There was no pending work to transfer.</td></tr>{% endfor %}</tbody></table></div></section>
+</div>
+{% endblock %}

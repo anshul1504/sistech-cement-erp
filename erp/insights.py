@@ -577,6 +577,9 @@ def my_queue(user, sites=None):
         n = qs.count() if hasattr(qs, 'count') else qs
         if n:
             items.append({'label': label, 'count': n, 'url': url, 'hint': hint, 'tone': tone})
+    from accounts.work_handoff import assigned_pending
+    assigned = assigned_pending(user)
+    add('Approvals assigned to you', len(assigned), reverse('approval_inbox'), 'Current eligible assignments; normal review checks apply')
     if has('view_sales_order'):
         add('Sales orders to approve', approvable(Order.objects.filter(kind='Sale', status='Submitted', site__in=sites).exclude(created_by=user), user, 'approve_sales_order'), reverse('sales') + '?status=Submitted', 'Credit and price checked on approval')
     if has('view_purchase_order'):

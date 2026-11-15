@@ -5,8 +5,14 @@ from . import auth_views as av, views as v, account_views as acc
 
 from .reauth_views import reauthenticate
 from . import delegation_views as dv
+from . import handoff_views as hv
 
 urlpatterns = [
+    path('approval-inbox/', hv.inbox, name='approval_inbox'),
+    path('access/approval-routing/', hv.board, name='approval_board'),
+    path('access/approval-routing/<str:kind>/<int:pk>/assign/', hv.assignment, name='approval_assign'),
+    path('access/handoff/', hv.handoff, name='work_handoff'),
+    path('access/handoff/<int:pk>/', hv.handoff_detail, name='work_handoff_detail'),
     path('access/delegations/', dv.delegations, name='delegations'),
     path('access/delegations/new/', dv.delegation_new, name='delegation_new'),
     path('access/delegations/<int:pk>/', dv.delegation_detail, name='delegation_detail'),

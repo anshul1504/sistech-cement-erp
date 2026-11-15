@@ -1,4 +1,6 @@
 import re
+from django.conf import settings
+from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.dispatch import receiver
 from django.urls import reverse
@@ -41,3 +43,10 @@ def record_login(sender, request, user, **kwargs):
 def record_logout(sender, request, user, **kwargs):
     if user:
         AuditEvent.objects.create(actor=user, action='Account signed out', reference=f'user:{user.pk}')
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def queue_unavailable_handoff(sender, instance, raw=False, **kwargs):
+    if not raw and not instance.is_active:
+        from .work_handoff import schedule_unavailable
+        schedule_unavailable(instance.pk)

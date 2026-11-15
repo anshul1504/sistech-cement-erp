@@ -31,7 +31,9 @@ class Command(BaseCommand):
                 keys = [s.session_key for s in Session.objects.filter(expire_date__gt=now).iterator()
                         if str(s.get_decoded().get('_auth_user_id')) == str(user.pk)]
                 Session.objects.filter(session_key__in=keys).delete()
-                AuditEvent.objects.create(action='Temporary access expired', reference=f'user:{user.pk}',
+                event = AuditEvent.objects.create(action='Temporary access expired', reference=f'user:{user.pk}',
                                           detail=f'Expiry {profile.access_expires_at.isoformat()}; {len(keys)} session(s) revoked.')
+                from accounts.work_handoff import schedule_unavailable
+                schedule_unavailable(user.pk, event.pk)
                 count += 1
         self.stdout.write(self.style.SUCCESS(f'{count} expired account(s) disabled.'))

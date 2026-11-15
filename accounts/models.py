@@ -32,6 +32,7 @@ class UserProfile(models.Model):
     department = models.CharField(max_length=80, blank=True)
     photo = models.BinaryField(null=True, blank=True, editable=False)
     photo_type = models.CharField(max_length=20, blank=True, editable=False)
+    work_backup = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     access_expires_at = models.DateTimeField(null=True, blank=True)
     password_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
@@ -109,3 +110,64 @@ class ApprovalDelegationUse(models.Model):
 
     class Meta:
         ordering = ['-used_at', '-pk']
+
+
+class ApprovalRouting(models.Model):
+    """Accountable reviewer only; assignment never grants authority or excludes other eligible checkers."""
+    kind = models.CharField(max_length=40)
+    object_id = models.PositiveBigIntegerField()
+    reference = models.CharField(max_length=160)
+    site = models.ForeignKey('erp.Site', null=True, blank=True, on_delete=models.PROTECT)
+    assignee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    assigned_at = models.DateTimeField()
+    reason = models.CharField(max_length=250)
+
+    class Meta:
+        ordering = ['-assigned_at', '-pk']
+        constraints = [models.UniqueConstraint(fields=['kind','object_id'], name='one_approval_routing_per_source')]
+
+
+class WorkHandoffRun(models.Model):
+    request_key = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    payload_digest = models.CharField(max_length=64)
+    source_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    reason = models.CharField(max_length=250)
+    automatic = models.BooleanField(default=False)
+    source_event = models.ForeignKey('erp.AuditEvent', null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    status = models.CharField(max_length=12, default='empty', choices=[('complete','Complete'),('partial','Partial'),('attention','Needs attention'),('empty','No pending work')])
+    transferred = models.PositiveIntegerField(default=0)
+    blocked = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at','-pk']
+
+    def __str__(self):
+        return f'HAND-{self.pk}'
+
+
+class WorkHandoffItem(models.Model):
+    run = models.ForeignKey(WorkHandoffRun, on_delete=models.PROTECT, related_name='items')
+    kind = models.CharField(max_length=40)
+    object_id = models.PositiveBigIntegerField()
+    reference = models.CharField(max_length=160)
+    site = models.ForeignKey('erp.Site', null=True, blank=True, on_delete=models.PROTECT)
+    source_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    outcome = models.CharField(max_length=10, choices=[('moved','Transferred'),('blocked','Needs attention')])
+    note = models.CharField(max_length=250)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['pk']
+        constraints = [models.UniqueConstraint(fields=['run','kind','object_id'], name='one_handoff_item_per_run_source')]
+        indexes = [models.Index(fields=['kind','object_id','outcome'], name='handoff_source_history')]
+
+
+class WorkHandoffGuard(models.Model):
+    """Per-source mutex, separate from credentials/profile locks used during account disabling."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')

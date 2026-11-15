@@ -80,6 +80,8 @@ class MemberForm(forms.ModelForm):
     phone = forms.CharField(label='Mobile number', max_length=20, required=False)
     designation = forms.CharField(max_length=80, required=False)
     department = forms.CharField(max_length=80, required=False)
+    work_backup = forms.ModelChoiceField(label='Work backup', queryset=User.objects.filter(is_active=True).order_by('username'),
+        required=False, help_text='On disable/expiry, eligible pending work moves to this existing user. No roles or sites are granted.')
     access_expires_at = forms.DateTimeField(label='Access expires at', required=False,
         widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}),
         input_formats=['%Y-%m-%dT%H:%M'], help_text='Local time (Asia/Kolkata). Leave blank for ongoing access.')
@@ -102,8 +104,15 @@ class MemberForm(forms.ModelForm):
             self.fields['sites'].initial = Site.objects.filter(siteaccess__user=self.instance)
             profile = getattr(self.instance, 'profile', None)
             if profile:
-                for name in ['phone', 'designation', 'department', 'access_expires_at']:
+                for name in ['phone', 'designation', 'department', 'access_expires_at', 'work_backup']:
                     self.fields[name].initial = getattr(profile, name)
+
+    def clean_work_backup(self):
+        from .security import access_allowed
+        user = self.cleaned_data.get('work_backup')
+        if user and (user.pk == self.instance.pk or not access_allowed(user)):
+            raise forms.ValidationError('Choose a different active user with unexpired access.')
+        return user
 
     def clean_access_expires_at(self):
         from django.utils import timezone
