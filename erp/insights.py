@@ -11,6 +11,7 @@ Rules:
 - nothing here writes: dashboards never post, allocate or change a document.
 """
 from collections import defaultdict
+from . import complaints as CM
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -499,14 +500,16 @@ def plant_summary(sites, period):
 
 # ---------- Quality & complaints ----------
 
-def quality_summary(sites, period, sold_mt=None):
+def quality_summary(sites, period, sold_mt=None, user=None):
     today = timezone.localdate()
     res = QualityResult.objects.filter(production__site__in=sites, tested_at__date__range=(period.start, period.end), superseded_by__isnull=True)
     n, ok = res.count(), res.filter(ok=True).count()
     disp = dict(Production.objects.filter(site__in=sites, released_at__date__range=(period.start, period.end)).values_list('disposition').annotate(n=Count('pk')))
     holds = Production.objects.filter(site__in=sites, status='Quality hold').count() + GRNLine.objects.filter(grn__site__in=sites, grn__status='posted', hold__gt=0, qc_at__isnull=True).count()
-    # Complaints are customer-level: a complaint is in scope through its invoice's plant, or company-wide when not linked.
-    cq = Complaint.objects.filter(Q(invoice__site__in=sites) | Q(invoice__isnull=True))
+    # Unlinked cases require explicit actor visibility, never company-wide by default.
+    cq = Complaint.objects.filter(invoice__site__in=sites)
+    if user is not None:
+        cq = CM.scope(Complaint.objects.all(), user).filter(Q(invoice__site__in=sites) | Q(invoice__isnull=True))
     new = cq.filter(received_on__range=(period.start, period.end))
     open_ = cq.exclude(status='closed')
     closed = cq.filter(status='closed', closed_at__date__range=(period.start, period.end))
@@ -516,7 +519,9 @@ def quality_summary(sites, period, sold_mt=None):
     drill = reverse('insight_drill', args=['complaints'])
     by_cat = [{'label': cats.get(r['category'], r['category']).split(' (')[0], 'count': r['n'], 'url': f'{drill}?{period.query}&category={r["category"]}'}
               for r in new.values('category').annotate(n=Count('pk')).order_by('-n')]
-    capa = CapaAction.objects.filter(Q(complaint__in=cq) | Q(complaint__isnull=True))
+    capa = CapaAction.objects.filter(complaint__in=cq)
+    if user is not None:
+        capa = CM.capa_scope(CapaAction.objects.all(), user).filter(Q(complaint__in=cq) | Q(complaint__isnull=True))
     verified = capa.filter(verified_at__date__range=(period.start, period.end))
     return {'tests': n, 'pass_pct': pct(ok, n), 'failed': n - ok, 'released': disp.get('release', 0), 'deviation': disp.get('deviation', 0), 'rejected': disp.get('reject', 0),
             'holds': holds, 'calibration_due': LabEquipment.objects.filter(site__in=sites, active=True, calibration_due__lt=today).count(),
@@ -616,12 +621,12 @@ def my_queue(user, sites=None):
     if fin and has('view_returnrequest') and has('add_creditnote'):
         add('Returns waiting for credit note', ReturnRequest.objects.filter(status='inspected', site__in=sites).exclude(created_by=user).exclude(inspected_by=user), reverse('returns') + '?status=inspected', 'Inspected goods in quarantine')
     if has('decide_complaint'):
-        add('Complaints to decide', Complaint.objects.filter(status='investigating').exclude(created_by=user).exclude(owner=user), reverse('complaints') + '?status=investigating', 'Findings recorded')
+        add('Complaints to decide', CM.scope(Complaint.objects.filter(status='investigating'), user).exclude(created_by=user).exclude(owner=user), reverse('complaints') + '?status=investigating', 'Findings recorded')
     if has('view_complaint'):
-        add('Complaints you own', Complaint.objects.filter(owner=user).exclude(status='closed'), reverse('complaints'), 'Investigation and closure')
+        add('Complaints you own', CM.scope(Complaint.objects.filter(owner=user), user).exclude(status='closed'), reverse('complaints'), 'Investigation and closure')
     if has('verify_capaaction'):
-        add('CAPA to verify', CapaAction.objects.filter(status='done').exclude(owner=user), reverse('complaints'), 'Effectiveness check')
-    add('CAPA actions you own', CapaAction.objects.filter(owner=user, status__in=['open', 'reopened']), reverse('complaints'), 'Corrective action due')
+        add('CAPA to verify', CM.capa_scope(CapaAction.objects.filter(status='done'), user).exclude(owner=user), reverse('complaints'), 'Effectiveness check')
+    add('CAPA actions you own', CM.capa_scope(CapaAction.objects.filter(owner=user, status__in=['open', 'reopened']), user), reverse('complaints'), 'Corrective action due')
     if has('verify_influencerusage'):
         add('Mason / engineer purchases to verify', InfluencerUsage.objects.filter(status='pending').exclude(created_by=user), reverse('influencer_usage'), 'Star programme points')
     if has('approve_schemeversion'):

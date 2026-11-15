@@ -2,6 +2,8 @@
 
 A runnable first implementation of the supplied Cement Manufacturing ERP SRS using **HTML, CSS, JavaScript and Bootstrap 5** with a **Python Django** backend. Bootstrap assets are included locally, so the interface works without a CDN connection.
 
+Complaint/CAPA and quotation site-access hardening is implemented, including scoped reports and work queues. See [access controls and verification boundaries](docs/ACCESS_HARDENING.md). Full SRS completion and production acceptance remain pending.
+
 ## Run locally on Windows
 
 Python 3.12 or newer is recommended. Open PowerShell in this folder:

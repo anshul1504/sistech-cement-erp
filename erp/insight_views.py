@@ -10,6 +10,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 
+from . import complaints as CM
 from . import insights as I
 from .models import (Invoice, Receipt, Order, Dispatch, GoodsReceipt, Production, Complaint, Partner, Product, INDIAN_STATES, COMPLAINT_CATEGORIES)
 
@@ -70,7 +71,7 @@ def home(request):
     if 'supply' in ok:
         ctx['supply'] = I.sourcing_summary(sites, period)
     if 'quality' in ok:
-        ctx['quality'] = I.quality_summary(sites, period)
+        ctx['quality'] = I.quality_summary(sites, period, user=request.user)
     if has(u, 'create_sales_order') or has(u, 'add_quotation') or has(u, 'add_crmlead'):
         ctx['mine'] = I.my_sales(u, sites, period)
     if 'sales' in ok or 'executive' in ok:
@@ -98,7 +99,7 @@ def dashboard_area(request, area):
         ctx['stock'] = I.stock_summary(sites)
         ctx['dispatch'] = I.dispatch_summary(sites, period)
         ctx['supply'] = I.sourcing_summary(sites, period)
-        ctx['quality'] = I.quality_summary(sites, period, ctx['sales']['mt'])
+        ctx['quality'] = I.quality_summary(sites, period, ctx['sales']['mt'], user=request.user)
         if fin:
             ctx['credit'] = I.receivables(period)
             if has(request.user, 'view_financials'):
@@ -124,7 +125,7 @@ def dashboard_area(request, area):
         ctx['plant'] = I.plant_summary(sites, period)
     elif area == 'quality':
         sold = I._total(I.net_sales(sites, period.start, period.end))['mt']
-        ctx['quality'] = I.quality_summary(sites, period, sold)
+        ctx['quality'] = I.quality_summary(sites, period, sold, user=request.user)
     elif area == 'finance':
         ctx['finance'] = I.finance_summary(period)
     elif area == 'dealers':
@@ -243,7 +244,7 @@ def drill(request, kind):
         for b in qs[:500]:
             rows.append({'url': reverse('production_detail', args=[b.pk]), 'cells': [b.batch, b.product.name, b.site.code, b.actual_quantity, b.status]})
     elif kind == 'complaints':
-        qs = Complaint.objects.filter(Q(invoice__site__in=sites) | Q(invoice__isnull=True), received_on__range=(period.start, period.end)).select_related('partner')
+        qs = CM.scope(Complaint.objects.all(), request.user).filter(Q(invoice__site__in=sites) | Q(invoice__isnull=True), received_on__range=(period.start, period.end)).select_related('partner')
         if G.get('category'): qs = qs.filter(category=G['category']); filters.append(dict(COMPLAINT_CATEGORIES).get(G['category'], ''))
         cols = ['Complaint', 'Customer', 'Received', 'Resolve by', 'Status']
         for c in qs[:500]:

@@ -144,3 +144,7 @@ backups/restore drill, monitoring, data migration and UAT (§15).
 GST registrations and plants/depots list; product grades and bag sizes actually sold; current accounting software and
 stock valuation method; stock posting event (loading complete vs gate-out); credit and price-approval policy;
 e-invoice/e-way bill provider; weighbridge make/model; freight basis; user count and Android devices; hosting.
+
+## Access hardening — 15 November 2026
+
+Quotation domain services and complaint/CAPA workflows now enforce site boundaries; complaint dashboards, exports and work queues share the same visibility policy. Unlinked cases remain restricted to creator/owner/superuser until a scoped case-team model exists. See [access hardening](ACCESS_HARDENING.md). Broader security review, PostgreSQL testing and business UAT remain pending.

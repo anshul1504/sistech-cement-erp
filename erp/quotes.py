@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.utils import timezone
 
+from .services import require_site
 from .gst import next_number, summarise, inr, qtxt, price_for
 from .models import Quotation, QuotationLine, Order, OrderLine, AuditEvent, CUSTOMER_KINDS
 
@@ -38,6 +39,11 @@ def save(user, data, lines, q=None):
     """data: site, partner, lead, date, valid_until, place_of_supply, freight_terms, delivery_terms, payment_terms, notes.
     lines: [(product, qty, rate or None)]."""
     _need(user, 'change_quotation' if q else 'add_quotation')
+    require_site(user, data.get('site'))
+    if q:
+        q = _lock(user, q.pk)
+    if data.get('lead'):
+        require_site(user, data['lead'].site)
     problems = []
     if q and q.status != 'draft':
         problems.append('Only drafts can be changed — prepare a revision instead.')
@@ -86,14 +92,16 @@ def save(user, data, lines, q=None):
     return q
 
 
-def _lock(pk):
-    return Quotation.objects.select_for_update().select_related('site', 'partner', 'lead').get(pk=pk)
+def _lock(user, pk):
+    q = Quotation.objects.select_for_update().select_related('site', 'partner', 'lead').get(pk=pk)
+    require_site(user, q.site)
+    return q
 
 
 @transaction.atomic
 def submit(user, pk):
     _need(user, 'change_quotation')
-    q = _lock(pk)
+    q = _lock(user, pk)
     if q.status != 'draft':
         raise ValidationError('Only drafts can be submitted.')
     below = [l for l in q.lines.select_related('product') if l.below_list]
@@ -106,7 +114,7 @@ def submit(user, pk):
 @transaction.atomic
 def approve(user, pk, ok, note=''):
     _need(user, 'approve_quotation')
-    q = _lock(pk)
+    q = _lock(user, pk)
     if q.status != 'approval':
         raise ValidationError('This quotation is not waiting for price approval.')
     if q.created_by_id == user.pk:
@@ -123,7 +131,7 @@ def approve(user, pk, ok, note=''):
 @transaction.atomic
 def mark_sent(user, pk):
     _need(user, 'change_quotation')
-    q = _lock(pk)
+    q = _lock(user, pk)
     if q.status != 'ready':
         raise ValidationError('Only approved / ready quotations can be sent.')
     q.status = 'sent'
@@ -135,7 +143,7 @@ def mark_sent(user, pk):
 @transaction.atomic
 def outcome(user, pk, accepted, note=''):
     _need(user, 'change_quotation')
-    q = _lock(pk)
+    q = _lock(user, pk)
     if q.status != 'sent':
         raise ValidationError('Record the outcome of a sent quotation.')
     if accepted and q.valid_until < timezone.localdate():
@@ -151,7 +159,7 @@ def outcome(user, pk, accepted, note=''):
 @transaction.atomic
 def revise(user, pk):
     _need(user, 'add_quotation')
-    old = _lock(pk)
+    old = _lock(user, pk)
     if old.status in ('draft', 'converted', 'revised'):
         raise ValidationError('This quotation cannot be revised.')
     if hasattr(old, 'next_revision'):
@@ -172,7 +180,7 @@ def revise(user, pk):
 def convert(user, pk):
     if not user.has_perm('erp.create_sales_order'):
         raise PermissionDenied
-    q = _lock(pk)
+    q = _lock(user, pk)
     if q.status != 'accepted':
         raise ValidationError('Only accepted quotations become sales orders.')
     partner = q.partner or (q.lead.partner if q.lead_id and q.lead.partner_id else None)
