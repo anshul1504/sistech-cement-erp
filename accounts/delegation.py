@@ -12,6 +12,9 @@ from .security import access_allowed
 
 # permission: label, site-specific, separately requires existing company-finance scope
 POLICIES = {
+    'review_dealerkyc': ('Dealer KYC review', True, False),
+    'review_dealercredit': ('Dealer credit review', True, False),
+    'approve_dealerapplication': ('Dealer activation review', True, False),
     'approve_sales_order': ('Sales order approval', True, False),
     'approve_purchase_order': ('Purchase order approval', True, False),
     'approve_high_value_purchase': ('High-value purchase approval', True, False),
@@ -52,6 +55,8 @@ def _qualified(user, permission, site):
     if permission not in POLICIES or not access_allowed(user):
         return False
     _, scoped, finance = POLICIES[permission]
+    if permission in {'review_dealerkyc','review_dealercredit','approve_dealerapplication'} and not (user.has_perm('erp.view_team_crm') and user.has_perm('erp.view_dealerapplication')):
+        return False
     if permission == 'approve_beatplan' and not user.has_perm('erp.view_team_beats'):
         return False
     return ((not scoped or _site_allowed(user, site))

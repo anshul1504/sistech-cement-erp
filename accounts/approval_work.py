@@ -23,6 +23,9 @@ class Workflow:
 
 
 CATALOG = {
+    'dealer_kyc': Workflow(M.DealerApplication,'review_dealerkyc','view_dealerapplication',{'status':'submitted'},route='crm_application_detail'),
+    'dealer_credit': Workflow(M.DealerApplication,'review_dealercredit','view_dealerapplication',{'status':'kyc'},route='crm_application_detail'),
+    'dealer_activation': Workflow(M.DealerApplication,'approve_dealerapplication','view_dealerapplication',{'status':'credit'},route='crm_application_detail'),
     'sales_order': Workflow(M.Order,'approve_sales_order','view_sales_order',{'kind':'Sale','status':'Submitted'},route='order_detail'),
     'purchase_order': Workflow(M.Order,'approve_purchase_order','view_purchase_order',{'kind':'Purchase','status':'Submitted'},route='order_detail'),
     'quotation': Workflow(M.Quotation,'approve_quotation','view_quotation',{'status':'approval'},route='quotation_detail'),
@@ -92,6 +95,9 @@ def source(kind, pk, lock=False):
         if review is None or review.approved_at:
             return None
     makers = {path(obj,p) for p in workflow.maker_paths} - {None}
+    if kind in {'dealer_kyc','dealer_credit','dealer_activation'}:
+        from erp.crm import review_makers
+        makers.update(review_makers(obj,workflow.permission))
     if kind in {'sales_order','purchase_order'}:
         makers.update(D.order_makers(obj))
     if kind in {'scheme_rules','beat_plan'}:
@@ -117,6 +123,10 @@ def eligible(person, task):
         return False, 'The recipient needs existing module read access.'
     if person.pk in task['makers']:
         return False, 'The recipient is a maker/contributor and cannot be the independent reviewer.'
+    if task['kind'] in {'dealer_kyc','dealer_credit','dealer_activation'}:
+        from erp.crm import can_review_application
+        if not can_review_application(person,task['object'],task['permission']):
+            return False,'The recipient needs scoped CRM review authority and independence from the preceding review lane.'
     policy = D.POLICIES[task['permission']]
     if policy[1] and not (person.is_superuser or M.SiteAccess.objects.filter(user=person,site=task['site']).exists()):
         return False, 'The recipient needs existing access to the source site.'

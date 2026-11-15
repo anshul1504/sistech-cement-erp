@@ -16,7 +16,7 @@ Routing is nonexclusive: another qualified independent checker can still decide 
 
 **My account → Assigned approvals** and My Work show only pending assignments the user is still eligible to review. Sources that leave the pending stage disappear from that inbox; routing/history is retained. Authority is rechecked by the normal business service when an actual decision is made.
 
-The catalog covers the currently configured order/quotation, PR/RFQ, stock transfer/count/damage, inbound/production QC, AP/payment, journal/close, scheme, supply-rate, RMA and beat approval stages. Open months without a prepared review and RFQs without current quotes are not presented as pending approval work. Onboarding, freight, recognition and complaint/CAPA decision integrations still require their resource-specific approval work.
+The catalog covers the currently configured order/quotation, PR/RFQ, stock transfer/count/damage, inbound/production QC, AP/payment, journal/close, scheme, supply-rate, RMA and beat approval stages. Open months without a prepared review and RFQs without current quotes are not presented as pending approval work. Onboarding KYC/credit/activation now have stage-specific routing with contributor/owner and retained prior-reviewer/delegation-principal exclusions. Freight, recognition and complaint/CAPA decision integrations still require their resource-specific approval work.
 
 ## Previewed handoff
 

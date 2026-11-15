@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from accounts.delegation import authorize, can_approve
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -347,15 +348,56 @@ def submit_application(user, pk, note):
     return app
 
 
-def _independent(app, user):
+def application_makers(app):
     makers = set(app.reviews.filter(action__in=MAKER_ACTIONS).values_list('actor_id', flat=True))
     makers.update(app.documents.values_list('uploaded_by_id', flat=True))
     makers.update([app.created_by_id, app.updated_by_id, app.submitted_by_id, app.lead.owner_id])
     for snapshot in app.reviews.filter(action='Owner reassigned').values_list('snapshot', flat=True):
         ownership = snapshot.get('ownership', {})
         makers.update([ownership.get('previous'), ownership.get('recipient')])
-    if user.pk in makers:
+    return makers - {None}
+
+
+def _independent(app, user):
+    if user.pk in application_makers(app):
         raise ValidationError('A contributor to this application cannot approve it (maker-checker).')
+
+
+REVIEW_LANES = {'submitted':'review_dealerkyc','kyc':'review_dealercredit','credit':'approve_dealerapplication'}
+REVIEW_ACTIONS = {'review_dealerkyc':'kyc','review_dealercredit':'credit','approve_dealerapplication':'approve'}
+
+
+def review_reference(app, permission):
+    return f'{app.number}:r{app.revision}:{REVIEW_ACTIONS[permission]}'
+
+
+def review_makers(app, permission):
+    from accounts.models import ApprovalDelegationUse
+    makers=application_makers(app)
+    previous={'review_dealercredit':('review_dealerkyc',app.kyc_by_id),
+              'approve_dealerapplication':('review_dealercredit',app.credit_by_id)}.get(permission)
+    if previous:
+        previous_permission,actual_actor=previous
+        makers.add(actual_actor)
+        makers.update(ApprovalDelegationUse.objects.filter(reference=review_reference(app,previous_permission),
+            delegation__permission=previous_permission,actor_id=actual_actor).values_list('delegation__principal_id',flat=True))
+    return makers - {None}
+
+
+def can_review_application(user,app,permission=None):
+    permission=permission or REVIEW_LANES.get(app.status)
+    if not permission or permission!=REVIEW_LANES.get(app.status) or not user.has_perm('erp.view_dealerapplication'):
+        return False
+    if not lead_scope(CRMLead.objects.filter(pk=app.lead_id),user).exists():return False
+    makers=review_makers(app,permission)
+    return user.pk not in makers and can_approve(user,permission,app.site,makers=makers)
+
+
+def reviewable(qs,user,permission):
+    from accounts.delegation import approvable
+    qs=approvable(qs,user,permission,maker_fields=('created_by_id','updated_by_id','submitted_by_id','lead__owner_id'))
+    ids=[app.pk for app in qs.select_related('lead','site') if can_review_application(user,app,permission)]
+    return qs.filter(pk__in=ids)
 
 
 @transaction.atomic
@@ -372,7 +414,10 @@ def decide_application(user, pk, action, note, credit=None, terms=None):
         permission = lane.get(action)
         if not permission:
             raise ValidationError('Unknown dealer review action.')
-    app = _application(user, pk, permission)
+    app = _application(user, pk, 'view_dealerapplication')
+    makers=review_makers(app,permission)
+    if user.pk in makers:raise ValidationError('Reviewers must be independent of contributors, owners and the preceding review lane.')
+    authorize(user,permission,app.site,makers=makers,reference=review_reference(app,permission))
     _independent(app, user)
     if not (note or '').strip():
         raise ValidationError('Record the review finding and decision evidence.')

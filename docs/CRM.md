@@ -75,3 +75,12 @@ Any submitted, KYC-reviewed or credit-reviewed open onboarding application retur
 This is an explicit CRM form workflow. Automatic staff backup handoff still leaves CRM rows for deliberate review; it does not silently reset applications. Dated commercial territory transfer and approved beat execution cover remain separate work. No migration or live ownership change was needed for this milestone.
 
 Verification (15 November 2026): full regression run 475 tests, 467 passed and eight opt-in browser checks skipped; the CRM browser check passed explicitly. The final five ownership tests also passed, including the identity-confirmation HTTP test added after full-suite discovery. Django check, migration application/drift checks and diff whitespace checks passed. No schema change or local business-data migration was performed. PostgreSQL concurrency and business acceptance remain rollout gates.
+
+
+## Routed and delegated onboarding reviews
+
+KYC, credit and activation are now distinct approval-routing stages. A current qualified independent reviewer may be assigned by an administrator without receiving any new role/site access. An inbox assignment ends when its lane is completed; routing/history remains retained. Configured unavailable-staff backup handoff supports these assigned reviews with the same live eligibility checks.
+
+A dated site-specific grant can cover a review lane while retaining the actual deputy as reviewer. Both people need existing team-CRM and dealer-application read access. Credit and final activation exclude both the actual preceding-lane reviewer and their retained delegation principal, even after grant revocation/expiry. Current/former owners and historical contributors remain excluded. Review-use references include the submission revision, so resubmission does not disguise or overwrite earlier decisions. The normal document snapshot and credit/terms validations still apply. Read-only buttons/queues consume no delegation; failed writes leave no delegated-use record. All review, changes and rejection web decisions require recent identity confirmation.
+
+See [approval delegation](APPROVAL_DELEGATION.md) for authority and remaining scope. No schema migration or live user/routing/grant changes were needed for this milestone.

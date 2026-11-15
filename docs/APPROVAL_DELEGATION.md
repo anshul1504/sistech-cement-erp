@@ -54,6 +54,22 @@ RFQ award creates a new PO rather than merely deciding an existing document. The
 
 Manufacturing-partner supply-rate writes now enforce site access in the service. Candidate plants, pending contracts, scorecards and sourcing-advisor rows are also scoped to assigned sites; an inaccessible contract action returns 404 on the web. Trusted internal read helpers retain optional site filters, which every current sourcing web entry point supplies.
 
-The remaining direct-role approval integrations include CRM onboarding, freight, recognition and complaint/CAPA workflows. Unavailable-staff work reassignment remains separate. These outstanding items must not be inferred complete from the expanded configured list.
+The remaining direct-role approval integrations include freight, recognition and complaint/CAPA workflows. CRM onboarding is integrated below. Unavailable-staff work reassignment remains separate. These outstanding items must not be inferred complete from the expanded configured list.
 
 The transfer's original creator is also excluded from shortage resolution, alongside dispatch/receipt participants, both directly and through a deputy. Final verification for this extension: full suite 452 tests (444 passed; eight opt-in browser checks skipped), all eight browser checks passed explicitly during the extension, and 61 affected workflow/queue/maker regressions passed after the last stock-loss rule. The suite includes 28 delegation tests. Django and migration application/drift checks pass; this extension needs no new schema migration or role changes.
+
+
+## Onboarding review integration
+
+The configured inventory now includes 28 action types: dealer KYC, dealer credit and final activation add three site-scoped actions. Both principal and deputy need existing dealer-application read and team-CRM visibility, existing source-site access and enabled/unexpired accounts. No read, site, document, financial or role access is granted by delegation.
+
+Current/former owners, profile/evidence contributors, submitters and ownership-change actors remain makers. Credit review excludes both the preceding KYC reviewer and any retained KYC delegation principal; final activation excludes the preceding credit reviewer and retained credit delegation principal. Revoking/expiring the earlier grant does not erase those identities. Each use references the application number, submission revision and lane, so returned/resubmitted evidence starts a new review revision without rewriting old history.
+
+The actual deputy remains the reviewer and customer activation actor. Business snapshot checks, requested credit/term bounds, prior stage, documents and maker-checker remain enforced. Failed business validation rolls back the delegated use together with the decision. Buttons, My Work and routing use the same eligibility checks without consuming authority. Review/return/rejection web writes require recent identity confirmation.
+
+Stage-specific accountable routing now supports all three lanes. A stage transition removes the completed assignment from pending inboxes without deleting its routing/history. Disabled staff can hand off an explicitly routed review only to an existing qualified independent backup; a deputy whose principal became unavailable is ineligible. Unassigned shared-role work is not fabricated into historical named assignments.
+
+This extension needs no schema migration or local policy/role changes. Freight, recognition, complaint/CAPA integrations, batch staffing orchestration, deployment scheduling, API/mobile and production/security acceptance remain separate work.
+
+
+Onboarding verification on 15 November 2026: full regression discovery ran 509 tests (498 passed; eleven opt-in browser checks skipped). The final eleven onboarding regressions passed separately, including three added after full-suite discovery and retained-principal exclusion after revocation. Both affected CRM browser checks passed explicitly; the new check completes assigned-inbox → delegated KYC → stage completion at 320/390/768/1440px without overflow or browser errors. Django check, applied-migration/drift checks and diff checks passed. Reproduce with `python manage.py test erp.test_crm_approvals erp.test_crm accounts.test_handoff accounts.test_delegation erp.test_insights` and `RUN_BROWSER_TESTS=1 python manage.py test erp.test_crm_approval_browser erp.test_crm_browser`. No live grant, routing, customer activation, role or schema change was made. PostgreSQL concurrency, company UAT and the remaining SRS are not certified by these developer checks.

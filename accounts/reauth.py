@@ -112,6 +112,6 @@ def sensitive(request, match):
         'quotation_action': {'approve'},
         'count_action': {'approve'},
         'transfer_action': {'resolve'},
-        'crm_application_action': {'credit', 'approve', 'activate'},
+        'crm_application_action': {'kyc', 'credit', 'approve', 'activate', 'changes', 'reject'},
     }
     return kw.get('action') in actions.get(route, set())

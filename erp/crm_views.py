@@ -161,15 +161,7 @@ def application_detail(request, pk):
     permitted(request.user, 'view_dealerapplication')
     app = _app(request, pk)
     form = DealerProfileForm(initial=app.profile)
-    independent = True
-    try:
-        crm._independent(app, request.user)
-    except ValidationError:
-        independent = False
-    lane = {'submitted': 'review_dealerkyc', 'kyc': 'review_dealercredit', 'credit': 'approve_dealerapplication'}.get(app.status)
-    can_review = independent and lane and request.user.has_perm('erp.' + lane)
-    if app.status == 'kyc' and app.kyc_by_id == request.user.pk: can_review = False
-    if app.status == 'credit' and app.credit_by_id == request.user.pk: can_review = False
+    can_review = crm.can_review_application(request.user,app)
     credit_position = None
     if app.partner:
         from .partner_views import credit_position as position

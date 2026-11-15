@@ -645,8 +645,9 @@ def my_queue(user, sites=None):
         add('Scheme payouts to approve', approvable(SchemeSettlement.objects.filter(status='proposed').exclude(created_by=user), user, 'approve_schemesettlement'), reverse('scheme_payouts'), 'Dealer credit or bank')
     for perm, state, label in (('review_dealerkyc', 'submitted', 'Dealer KYC to review'), ('review_dealercredit', 'kyc', 'Dealer credit to review'),
                                ('approve_dealerapplication', 'credit', 'Dealer applications to approve')):
-        if has(perm):
-            add(label, DealerApplication.objects.filter(status=state, site__in=sites).exclude(created_by=user), reverse('crm_applications'), 'Onboarding')
+        if has('view_dealerapplication'):
+            from .crm import reviewable
+            add(label, reviewable(DealerApplication.objects.filter(status=state, site__in=sites),user,perm), reverse('crm_applications')+'?status='+state, 'Independent direct or delegated onboarding review')
     if has('view_crmlead'):
         add('CRM follow-ups due', CRMLead.objects.filter(owner=user, next_follow_up__lte=today).exclude(stage__in=['won', 'lost']), reverse('crm_leads'), 'Today or overdue')
     from .models import SupportTicket
