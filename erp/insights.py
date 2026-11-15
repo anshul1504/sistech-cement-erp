@@ -577,6 +577,9 @@ def my_queue(user, sites=None):
         n = qs.count() if hasattr(qs, 'count') else qs
         if n:
             items.append({'label': label, 'count': n, 'url': url, 'hint': hint, 'tone': tone})
+    if has('view_journalentry') and fin:
+        from .models import JournalReversalRequest
+        add('Manual reversal requests to review',approvable(JournalReversalRequest.objects.filter(status='requested'),user,'approve_journalentry',maker_fields=('created_by_id','entry__created_by_id')),reverse('journals'),'Independent posted-voucher correction')
     from accounts.work_handoff import assigned_pending
     assigned = assigned_pending(user)
     add('Approvals assigned to you', len(assigned), reverse('approval_inbox'), 'Current eligible assignments; normal review checks apply')

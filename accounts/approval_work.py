@@ -23,6 +23,7 @@ class Workflow:
 
 
 CATALOG = {
+    'journal_reversal': Workflow(M.JournalReversalRequest,'approve_journalentry','view_journalentry',{'status':'requested'},'',('created_by_id','entry.created_by_id'),'journal_detail'),
     'recipe': Workflow(M.Recipe,'approve_recipe','view_recipe',{'status':'draft'},'',route='recipes'),
     'weight_exception': Workflow(M.Dispatch,'approve_weight_exception','view_dispatch',{'status':'weighed','exception_approved_by__isnull':True},maker_paths=('created_by_id','loaded_by_id'),route='dispatch_detail'),
     'recognition_publication': Workflow(M.RecognitionProgram,'publish_recognitionprogram','view_recognitionprogram',{'status':'ranked'},'',('created_by_id','ranked_by_id'),'recognition_detail'),
@@ -198,6 +199,7 @@ def source_url(task):
     route = CATALOG[task['kind']].route
     if not route:
         return reverse('grn_detail',args=[task['object'].grn_id])
+    if task['kind']=='journal_reversal':return reverse('journal_detail',args=[task['object'].entry_id])
     if route in {'scheme_payouts','mfg_partners','influencer_usage','recipes'}:
         return reverse(route)
     return reverse(route,args=[task['object_id']])

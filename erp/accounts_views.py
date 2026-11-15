@@ -1,6 +1,7 @@
 """Accounts screens: journals and vouchers, trial balance, profit & loss, balance sheet, account ledger, chart of accounts, periods."""
 from accounts.delegation import can_approve
 import csv
+import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -14,7 +15,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import gl
+from . import gl, journal_reversals as JR
 from .gst import financial_year, fy_start_month
 from .models import Account, JournalEntry, FinancialPeriod, Partner, Site, AuditEvent, ACCOUNT_TYPES
 from .finance_access import permitted, require_company_finance
@@ -66,11 +67,13 @@ def journal_detail(request, pk):
     permitted(request.user, 'view_journalentry')
     je = get_object_or_404(JournalEntry.objects.select_related('site', 'created_by', 'approved_by', 'reversal_of'), pk=pk)
     u = request.user
+    requests=list(je.reversal_requests.select_related('created_by','reviewed_by','reversal','entry'))
+    for item in requests:item.can_decide=JR.can_decide(u,item)
     from .journal_sources import document_link
     return render(request, 'erp/journal_detail.html', {'title': je.number, 'je': je, 'source_document': document_link(je, u), 'lines': je.lines.select_related('account', 'partner'),
                                                        'reversed_by': getattr(je, 'reversed_by', None),
                                                        'can_decide': je.kind == 'manual' and je.status == 'draft' and can_approve(u, 'approve_journalentry', makers=(je.created_by_id,)) and je.created_by_id != u.pk,
-                                                       'can_reverse': je.kind == 'manual' and je.source is None and je.status == 'posted' and not hasattr(je, 'reversed_by') and je.reversal_of_id is None and u.has_perm('erp.add_journalentry') and u.has_perm('erp.approve_journalentry')})
+                                                       'can_reverse': JR.can_request(u,je),'reversal_requests':requests,'reversal_key':uuid.uuid4()})
 
 
 @login_required
@@ -83,20 +86,16 @@ def journal_action(request, pk, action):
             je = gl.decide_voucher(request.user, pk, action == 'approve', request.POST.get('note', ''))
             messages.success(request, f'{je.number} {je.get_status_display().lower()}.')
         elif action == 'reverse':
-            if not request.user.has_perm('erp.add_journalentry'):
-                raise ValidationError('You cannot pass reversing entries.')
-            entry = get_object_or_404(JournalEntry, pk=pk)
-            if entry.kind != 'manual' or entry.source or entry.reversal_of_id:
-                raise ValidationError('Correct system postings through their source document; only original manual vouchers can be reversed here.')
-            if not request.user.has_perm('erp.approve_journalentry'):
-                raise ValidationError('Journal approval permission is required to reverse a voucher.')
-            reason = request.POST.get('reason', '').strip()
-            if not reason:
-                raise ValidationError('Give the reason for reversing.')
-            rev = gl.reverse(request.user, get_object_or_404(JournalEntry, pk=pk), date.fromisoformat(request.POST['date']) if request.POST.get('date') else None, reason)
-            AuditEvent.objects.create(actor=request.user, action='Journal reversed', reference=rev.reversal_of.number, detail=f'{rev.number} · {reason}')
-            messages.success(request, f'Reversed by {rev.number}.')
-            return redirect('journal_detail', pk=rev.pk)
+            on=date.fromisoformat(request.POST['date']) if request.POST.get('date') else None
+            JR.propose(request.user,pk,on,request.POST.get('reason',''),request.POST.get('request_key'))
+            messages.success(request,'Reversal requested. An independent reviewer must approve before posting.')
+        elif action in ('approve_reversal','reject_reversal','cancel_reversal'):
+            from .models import JournalReversalRequest
+            raw=request.POST.get('reversal_request','')
+            item=get_object_or_404(JournalReversalRequest,pk=raw if raw.isascii() and raw.isdecimal() else 0,entry_id=pk)
+            if action=='cancel_reversal':JR.cancel(request.user,item.pk,request.POST.get('note',''))
+            else:JR.decide(request.user,item.pk,action=='approve_reversal',request.POST.get('note',''))
+            messages.success(request,'Reversal request decision recorded.')
         else:
             raise Http404
     except ValueError:

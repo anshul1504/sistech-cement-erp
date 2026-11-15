@@ -110,7 +110,7 @@ def sensitive(request, match):
         'complaint_action': {'decide','close','effective','reopen'},
         'capa_action': {'effective','reopen'},
         'payment_action': {'approve', 'release', 'fail'},
-        'journal_action': {'approve', 'reverse'},
+        'journal_action': {'approve', 'reject', 'reverse','approve_reversal','reject_reversal','cancel_reversal'},
         'period_action': {'reopen'},
         'year_action': {'approve', 'request_reopen', 'approve_reopen'},
         'order_action': {'approve'},

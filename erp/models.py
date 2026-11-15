@@ -3221,3 +3221,23 @@ class DealerOwnershipTransfer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):return f'Dealer transfer {self.pk}'
+
+
+class JournalReversalRequest(models.Model):
+    entry = models.ForeignKey(JournalEntry, on_delete=models.PROTECT, related_name='reversal_requests')
+    on = models.DateField()
+    reason = models.CharField(max_length=300)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    request_key = models.UUIDField(unique=True)
+    status = models.CharField(max_length=10, default='requested', choices=[('requested','Review pending'),('approved','Approved'),('rejected','Rejected'),('cancelled','Cancelled')])
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.CharField(max_length=300, blank=True)
+    reversal = models.OneToOneField(JournalEntry, null=True, blank=True, on_delete=models.PROTECT, related_name='reversal_request')
+
+    class Meta:
+        ordering=['-created_at','-pk']
+        constraints=[models.UniqueConstraint(fields=['entry'],condition=models.Q(status__in=['requested','approved']),name='one_live_manual_reversal_request')]
+
+    def __str__(self):return f'Reversal request {self.pk} · {self.entry.number}'

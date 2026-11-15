@@ -34,3 +34,5 @@ Existing workflow tests now use an explicit confirmed-session fixture (analogous
 Reauthentication is not a payment-provider authorization or evidence that a real transfer occurred. Dated approval delegation, unavailable-approver reassignment, API/mobile authorization, PostgreSQL concurrency validation and independent security/business UAT remain separate work.
 
 Verification on 15 November 2026: full suite 424 tests (416 passed; eight opt-in browser checks skipped). All eight browser checks passed explicitly. The final eleven reauthentication tests also passed after malformed timestamp/encoded return-path hardening. Django system, applied-migration and migration-drift checks passed. No schema migration or live payment/email was required.
+
+Manual reversal request, independent approval/rejection and cancellation now require recent confirmation on the journal action route. Requester evidence stays in the retained request; the original POST is never replayed after confirmation. Draft voucher rejection is protected alongside approval.

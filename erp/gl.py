@@ -203,6 +203,14 @@ def post(user, source, on, site, narration, lines, kind='auto', status='posted',
 
 @transaction.atomic
 def reverse(user, entry, on=None, reason=''):
+    entry=JournalEntry.objects.select_for_update().get(pk=entry.pk)
+    if entry.kind=='manual':raise ValidationError('Manual vouchers require the independently reviewed reversal-request workflow.')
+    return _reverse_entry(user,entry,on,reason)
+
+
+@transaction.atomic
+def _reverse_entry(user, entry, on=None, reason=''):
+    """Ledger primitive: manual callers use journal_reversals.decide after approval."""
     entry = JournalEntry.objects.select_for_update().get(pk=entry.pk)
     if entry.kind == 'yearend':
         raise ValidationError('Use the year-end reopening workflow to reverse carry-forward entries.')

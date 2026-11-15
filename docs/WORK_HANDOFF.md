@@ -72,3 +72,5 @@ Migration accounts.0007 adds an optional backup and routing/handoff tables. A lo
 This milestone does not complete the whole SRS or certify production acceptance.
 
 Verification on 15 November 2026: the final full suite ran 471 tests (463 passed; eight opt-in browser tests skipped). All eight browser checks passed explicitly during this milestone; after the final preview/catalog refinements the three affected authentication/finance/beat browser checks passed again. The suite includes 19 handoff tests, including actual disable/expiry callbacks, replay/stale-preview denial, private inboxes, retained investigator independence, equal-authority recipient changes and source-stage screens. Django and migration application/drift checks passed.
+
+Manual journal reversal requests are now routed independently under journal approval authority. Current requester and original voucher maker are excluded; an eligible backup handoff only changes accountable review assignment and never creates the reversing ledger entry. Request completion removes the inbox item and retains its routing/history.

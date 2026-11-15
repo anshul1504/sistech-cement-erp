@@ -1,3 +1,4 @@
+from uuid import uuid4
 from datetime import timedelta
 from decimal import Decimal
 
@@ -118,7 +119,10 @@ class LedgerTests(TestCase):
             gl.post(self.a, 'test:closed', last, None, 'x', [(power, D(1), 0, None, ''), (cash, 0, D(1), None, '')])
         gl.decide_voucher(self.b, je.pk, True)
         self.assertEqual(bal('power'), D('50000.00'))
-        rev = gl.reverse(self.a, JournalEntry.objects.get(pk=je.pk), reason='Booked twice')
+        from . import journal_reversals as JR
+        with self.assertRaises(ValidationError):gl.reverse(self.a,JournalEntry.objects.get(pk=je.pk),reason='Bypass denied')
+        request=JR.propose(self.a,je.pk,TODAY(),'Booked twice',uuid4())
+        rev=JR.decide(self.b,request.pk,True,'Independent correction review').reversal
         self.assertEqual((bal('power'), rev.reversal_of_id), (0, je.pk))
         gl.set_period(self.b, last, False, 'Reopen for asset posting test')
         # Fixed asset: capitalise, depreciate once per month, dispose with loss
