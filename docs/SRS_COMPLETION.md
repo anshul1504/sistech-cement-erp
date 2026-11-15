@@ -11,7 +11,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 |---|---|---|
 | Identity and access (§3) | Password/email OTP, throttling, roles/sites, sessions, temporary expiry, sensitive-action reauthentication, dated delegation, configured approval routing, eligible unavailable-staff handoff, reviewed CRM/beat ownership transitions | Remaining approval integrations/cross-module audit, batch staffing orchestration, deployment scheduling and security acceptance |
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
-| CRM (§5.1) | Leads, onboarding, routed/delegated KYC/credit/activation reviews, targets, territories/beats, reviewed dated ownership transfer, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
+| CRM (§5.1) | Leads, onboarding, routed/delegated KYC/credit/activation reviews, targets, territories/beats, reviewed dated ownership transfer, audited prospect consolidation, project pipeline | Customer/master deduplication and broader identity matching, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
 | Schemes (§5.3) | Versioned rules, retained eligibility, accrual, payouts, recognition with routed/delegated reviews and retained delivery actor | Quantity/per-unit/margin and progressive rules, budgets/stacking, additional beneficiary/tax handling, full automatic reversal lifecycle |
 | Procurement (§5.4) | PR/RFQ/PO, inbound/GRN, matching, returns and AP | Demand/budget planning, deeper supplier verification, hardware/evidence acceptance |
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- [Audited duplicate prospect consolidation](CRM_DUPLICATE_MERGE.md): preview-bound canonical links, independent site-scoped approval/delegation/routing, retained history/contributors, active-dependency holds and read-only merged sources. Earlier due follow-up transfers to an open canonical target without summing opportunity values. Related CRM/commercial/route selectors and services reject archived aliases; personal visibility does not broaden. Migration 0054 preserves original records. Full customer-master/GSTIN/address deduplication, approved merge correction, PostgreSQL proof and company acceptance remain pending.
 
 - [Incoming vendor-credit refunds](VENDOR_REFUNDS.md): recognized freight/supplier credits reserve against double use, independently approve, receive into an active company bank using the actual bank value date/reference and reverse with retained source/actor evidence. Mode/sign constraints and export/action separation prevent outgoing-payment confusion. Migration 0053 preserves prior bank/credit history. Customer/deposit refunds, external banking, PostgreSQL proof and company acceptance remain pending.
 

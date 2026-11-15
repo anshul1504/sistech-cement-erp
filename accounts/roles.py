@@ -12,7 +12,7 @@ MODULES = [
     ('beat_outcomes', 'Field visit outcomes', {'create':'record_beatstop','approve':'publish_beatpromise'}),
     ('schemes', 'Incentive scheme rules', {'view': 'view_incentivescheme', 'create': 'add_incentivescheme', 'edit': 'change_schemeversion', 'submit': 'submit_schemeversion', 'approve': 'approve_schemeversion'}),
     ('scheme_calculations', 'Incentive calculation previews', {'view': 'view_schemeevaluation', 'create': 'add_schemeevaluation', 'export': 'export_schemeevaluation'}),
-    ('crm', 'Dealer CRM', {'view': 'view_crmlead', 'create': 'add_crmlead', 'edit': 'change_crmlead', 'export': 'export_crmlead'}),
+    ('crm', 'Dealer CRM', {'approve':'approve_crmmerge','view': 'view_crmlead', 'create': 'add_crmlead', 'edit': 'change_crmlead', 'export': 'export_crmlead'}),
     ('crm_team', 'CRM team & ownership', {'view': 'view_team_crm', 'edit': 'assign_crmlead'}),
     ('crm_activity', 'CRM follow-ups', {'create': 'add_crmactivity'}),
     ('dealer_onboarding', 'Dealer onboarding', {'view': 'view_dealerapplication', 'create': 'add_dealerapplication', 'edit': 'change_dealerapplication', 'submit': 'submit_dealerapplication', 'approve': 'approve_dealerapplication'}),

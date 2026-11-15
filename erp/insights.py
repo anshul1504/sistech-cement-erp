@@ -276,7 +276,7 @@ def quote_funnel(sites, period):
 
 
 def crm_pipeline(sites, user=None):
-    qs = CRMLead.objects.filter(site__in=sites).exclude(stage__in=['won', 'lost'])
+    qs = CRMLead.objects.filter(site__in=sites).exclude(stage__in=['won', 'lost','merged'])
     if user is not None:
         qs = qs.filter(owner=user)
     today = timezone.localdate()
@@ -670,8 +670,13 @@ def my_queue(user, sites=None):
         if has('view_dealerapplication'):
             from .crm import reviewable
             add(label, reviewable(DealerApplication.objects.filter(status=state, site__in=sites),user,perm), reverse('crm_applications')+'?status='+state, 'Independent direct or delegated onboarding review')
+    if has('view_crmlead') and has('view_team_crm'):
+        from .models import CRMLeadMerge
+        from .crm_merge import can_decide as can_review_merge
+        ids=[item.pk for item in CRMLeadMerge.objects.filter(status='requested',source__site__in=sites).select_related('source__site','target') if can_review_merge(user,item)]
+        add('Duplicate CRM merges to review',CRMLeadMerge.objects.filter(pk__in=ids),reverse('crm_leads'),'Independent canonical prospect consolidation')
     if has('view_crmlead'):
-        add('CRM follow-ups due', CRMLead.objects.filter(owner=user, next_follow_up__lte=today).exclude(stage__in=['won', 'lost']), reverse('crm_leads'), 'Today or overdue')
+        add('CRM follow-ups due', CRMLead.objects.filter(owner=user, next_follow_up__lte=today).exclude(stage__in=['won', 'lost','merged']), reverse('crm_leads'), 'Today or overdue')
     from .models import SupportTicket
     if has('handle_supportticket'):
         add('Support tickets not assigned', SupportTicket.objects.filter(assigned_to__isnull=True, status__in=['open', 'progress']), reverse('tickets') + '?status=unassigned', 'Help requests from users', 'danger')

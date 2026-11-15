@@ -23,7 +23,7 @@ class ProjectForm(forms.ModelForm):
         if not user.has_perm('erp.manage_salesproject'):
             self.fields['owner'].queryset=eligible_owners().filter(pk=user.pk);self.fields['owner'].initial=user.pk;self.fields['owner'].disabled=True
         self.fields['partner'].queryset=Partner.objects.filter(kind__in=CUSTOMER_KINDS,active=True) if user.has_perm('erp.view_partner') else Partner.objects.none()
-        self.fields['lead'].queryset=lead_scope(CRMLead.objects.all(),user) if user.has_perm('erp.view_crmlead') else CRMLead.objects.none()
+        self.fields['lead'].queryset=lead_scope(CRMLead.objects.filter(merged_into__isnull=True),user) if user.has_perm('erp.view_crmlead') else CRMLead.objects.none()
         self.fields['referral'].queryset=InfluencerActivity.objects.filter(kind__in=LEAD_KINDS).select_related('influencer','dealer') if user.has_perm('erp.view_influencer') else InfluencerActivity.objects.none()
         self.fields['referral'].label_from_instance=lambda row:f'{row.pk} · {row.influencer.name} · {row.title or row.location}'
         self.fields['next_action_on'].required=True

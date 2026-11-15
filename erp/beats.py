@@ -188,6 +188,10 @@ def add_stop(user,pk,data):
     form=StopForm(data,plan=plan)
     if not form.is_valid():raise _errors(form)
     stop=form.save(commit=False);stop.plan=plan
+    if stop.lead_id:
+        from .models import CRMLead
+        stop.lead=CRMLead.objects.select_for_update().get(pk=stop.lead_id)
+        if stop.lead.merged_into_id:raise ValidationError('Choose a canonical CRM lead for new route work.')
     _check_assignment(plan,stop.assignment)
     if stop.sequence<1:raise ValidationError('Stop sequence starts at one.')
     stop.full_clean();stop.save();plan.contributors.add(user)

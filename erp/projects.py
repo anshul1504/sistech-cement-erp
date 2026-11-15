@@ -73,7 +73,7 @@ def _event(user,project,action,note):
 def _party(project):
     if project.partner and (project.partner.kind not in CUSTOMER_KINDS or not project.partner.active):raise ValidationError('Choose an active approved customer.')
     if project.lead:
-        if project.lead.site_id!=project.site_id or project.lead.stage=='lost':raise ValidationError('Choose an accessible non-lost CRM lead at the project site.')
+        if project.lead.site_id!=project.site_id or project.lead.stage in ['lost','merged']:raise ValidationError('Choose an accessible non-lost CRM lead at the project site.')
         if project.partner_id and project.lead.partner_id!=project.partner_id:raise ValidationError('The CRM lead must be onboarded/linked to the chosen customer first.')
     if not project.partner_id and not project.prospect_name:raise ValidationError('Enter the prospect/buyer name or choose an approved customer.')
 
@@ -87,6 +87,10 @@ def save(user,data,pk=None):
     form=ProjectForm(data,instance=project,user=user)
     if not form.is_valid():raise _errors(form)
     values=form.cleaned_data;site=values['site'];owner=values['owner']
+    if values.get('lead'):
+        from .models import CRMLead
+        values['lead']=CRMLead.objects.select_for_update().get(pk=values['lead'].pk)
+        form.instance.lead=values['lead']
     require_site(user,site);Site.objects.select_for_update().get(pk=site.pk)
     if not owner.is_active or not owner.has_perm('erp.view_salesproject') or not owner.has_perm('erp.change_salesproject'):raise ValidationError('Choose an active project owner.')
     require_site(owner,site)

@@ -44,7 +44,14 @@ def save(user, data, lines, q=None):
     if q:
         q = _lock(user, q.pk)
     if data.get('lead'):
-        require_site(user, data['lead'].site)
+        from .models import CRMLead
+        from .crm import lead_scope
+        data=dict(data)
+        lead=lead_scope(CRMLead.objects.select_for_update(of=('self',)),user).filter(pk=data['lead'].pk).first()
+        if not lead:raise PermissionDenied
+        if lead.merged_into_id:raise ValidationError('Choose the canonical CRM lead instead of a merged duplicate.')
+        data['lead']=lead
+        require_site(user,lead.site)
     problems = []
     if q and q.status != 'draft':
         problems.append('Only drafts can be changed — prepare a revision instead.')
@@ -166,6 +173,7 @@ def revise(user, pk):
     if hasattr(old, 'next_revision'):
         raise ValidationError('A revision already exists.')
     today = timezone.localdate()
+    if old.lead_id and old.lead.merged_into_id:raise ValidationError('Prepare a new quotation for the canonical CRM record.')
     new = Quotation.objects.create(number=old.number, revision=old.revision + 1, previous=old, site=old.site, partner=old.partner, lead=old.lead, date=today,
                                    valid_until=max(old.valid_until, today + timedelta(days=7)), place_of_supply=old.place_of_supply, freight_terms=old.freight_terms,
                                    delivery_terms=old.delivery_terms, payment_terms=old.payment_terms, notes=old.notes, created_by=user)

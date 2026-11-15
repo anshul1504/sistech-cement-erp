@@ -68,8 +68,8 @@ def leads(request):
     if site.isdigit(): qs = qs.filter(site_id=site)
     if owner.isdigit(): qs = qs.filter(owner_id=owner)
     today = timezone.localdate()
-    if due == 'overdue': qs = qs.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost'])
-    elif due == 'today': qs = qs.filter(next_follow_up=today).exclude(stage__in=['won', 'lost'])
+    if due == 'overdue': qs = qs.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost', 'merged'])
+    elif due == 'today': qs = qs.filter(next_follow_up=today).exclude(stage__in=['won', 'lost', 'merged'])
     if request.GET.get('export') == 'csv':
         return _csv(request, f'crm-pipeline-{today}.csv', ['Lead', 'Business', 'Contact', 'Mobile', 'District', 'Territory', 'Site', 'Owner', 'Stage', 'Follow-up', 'Estimated opportunity'],
             ([l.number, l.business_name, l.contact_name, l.mobile, l.district, l.territory, l.site.code, l.owner.get_username(), l.get_stage_display(), l.next_follow_up or '', l.estimated_value] for l in qs), 'CRM pipeline exported')
@@ -77,8 +77,8 @@ def leads(request):
     return render(request, 'erp/crm_leads.html', dict(title='Dealer CRM', page=Paginator(qs, 30).get_page(request.GET.get('page')), q=q, stage=stage, due=due, site=site, owner=owner,
         sites=crm.sites_for(request.user), owners=crm.owners_for(request.user) if request.user.has_perm('erp.view_team_crm') else [request.user],
         stages=[dict(key=k, label=label, count=counts.get(k, 0)) for k, label in LEAD_STAGES],
-        open_count=base.exclude(stage__in=['won', 'lost']).count(), overdue=base.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost']).count(),
-        converted=base.filter(stage='won').count(), opportunity=sum((l.estimated_value for l in base.exclude(stage__in=['won', 'lost'])), Decimal(0)),
+        open_count=base.exclude(stage__in=['won', 'lost', 'merged']).count(), overdue=base.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost', 'merged']).count(),
+        converted=base.filter(stage='won').count(), opportunity=sum((l.estimated_value for l in base.exclude(stage__in=['won', 'lost', 'merged'])), Decimal(0)),
         can_add=request.user.has_perm('erp.add_crmlead'), can_export=request.user.has_perm('erp.export_crmlead')))
 
 
@@ -104,14 +104,23 @@ def lead_detail(request, pk):
     permitted(request.user, 'view_crmlead')
     lead = _lead(request, pk)
     open_app = lead.applications.filter(status__in=crm.OPEN_APPLICATIONS).first()
-    return render(request, 'erp/crm_lead_detail.html', dict(title=lead.business_name, lead=lead, activity_form=ActivityForm(),
+    from . import crm_merge
+    canonical=crm_merge.canonical(lead)
+    visible_canonical=canonical if crm.lead_scope(CRMLead.objects.filter(pk=canonical.pk),request.user).exists() else None
+    aliases=crm.lead_scope(lead.merged_duplicates.all(),request.user)
+    merge_requests=lead.merge_requests.select_related('source__site','target','created_by','reviewed_by') if request.user.has_perm('erp.view_team_crm') else []
+    for item in merge_requests:
+        item.can_decide=crm_merge.can_decide(request.user,item)
+        item.can_cancel=item.status=='requested' and (request.user.pk==item.created_by_id or request.user.is_superuser)
+
+    return render(request, 'erp/crm_lead_detail.html', dict(title=lead.business_name, lead=lead, canonical_lead=visible_canonical,aliases=aliases,merge_requests=merge_requests,can_merge=request.user.has_perm('erp.view_team_crm') and request.user.has_perm('erp.change_crmlead') and not lead.merged_into_id and not lead.partner_id,activity_form=ActivityForm(),
         activities=lead.activities.select_related('created_by'), applications=lead.applications.select_related('created_by', 'approved_by'), open_app=open_app,
-        stages=[(key, label) for key, label in LEAD_STAGES if key != 'won'],
-        can_edit=request.user.has_perm('erp.change_crmlead') and lead.stage not in ['won', 'lost'],
-        can_stage=request.user.has_perm('erp.change_crmlead') and lead.stage != 'won' and not open_app,
-        can_activity=request.user.has_perm('erp.add_crmactivity') and lead.stage not in ['won', 'lost'],
-        can_apply=request.user.has_perm('erp.add_dealerapplication') and lead.stage != 'lost' and not open_app,
-        can_link=request.user.has_perm('erp.change_crmlead') and request.user.has_perm('erp.view_partner') and lead.stage not in ['won', 'lost'] and not open_app,
+        stages=[(key, label) for key, label in LEAD_STAGES if key not in ['won','merged']],
+        can_edit=request.user.has_perm('erp.change_crmlead') and lead.stage not in ['won', 'lost', 'merged'],
+        can_stage=request.user.has_perm('erp.change_crmlead') and lead.stage not in ['won','merged'] and not open_app,
+        can_activity=request.user.has_perm('erp.add_crmactivity') and lead.stage not in ['won', 'lost', 'merged'],
+        can_apply=request.user.has_perm('erp.add_dealerapplication') and lead.stage not in ['lost','merged'] and not open_app,
+        can_link=request.user.has_perm('erp.change_crmlead') and request.user.has_perm('erp.view_partner') and lead.stage not in ['won', 'lost', 'merged'] and not open_app,
         customers=Partner.objects.filter(active=True, kind__in=CUSTOMER_KINDS).order_by('name') if request.user.has_perm('erp.view_partner') else [],
         history=AuditEvent.objects.filter(reference=lead.number).select_related('actor').order_by('-created_at')[:30]))
 
@@ -313,3 +322,36 @@ def performance_detail(request, site_pk, owner_pk):
         credits=CreditNote.objects.filter(invoice__in=invoices, date__range=(month, end)).select_related('invoice')[:100],
         allocations=Settlement.objects.filter(invoice__in=invoices, receipt__date__range=(month, end), receipt__status='posted').select_related('invoice', 'receipt')[:100],
         activations=activations[:100]))
+
+
+@login_required
+def lead_merge(request,pk):
+    import uuid
+    from . import crm_merge
+    from .models import CRMLeadMerge
+    crm_merge._read(request.user)
+    lead=_lead(request,pk)
+    target_id=request.POST.get('target') or request.GET.get('target','')
+    target=get_object_or_404(crm.lead_scope(CRMLead.objects.all(),request.user),pk=target_id) if target_id.isascii() and target_id.isdecimal() else None
+    state=None;digest='';errors=[]
+    if request.method=='POST':
+        try:
+            action=request.POST.get('action','propose')
+            if action=='propose':
+                if not target:raise ValidationError('Choose a visible canonical lead.')
+                crm_merge.propose(request.user,lead.pk,target.pk,request.POST.get('reason'),request.POST.get('request_key'),request.POST.get('evidence'))
+            else:
+                raw=request.POST.get('merge','')
+                item=get_object_or_404(CRMLeadMerge,source=lead,pk=raw if raw.isascii() and raw.isdecimal() else 0)
+                crm_merge.decide(request.user,item.pk,action,request.POST.get('note'))
+        except ValidationError as error:errors=error.messages
+        else:
+            messages.success(request,'Merge request recorded; original CRM and business history remain retained.')
+            return redirect('crm_lead_detail',pk=pk)
+    if target:
+        try:
+            if target.site_id!=lead.site_id:raise ValidationError('Choose a canonical record at the same site.')
+            state,digest=crm_merge.preview(lead,target)
+        except ValidationError as error:errors+=error.messages
+    targets=crm.lead_scope(CRMLead.objects.filter(site=lead.site,merged_into__isnull=True).exclude(pk=pk).exclude(stage='lost'),request.user).order_by('business_name')
+    return render(request,'erp/crm_lead_merge.html',dict(title='Review duplicate lead merge',lead=lead,target=target,targets=targets,state=state,digest=digest,key=uuid.uuid4(),errors=errors))

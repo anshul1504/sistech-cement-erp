@@ -258,6 +258,7 @@ from erp import crm_views as cv
 urlpatterns += [
     path('crm/', cv.leads, name='crm_leads'),
     path('crm/new/', cv.lead_form, name='crm_lead_new'),
+    path('crm/leads/<int:pk>/merge/', cv.lead_merge, name='crm_lead_merge'),
     path('crm/leads/<int:pk>/', cv.lead_detail, name='crm_lead_detail'),
     path('crm/leads/<int:pk>/edit/', cv.lead_form, name='crm_lead_edit'),
     path('crm/leads/<int:pk>/<str:action>/', cv.lead_action, name='crm_lead_action'),

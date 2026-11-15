@@ -64,7 +64,7 @@ def quotation_form(request, pk=None):
             return redirect('project_detail',pk=project.pk)
     sites = list(_sites(request.user))
     customers = list(Partner.objects.filter(kind__in=CUSTOMER_KINDS, active=True).order_by('name'))
-    leads = list(scope(CRMLead.objects.filter(partner__isnull=True).exclude(stage='lost'), request.user).order_by('business_name')[:300])
+    leads = list(scope(CRMLead.objects.filter(partner__isnull=True,merged_into__isnull=True).exclude(stage='lost'), request.user).order_by('business_name')[:300])
     products = list(Product.objects.filter(active=True, category__in=['Cement', 'TMT']).order_by('category', 'name'))
     P, errors = request.POST, []
     if q and request.method != 'POST':

@@ -2306,7 +2306,7 @@ class CRMPolicy(models.Model):
         permissions = [('manage_crmpolicy', 'Configure dealer onboarding policy')]
 
 
-LEAD_STAGES = [('new', 'New'), ('contacted', 'Contacted'), ('qualified', 'Qualified'), ('proposal', 'Proposal / review'), ('won', 'Converted'), ('lost', 'Lost')]
+LEAD_STAGES = [('new', 'New'), ('contacted', 'Contacted'), ('qualified', 'Qualified'), ('proposal', 'Proposal / review'), ('won', 'Converted'), ('lost', 'Lost'), ('merged','Merged duplicate')]
 LEAD_SOURCES = [('direct', 'Direct enquiry'), ('referral', 'Referral'), ('visit', 'Field visit'), ('campaign', 'Campaign'), ('influencer', 'Mason / contractor referral'), ('other', 'Other')]
 
 
@@ -2314,6 +2314,7 @@ class CRMLead(models.Model):
     number = models.CharField(max_length=25, unique=True, editable=False)
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='crm_leads')
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='crm_leads')
+    merged_into = models.ForeignKey('self',null=True,blank=True,on_delete=models.PROTECT,related_name='merged_duplicates',editable=False)
     business_name = models.CharField(max_length=120)
     contact_name = models.CharField(max_length=100, blank=True)
     mobile = models.CharField(max_length=10)
@@ -2334,8 +2335,10 @@ class CRMLead(models.Model):
 
     class Meta:
         ordering = ['-updated_at', '-pk']
-        constraints = [models.UniqueConstraint(fields=['site', 'mobile'], name='unique_lead_mobile_per_site')]
-        permissions = [('view_team_crm', 'View CRM team records at assigned sites'), ('assign_crmlead', 'Reassign CRM lead owners'), ('export_crmlead', 'Export scoped CRM pipeline')]
+        constraints = [models.UniqueConstraint(fields=['site', 'mobile'], name='unique_lead_mobile_per_site'),
+            models.CheckConstraint(condition=(models.Q(stage='merged',merged_into__isnull=False)|(~models.Q(stage='merged')&models.Q(merged_into__isnull=True))),name='lead_merge_stage_link'),
+            models.CheckConstraint(condition=~models.Q(pk=models.F('merged_into')),name='lead_cannot_merge_into_self')]
+        permissions = [('view_team_crm', 'View CRM team records at assigned sites'), ('assign_crmlead', 'Reassign CRM lead owners'), ('approve_crmmerge','Approve CRM duplicate lead merges'), ('export_crmlead', 'Export scoped CRM pipeline')]
 
     def __str__(self): return self.number
 
@@ -3304,3 +3307,22 @@ class PODCorrection(models.Model):
         constraints=[models.UniqueConstraint(fields=['dispatch'],condition=models.Q(status='requested'),name='one_pending_pod_correction')]
 
     def __str__(self):return f'POD correction {self.pk} · {self.dispatch.number}'
+
+
+class CRMLeadMerge(models.Model):
+    source = models.ForeignKey(CRMLead,on_delete=models.PROTECT,related_name='merge_requests')
+    target = models.ForeignKey(CRMLead,on_delete=models.PROTECT,related_name='incoming_merge_requests')
+    snapshot = models.JSONField()
+    source_digest = models.CharField(max_length=64)
+    reason = models.CharField(max_length=500)
+    request_key = models.UUIDField(unique=True)
+    status = models.CharField(max_length=10,default='requested',choices=[('requested','Review pending'),('approved','Approved'),('rejected','Rejected'),('cancelled','Cancelled')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.PROTECT,related_name='+')
+    reviewed_at = models.DateTimeField(null=True,blank=True)
+    review_note = models.CharField(max_length=500,blank=True)
+    class Meta:
+        ordering=['-created_at','-pk']
+        constraints=[models.UniqueConstraint(fields=['source'],condition=models.Q(status='requested'),name='one_pending_crm_merge')]
+    def __str__(self):return f'Merge {self.pk} · {self.source.number} → {self.target.number}'

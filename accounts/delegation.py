@@ -12,6 +12,7 @@ from .security import access_allowed
 
 # permission: label, site-specific, separately requires existing company-finance scope
 POLICIES = {
+    'approve_crmmerge': ('CRM duplicate lead merge', True, False),
     'approve_recipe': ('Recipe / BOM version approval', False, False),
     'approve_pod_correction': ('Delivery evidence correction approval', True, False),
     'approve_weight_exception': ('Dispatch weight exception approval', True, False),
@@ -63,6 +64,7 @@ def _qualified(user, permission, site):
     if permission not in POLICIES or not access_allowed(user):
         return False
     _, scoped, finance = POLICIES[permission]
+    if permission=='approve_crmmerge' and not (user.has_perm('erp.view_crmlead') and user.has_perm('erp.view_team_crm')):return False
     if permission in {'approve_supplierpayment','release_supplierpayment'} and not user.has_perm('erp.view_supplierpayment'):
         return False
     if permission == 'approve_recipe' and not user.has_perm('erp.view_recipe'):

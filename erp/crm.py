@@ -45,6 +45,7 @@ def lead_scope(qs, user, prefix=''):
 def _lead(user, pk):
     lead = CRMLead.objects.select_for_update().select_related('site', 'owner', 'partner').get(pk=pk)
     require_site(user, lead.site)
+    if lead.merged_into_id:raise ValidationError('This duplicate is retained read-only. Continue work on its canonical CRM record.')
     if lead.owner_id != user.pk and not (user.is_superuser or user.has_perm('erp.view_team_crm')):
         raise PermissionDenied
     return lead
@@ -141,7 +142,7 @@ def change_stage(user, pk, stage, reason=''):
     permitted(user, 'change_crmlead')
     lead = _lead(user, pk)
     reason = (reason or '').strip()
-    if stage not in dict(LEAD_STAGES) or stage == 'won':
+    if stage not in dict(LEAD_STAGES) or stage in ['won','merged']:
         raise ValidationError('Conversion requires an approved dealer application or linking an existing active customer.')
     if lead.stage == 'won':
         raise ValidationError('Converted leads retain their conversion history.')

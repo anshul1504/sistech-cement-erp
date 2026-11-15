@@ -85,7 +85,7 @@ class OutcomeForm(forms.ModelForm):
         self.fields['outcome'].required=True
         self.fields['note'].required=True
         partner=stop.assignment.partner
-        self.fields['lead'].queryset=lead_scope(CRMLead.objects.filter(site=stop.plan.site,partner=partner),user) if user.has_perm('erp.view_crmlead') else CRMLead.objects.none()
+        self.fields['lead'].queryset=lead_scope(CRMLead.objects.filter(site=stop.plan.site,partner=partner,merged_into__isnull=True),user) if user.has_perm('erp.view_crmlead') else CRMLead.objects.none()
         self.fields['order'].queryset=Order.objects.filter(site=stop.plan.site,partner=partner,kind='Sale') if user.has_perm('erp.view_sales_order') else Order.objects.none()
         self.fields['complaint'].queryset=Complaint.objects.filter(partner=partner,invoice__site=stop.plan.site) if user.has_perm('erp.view_complaint') else Complaint.objects.none()
         self.fields['promised_amount'].help_text='Field report only. Finance must accept it into collections; no receipt is created.'

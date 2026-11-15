@@ -120,3 +120,6 @@ Requesters, original POD recorder, dispatch creator and creators of previously a
 
 
 Non-cash offsets use the existing payment approval/release stages, retaining the 36-action inventory. Current payment read and company-finance scope are required for payment approval/release principals and deputies; zero-cash execution/reversal also require current module read access. Maker exclusions, actual deputy receipts, atomic rollback and existing routing/handoff apply. No bank or UTR authority is invented for the offset mode. See [non-cash settlement](NON_CASH_SETTLEMENT.md).
+
+
+CRM duplicate prospect consolidation adds `approve_crmmerge`, bringing the configured inventory to **37** action types. Principals/deputies need existing CRM read, team visibility and source-site access. Requester and retained/current identity/conversation/change contributors remain makers; routing does not grant visibility. Actual reviewer and atomic delegated-use receipts are retained. Existing staff roles are not automatically changed. See [CRM consolidation](CRM_DUPLICATE_MERGE.md).

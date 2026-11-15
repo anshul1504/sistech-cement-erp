@@ -23,6 +23,7 @@ class Workflow:
 
 
 CATALOG = {
+    'crm_merge': Workflow(M.CRMLeadMerge,'approve_crmmerge','view_crmlead',{'status':'requested'},'source.site',(), 'crm_lead_detail'),
     'pod_correction': Workflow(M.PODCorrection,'approve_pod_correction','view_dispatch',{'status':'requested'},'dispatch.site',(), 'dispatch_detail'),
     'freight_recovery': Workflow(M.FreightRecoveryAdjustment,'approve_freightbill','view_freightbill',{'status':'requested'},'',('created_by_id','bill.created_by_id'),'freight_bill_detail'),
     'journal_reversal': Workflow(M.JournalReversalRequest,'approve_journalentry','view_journalentry',{'status':'requested'},'',('created_by_id','entry.created_by_id'),'journal_detail'),
@@ -128,6 +129,9 @@ def source(kind, pk, lock=False):
         makers.update(D.order_makers(obj))
     if kind in {'scheme_rules','beat_plan'}:
         makers.update(obj.contributors.values_list('pk',flat=True))
+    if kind=='crm_merge':
+        from erp.crm_merge import makers as merge_makers
+        makers.update(merge_makers(obj))
     if kind == 'pod_correction':
         from erp import pod
         makers.update(pod.makers(obj))
@@ -210,6 +214,7 @@ def source_url(task):
     route = CATALOG[task['kind']].route
     if not route:
         return reverse('grn_detail',args=[task['object'].grn_id])
+    if task['kind']=='crm_merge':return reverse('crm_lead_detail',args=[task['object'].source_id])
     if task['kind']=='pod_correction':return reverse('dispatch_detail',args=[task['object'].dispatch_id])
     if task['kind']=='freight_recovery':return reverse('freight_bill_detail',args=[task['object'].bill_id])
     if task['kind']=='journal_reversal':return reverse('journal_detail',args=[task['object'].entry_id])
