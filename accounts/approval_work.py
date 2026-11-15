@@ -23,6 +23,8 @@ class Workflow:
 
 
 CATALOG = {
+    'recipe': Workflow(M.Recipe,'approve_recipe','view_recipe',{'status':'draft'},'',route='recipes'),
+    'weight_exception': Workflow(M.Dispatch,'approve_weight_exception','view_dispatch',{'status':'weighed','exception_approved_by__isnull':True},maker_paths=('created_by_id','loaded_by_id'),route='dispatch_detail'),
     'recognition_publication': Workflow(M.RecognitionProgram,'publish_recognitionprogram','view_recognitionprogram',{'status':'ranked'},'',('created_by_id','ranked_by_id'),'recognition_detail'),
     'recognition_usage': Workflow(M.InfluencerUsage,'verify_influencerusage','view_influencerusage',{'status':'pending'},'',route='influencer_usage'),
     'complaint_decision': Workflow(M.Complaint,'decide_complaint','view_complaint',{'status':'investigating'},'invoice.site',route='complaint_detail'),
@@ -72,6 +74,7 @@ def path(obj, dotted):
 def pending(kind):
     workflow=CATALOG[kind]
     qs=workflow.model.objects.filter(**workflow.filters)
+    if kind=='weight_exception':qs=qs.exclude(exception='')
     if kind=='complaint_closure':
         qs=qs.exclude(resolution='credit',credit_note__isnull=True).exclude(resolution='replace',replacement_order__isnull=True)
         unresolved=M.CapaAction.objects.filter(complaint_id=OuterRef('pk')).exclude(status='effective')
@@ -116,6 +119,9 @@ def source(kind, pk, lock=False):
         makers.update(D.order_makers(obj))
     if kind in {'scheme_rules','beat_plan'}:
         makers.update(obj.contributors.values_list('pk',flat=True))
+    if kind == 'weight_exception':
+        from erp.logistics import exception_makers
+        makers.update(exception_makers(obj))
     if kind == 'recognition_publication':
         makers.update(obj.contributors.values_list('pk',flat=True))
     if kind == 'beat_cover':
@@ -129,7 +135,7 @@ def source(kind, pk, lock=False):
         reference = f'{obj.grn.number} / line {obj.pk}'
     return dict(kind=kind,object_id=obj.pk,object=obj,site=site,makers=tuple(sorted(makers)),
                 reference=reference[:160],permission=workflow.permission,view_permission=workflow.view_permission,
-                scope_label=str(site) if site else ('Company recognition' if kind in {'recognition_publication','recognition_usage'} else 'Private record access' if kind in {'complaint_decision','complaint_closure','capa_verification'} else 'Company finance'),
+                scope_label=str(site) if site else ('Company recipe' if kind=='recipe' else 'Company recognition' if kind in {'recognition_publication','recognition_usage'} else 'Private record access' if kind in {'complaint_decision','complaint_closure','capa_verification'} else 'Company finance'),
                 status=getattr(obj,'status','Quality hold'))
 
 
@@ -192,6 +198,6 @@ def source_url(task):
     route = CATALOG[task['kind']].route
     if not route:
         return reverse('grn_detail',args=[task['object'].grn_id])
-    if route in {'scheme_payouts','mfg_partners','influencer_usage'}:
+    if route in {'scheme_payouts','mfg_partners','influencer_usage','recipes'}:
         return reverse(route)
     return reverse(route,args=[task['object_id']])

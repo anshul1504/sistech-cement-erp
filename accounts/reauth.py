@@ -67,14 +67,14 @@ DETAIL_ROUTES = {
     'member_status': 'member_detail', 'member_sign_out': 'member_detail',
     'member_set_password': 'member_detail', 'role_delete': 'roles', 'role_duplicate': 'roles',
     'scheme_payout_decide': 'scheme_payouts', 'scheme_payout_new': 'scheme_payouts',
-    'recognition_action': 'recognition_detail', 'capa_action': 'capa_detail', 'complaint_action': 'complaint_detail', 'freight_bill_decide': 'freight_bill_detail', 'delegation_revoke': 'delegation_detail', 'beat_cover_action': 'beat_cover_detail',
+    'recipe_approve': 'recipes', 'dispatch_action': 'dispatch_detail', 'recognition_action': 'recognition_detail', 'capa_action': 'capa_detail', 'complaint_action': 'complaint_detail', 'freight_bill_decide': 'freight_bill_detail', 'delegation_revoke': 'delegation_detail', 'beat_cover_action': 'beat_cover_detail',
 }
 
 
 def confirmation_url(request, route, kwargs):
     target = DETAIL_ROUTES.get(route)
     if target:
-        if target in {'roles', 'scheme_payouts'}:
+        if target in {'roles', 'scheme_payouts','recipes'}:
             next_url = reverse(target)
         else:
             next_url = reverse(target, kwargs={'pk': kwargs['pk']})
@@ -99,12 +99,13 @@ def sensitive(request, match):
         'partners_new', 'partners_edit', 'organization_edit', 'crm_application_edit',
         'scheme_payout_new', 'scheme_payout_decide', 'damage_decide',
         'member_new', 'member_edit', 'member_status', 'member_set_password',
-        'freight_bill_decide', 'delegation_new', 'delegation_revoke', 'approval_assign', 'work_handoff', 'beat_cover_new', 'beat_cover_action', 'dealer_transfer_new',
+        'recipe_approve', 'freight_bill_decide', 'delegation_new', 'delegation_revoke', 'approval_assign', 'work_handoff', 'beat_cover_new', 'beat_cover_action', 'dealer_transfer_new',
         'role_new', 'role_edit', 'role_delete', 'role_duplicate',
         'prices_new', 'prices_edit', 'price_revise', 'price_end',
     }:
         return True
     actions = {
+        'dispatch_action': {'approve'},
         'recognition_action': {'publish','sendback','fulfil'},
         'complaint_action': {'decide','close','effective','reopen'},
         'capa_action': {'effective','reopen'},

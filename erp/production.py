@@ -10,6 +10,7 @@ Controls enforced here (screens and the future API both call these functions):
 - a packing run reconciles bulk issued (silo meter) with bags × bag weight + spillage; a difference beyond 0.5 % needs a reason
   (never silently written off).
 """
+from accounts.delegation import authorize, can_approve
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -59,6 +60,7 @@ def save_recipe(user, product, lines, basis=1, yield_pct=100, effective_from=Non
         problems.append('Expected yield must be between 0 and 100 %.')
     if problems:
         raise ValidationError(problems)
+    Product.objects.select_for_update().get(pk=product.pk)
     version = (Recipe.objects.filter(product=product).aggregate(m=Max('version'))['m'] or 0) + 1
     r = Recipe.objects.create(product=product, version=version, basis_quantity=basis, expected_yield_pct=yield_pct,
                               effective_from=effective_from or timezone.localdate(), notes=(notes or '')[:200], created_by=user)
@@ -70,18 +72,30 @@ def save_recipe(user, product, lines, basis=1, yield_pct=100, effective_from=Non
 
 @transaction.atomic
 def approve_recipe(user, pk):
-    _need(user, 'approve_recipe')
-    r = Recipe.objects.select_for_update().select_related('product').get(pk=pk)
+    _need(user, 'view_recipe')
+    header=Recipe.objects.only('product_id').get(pk=pk)
+    Product.objects.select_for_update().get(pk=header.product_id)
+    r = Recipe.objects.select_for_update(of=('self',)).select_related('product').get(pk=pk)
     if r.status != 'draft':
         raise ValidationError('Only draft recipes can be approved.')
     if r.created_by_id == user.pk:
         raise ValidationError('The person who drafted the recipe cannot approve it (maker-checker).')
+    authorize(user,'approve_recipe',makers=[r.created_by_id],reference=f'recipe:{r.pk}')
+    lines=list(r.lines.select_related('material'))
+    if not r.product.active or not lines or not r.basis_quantity.is_finite() or r.basis_quantity<=0 or not r.expected_yield_pct.is_finite() or not 0<r.expected_yield_pct<=100:
+        raise ValidationError('Approve an active product with a valid output basis, yield and material lines.')
+    if any(not line.material.active or line.material_id==r.product_id or not line.quantity.is_finite() or line.quantity<=0 or not line.tolerance_pct.is_finite() or line.tolerance_pct<0 for line in lines):
+        raise ValidationError('Recipe materials, quantities and tolerances must be active and valid.')
     if r.effective_from <= timezone.localdate():
         Recipe.objects.filter(product=r.product, status='approved', effective_from__lte=timezone.localdate()).update(status='retired')
     r.status, r.approved_by, r.approved_at = 'approved', user, timezone.now()
     r.save()
     _log(user, None, 'Recipe approved', f'{r.product.code} v{r.version}', 'Earlier versions retired')
     return r
+
+
+def can_approve_recipe(user,recipe):
+    return recipe.status=='draft' and user.has_perm('erp.view_recipe') and user.pk!=recipe.created_by_id and can_approve(user,'approve_recipe',makers=[recipe.created_by_id])
 
 
 def current_recipe(product, on=None):

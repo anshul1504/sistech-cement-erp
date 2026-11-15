@@ -8,6 +8,7 @@ Control points enforced here (every screen and future API goes through these fun
 - stock posts once, at the plant's configured event, with a unique source per line (FR-LOG-008);
 - gate-out needs a posted invoice and no open exception.
 """
+from accounts.delegation import authorize, can_approve
 from .gst import inr
 from decimal import Decimal
 
@@ -189,15 +190,32 @@ def check_weight(d):
     d.exception_approved_by, d.exception_note = None, ''
 
 
+def exception_makers(dispatch):
+    return {dispatch.created_by_id,dispatch.loaded_by_id,*dispatch.weighments.values_list('captured_by_id',flat=True)} - {None}
+
+
+def can_approve_exception(user,dispatch):
+    from .models import SiteAccess
+    return (dispatch.status=='weighed' and bool(dispatch.exception) and not dispatch.exception_approved_by_id
+        and user.has_perm('erp.view_dispatch') and user.pk not in exception_makers(dispatch)
+        and (user.is_superuser or SiteAccess.objects.filter(user=user,site=dispatch.site).exists())
+        and can_approve(user,'approve_weight_exception',dispatch.site,makers=exception_makers(dispatch)))
+
+
 @transaction.atomic
-def approve_exception(user, pk, note):
-    _need(user, 'approve_weight_exception')
+def approve_exception(user, pk, note, expected_readings=None):
+    _need(user, 'view_dispatch')
     d = _lock(pk, user)
     _state(d, 'weighed')
     if not d.exception:
         raise ValidationError('There is no weight exception to approve.')
-    if user.pk in {d.gross.captured_by_id, d.loaded_by_id}:
+    reading_pair=f'{d.tare.pk}:{d.gross.pk}'
+    if expected_readings is not None and expected_readings!=reading_pair:
+        raise ValidationError('Weighing evidence changed or is missing. Reopen the trip and review its current tare/gross readings.')
+    if d.exception_approved_by_id:raise ValidationError('This weight exception already has a retained approval. Reweigh before requesting a new review.')
+    if user.pk in exception_makers(d):
         raise ValidationError('The person who weighed or loaded the truck cannot approve its exception.')
+    authorize(user,'approve_weight_exception',d.site,makers=exception_makers(d),reference=f'{d.number}:T{d.tare.pk}:G{d.gross.pk}')
     if not (note or '').strip():
         raise ValidationError('Write why this is acceptable (e.g. bag weights checked, 3 bags re-filled).')
     d.exception_approved_by, d.exception_note = user, note.strip()[:200]

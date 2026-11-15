@@ -225,7 +225,7 @@ def dispatch_detail(request, pk):
         'vehicle_problems': L.vehicle_problems(d.vehicle, exclude=d.pk) if d.status == 'planned' else [],
         'invoice': getattr(d, 'invoice', None), 'net': d.net_kg, 'loaded_mt': sum(((l.unit_kg() or 0) * l.quantity for l in lines), Decimal('0')) / 1000,
         'can': {'gate': u.has_perm('erp.gate_dispatch'), 'weigh': u.has_perm('erp.weigh_dispatch'), 'load': u.has_perm('erp.load_dispatch'),
-                'approve': u.has_perm('erp.approve_weight_exception'), 'invoice': u.has_perm('erp.post_invoice'), 'pod': u.has_perm('erp.pod_dispatch'),
+                'approve': L.can_approve_exception(u,d), 'invoice': u.has_perm('erp.post_invoice'), 'pod': u.has_perm('erp.pod_dispatch'),
                 'cancel': u.has_perm('erp.add_dispatch') or u.has_perm('erp.gate_dispatch')},
         'history': AuditEvent.objects.filter(reference=d.number).select_related('actor').order_by('-created_at')[:12]})
 
@@ -250,7 +250,7 @@ def dispatch_action(request, pk, action):
                                {k[6:]: v for k, v in P.items() if k.startswith('batch_') and v})
             msg = 'Loading complete. Send the truck for gross weight.'
         elif action == 'approve':
-            L.approve_exception(u, pk, P.get('note', '')); msg = 'Exception approved.'
+            L.approve_exception(u, pk, P.get('note', ''), expected_readings=P.get('readings','')); msg = 'Exception approved.'
         elif action == 'invoice':
             inv = L.invoice(u, pk, P.get('eway_bill', '')); msg = f'Invoice {inv.number} posted for ₹{inr(inv.grand_total, 0)}.'
         elif action == 'gate_out':
