@@ -26,7 +26,7 @@ AREAS = [
     ('quality', 'Quality', 'flask', lambda u: has(u, 'view_qualitytest') or has(u, 'view_complaint')),
     ('finance', 'Finance', 'chart', lambda u: I.company_finance(u) and has(u, 'view_financials')),
     ('dealers', 'Dealer network', 'crm', lambda u: has(u, 'view_partner') and has(u, 'view_invoice')),
-    ('schemes', 'Schemes', 'gift', lambda u: has(u, 'view_schemeentitlementbatch') or has(u, 'view_schemesettlement')),
+    ('schemes', 'Schemes', 'gift', lambda u: I.company_finance(u) and (has(u, 'view_schemeentitlementbatch') and has(u, 'view_schemesettlement'))),
     ('procurement', 'Procurement', 'purchase', lambda u: has(u, 'view_purchase_order')),
     ('risk', 'Audit & risk', 'shield', lambda u: has(u, 'view_auditevent')),
 ]

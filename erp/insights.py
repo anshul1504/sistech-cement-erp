@@ -630,10 +630,10 @@ def my_queue(user, sites=None):
     if has('verify_influencerusage'):
         add('Mason / engineer purchases to verify', InfluencerUsage.objects.filter(status='pending').exclude(created_by=user), reverse('influencer_usage'), 'Star programme points')
     if has('approve_schemeversion'):
-        add('Scheme rules to approve', SchemeVersion.objects.filter(status='submitted').exclude(created_by=user), reverse('schemes'), 'Incentive versions')
-    if has('approve_schemeentitlementbatch'):
-        add('Scheme entitlements to approve', SchemeEntitlementBatch.objects.filter(status='submitted').exclude(created_by=user), reverse('scheme_payouts'), 'Accrual')
-    if has('approve_schemesettlement'):
+        add('Scheme rules to approve', SchemeVersion.objects.filter(status='submitted', scheme__site__in=sites).exclude(created_by=user), reverse('schemes'), 'Incentive versions')
+    if fin and has('approve_schemeentitlementbatch'):
+        add('Scheme entitlements to approve', SchemeEntitlementBatch.objects.filter(status='submitted', version__scheme__site__in=sites).exclude(created_by=user), reverse('scheme_payouts'), 'Accrual')
+    if fin and has('approve_schemesettlement'):
         add('Scheme payouts to approve', SchemeSettlement.objects.filter(status='proposed').exclude(created_by=user), reverse('scheme_payouts'), 'Dealer credit or bank')
     for perm, state, label in (('review_dealerkyc', 'submitted', 'Dealer KYC to review'), ('review_dealercredit', 'kyc', 'Dealer credit to review'),
                                ('approve_dealerapplication', 'credit', 'Dealer applications to approve')):

@@ -15,3 +15,15 @@ Regression coverage in `erp.test_access_hardening` includes denied direct servic
 Remaining rollout work includes broader module-by-module authorization review, PostgreSQL concurrency/load testing, sensitive-action step-up authentication and company security/business UAT.
 
 Verification: Django system checks and migration application/drift checks passed. The final full suite ran 404 tests: 396 passed and eight opt-in browser tests were skipped. Authentication, core business and project browser tests were also run explicitly: all three passed. No live records, emails or external financial calls were created by these tests.
+
+## Scheme finance boundary — 15 November 2026
+
+Entitlement preparation and approval now require explicit company-finance scope plus the relevant module permission and scheme-site assignment. Foreign-site evaluations cannot create accrual batches; existing batches cannot be decided or opened from another site. Candidate calculations, batch lists and approval queues use the same site boundary.
+
+Payout proposal/decision require company-finance scope plus their existing action permissions. These are deliberately central financial operations: a dealer payout nets approved earnings/recoveries across sites, rather than silently dropping inaccessible recovery lines. The combined payout workspace, dealer scheme statement and scheme financial dashboard require company-finance scope and both entitlement/settlement view permissions. Internal calculation helpers are not independently exposed endpoints.
+
+Fresh role presets move entitlement/payout preparation from Sales manager to Accountant; Finance controller retains independent approval. Existing customized groups are preserved: no setup/reset command was run against live roles. Administrators must explicitly review existing grants and assign company-finance scope only to staff authorized for central books. No scope is added automatically to sales users.
+
+Regression tests cover foreign-site preparation/approval/read denial, absent-company-finance denial at HTTP and service boundaries, unchanged financial/audit state on denial and scoped work queues. Collections already requires explicit company-finance scope; support tickets intentionally use creator/support-agent visibility rather than plant scope. Broader authorization review remains ongoing.
+
+Verification for this extension: full suite 406 tests (398 passed, eight opt-in browser tests skipped). After the final combined-view permission checks, the relevant rewards/dashboard/account suite ran 90 tests (89 passed, one opt-in browser test skipped). The scheme browser test passed explicitly. Django checks and pending/drift migration checks passed; no database schema changes or live role updates were required.

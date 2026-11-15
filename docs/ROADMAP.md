@@ -148,3 +148,5 @@ e-invoice/e-way bill provider; weighbridge make/model; freight basis; user count
 ## Access hardening — 15 November 2026
 
 Quotation domain services and complaint/CAPA workflows now enforce site boundaries; complaint dashboards, exports and work queues share the same visibility policy. Unlinked cases remain restricted to creator/owner/superuser until a scoped case-team model exists. See [access hardening](ACCESS_HARDENING.md). Broader security review, PostgreSQL testing and business UAT remain pending.
+
+Scheme entitlement services, batch screens and approval queues now enforce scheme-site access; payout/statement/dashboard access requires explicit company-finance scope. Fresh presets separate Accountant preparation from Finance controller approval; existing role assignments are preserved.

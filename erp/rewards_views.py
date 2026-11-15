@@ -7,7 +7,8 @@ from django.views.decorators.http import require_POST
 
 from . import rewards as RW
 from .models import SchemeEntitlementBatch, SchemeSettlement, SchemeEvaluation, Partner, Account
-from .services import permitted
+from .finance_access import permitted, require_company_finance
+from .schemes import scope
 
 
 def _banks():
@@ -19,11 +20,12 @@ def _banks():
 @login_required
 def payouts(request):
     permitted(request.user, 'view_schemeentitlementbatch')
-    ready = [e for e in SchemeEvaluation.objects.filter(batch__isnull=True, version__status='approved').select_related('version__scheme').order_by('-created_at')[:40]
+    permitted(request.user, 'view_schemesettlement')
+    ready = [e for e in scope(SchemeEvaluation.objects.filter(batch__isnull=True, version__status='approved'), request.user, 'version__scheme').select_related('version__scheme').order_by('-created_at')[:40]
              if (e.starts_on, e.ends_on) == (e.version.starts_on, e.version.ends_on)]
     return render(request, 'erp/scheme_payouts.html', {
         'title': 'Scheme entitlements & payouts', 'ready': ready,
-        'batches': SchemeEntitlementBatch.objects.select_related('version__scheme', 'created_by', 'decided_by')[:60],
+        'batches': scope(SchemeEntitlementBatch.objects.select_related('version__scheme', 'created_by', 'decided_by'), request.user, 'version__scheme')[:60],
         'dealers': RW.payable_dealers(), 'settlements': SchemeSettlement.objects.select_related('partner', 'created_by', 'approved_by')[:60], 'banks': _banks(),
         'can': {'batch': request.user.has_perm('erp.add_schemeentitlementbatch'), 'pay': request.user.has_perm('erp.add_schemesettlement'),
                 'decide_pay': request.user.has_perm('erp.approve_schemesettlement')}})
@@ -32,6 +34,7 @@ def payouts(request):
 @login_required
 @require_POST
 def batch_new(request, evaluation_pk):
+    require_company_finance(request.user)
     try:
         b = RW.create_batch(request.user, evaluation_pk, request.POST.get('note', ''))
         messages.success(request, f'{b} prepared for ₹{RW.inr(b.total, 2)}. A different user approves it.')
@@ -44,7 +47,7 @@ def batch_new(request, evaluation_pk):
 @login_required
 def batch_detail(request, pk):
     permitted(request.user, 'view_schemeentitlementbatch')
-    b = get_object_or_404(SchemeEntitlementBatch.objects.select_related('version__scheme', 'evaluation', 'created_by', 'decided_by'), pk=pk)
+    b = get_object_or_404(scope(SchemeEntitlementBatch.objects.select_related('version__scheme', 'evaluation', 'created_by', 'decided_by'), request.user, 'version__scheme'), pk=pk)
     u = request.user
     return render(request, 'erp/scheme_batch.html', {'title': str(b), 'b': b, 'rows': b.entitlements.select_related('partner', 'settlement'),
                                                      'can_decide': b.status == 'submitted' and u.has_perm('erp.approve_schemeentitlementbatch') and u.pk not in (b.created_by_id, b.evaluation.created_by_id)})
@@ -53,6 +56,7 @@ def batch_detail(request, pk):
 @login_required
 @require_POST
 def batch_decide(request, pk, decision):
+    require_company_finance(request.user)
     try:
         b = RW.decide_batch(request.user, pk, decision == 'approve', request.POST.get('note', ''))
         messages.success(request, f'{b}: {b.get_status_display().lower()}.')
@@ -64,6 +68,7 @@ def batch_decide(request, pk, decision):
 @login_required
 @require_POST
 def payout_new(request, partner_pk):
+    permitted(request.user, 'add_schemesettlement')
     partner = get_object_or_404(Partner, pk=partner_pk)
     try:
         s = RW.propose_payout(request.user, partner, request.POST.get('mode', 'ledger'), _banks().filter(pk=request.POST.get('bank') or 0).first(), request.POST.get('note', ''))
@@ -76,6 +81,7 @@ def payout_new(request, partner_pk):
 @login_required
 @require_POST
 def payout_decide(request, pk, decision):
+    require_company_finance(request.user)
     try:
         s = RW.decide_payout(request.user, pk, decision == 'approve', request.POST.get('reference', ''), request.POST.get('note', ''))
         messages.success(request, f'{s.number}: {s.get_status_display().lower()}.')
@@ -87,6 +93,7 @@ def payout_decide(request, pk, decision):
 @login_required
 def statement(request, partner_pk):
     permitted(request.user, 'view_schemeentitlementbatch')
+    permitted(request.user, 'view_schemesettlement')
     partner = get_object_or_404(Partner, pk=partner_pk)
     rows = RW.statement(partner)
     return render(request, 'erp/scheme_statement.html', {'title': f'Scheme statement · {partner.name}', 'partner': partner, 'rows': rows,

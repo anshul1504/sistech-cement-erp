@@ -17,6 +17,8 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from .finance_access import require_company_finance
+from .services import require_site
 from . import gl
 from .gst import next_number, inr
 from .models import (SchemeEvaluation, SchemeEntitlementBatch, SchemeEntitlement, SchemeSettlement, SchemeVersion, Partner, Account, AuditEvent)
@@ -26,6 +28,7 @@ ZERO = Decimal('0.00')
 
 
 def _need(user, perm):
+    require_company_finance(user)
     if not user.has_perm('erp.' + perm):
         raise PermissionDenied
 
@@ -43,6 +46,7 @@ def create_batch(user, evaluation_pk, note=''):
     _need(user, 'add_schemeentitlementbatch')
     ev = SchemeEvaluation.objects.select_for_update().select_related('version__scheme').get(pk=evaluation_pk)
     v = ev.version
+    require_site(user, v.scheme.site)
     if hasattr(ev, 'batch'):
         raise ValidationError(f'This calculation already became {ev.batch}.')
     if (ev.starts_on, ev.ends_on) != (v.starts_on, v.ends_on):
@@ -78,6 +82,7 @@ def create_batch(user, evaluation_pk, note=''):
 def decide_batch(user, pk, approve, note=''):
     _need(user, 'approve_schemeentitlementbatch')
     b = SchemeEntitlementBatch.objects.select_for_update().select_related('version__scheme__site').get(pk=pk)
+    require_site(user, b.version.scheme.site)
     if b.status != 'submitted':
         raise ValidationError('Only batches waiting for approval can be decided.')
     if user.pk in (b.created_by_id, b.evaluation.created_by_id):

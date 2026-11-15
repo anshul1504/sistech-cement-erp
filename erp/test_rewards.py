@@ -3,7 +3,7 @@ from decimal import Decimal as D
 from uuid import uuid4
 
 from django.contrib.auth.models import User, Permission
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -90,3 +90,66 @@ class RewardTests(TestCase):
         for url in [reverse('scheme_payouts'), reverse('scheme_batch', args=[b.pk]), reverse('scheme_statement', args=[self.customer.pk])]:
             self.assertEqual(self.client.get(url).status_code, 200, url)
         self.assertEqual(SchemeEntitlementBatch.objects.count(), 1)
+
+    def test_foreign_site_cannot_prepare_decide_or_read_batch(self):
+        from .models import AuditEvent
+        from . import insights as I
+        v = approved_scheme(self)
+        invoice_fixture(self, [(self.bag, D(2000))])
+        evaluation = self.calc(v)
+        before = AuditEvent.objects.count()
+        with self.assertRaises(PermissionDenied):
+            RW.create_batch(self.outsider, evaluation.pk)
+        self.assertEqual(AuditEvent.objects.count(), before)
+        self.assertFalse(SchemeEntitlementBatch.objects.exists())
+        batch = RW.create_batch(self.maker, evaluation.pk)
+        with self.assertRaises(PermissionDenied):
+            RW.decide_batch(self.outsider, batch.pk, True)
+        batch.refresh_from_db()
+        self.assertEqual(batch.status, 'submitted')
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(reverse('scheme_batch', args=[batch.pk])).status_code, 404)
+        response = self.client.get(reverse('scheme_payouts'))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, str(batch))
+        self.assertFalse(any(x['label'] == 'Scheme entitlements to approve' for x in I.my_queue(self.outsider)))
+
+    def test_module_grants_without_company_finance_cannot_read_or_post_rewards(self):
+        from .models import SchemeSettlement, AuditEvent
+        from . import insights as I
+        v = approved_scheme(self)
+        invoice_fixture(self, [(self.bag, D(2000))])
+        evaluation = self.calc(v)
+        batch = RW.create_batch(self.maker, evaluation.pk)
+        RW.decide_batch(self.boss, batch.pk, True)
+        payout = RW.propose_payout(self.maker, self.customer, 'ledger')
+        self.checker.user_permissions.remove(Permission.objects.get(codename='access_company_finance'))
+        actor = User.objects.get(pk=self.checker.pk)
+        before = AuditEvent.objects.count()
+        for call in [
+            lambda: RW.create_batch(actor, evaluation.pk),
+            lambda: RW.decide_batch(actor, batch.pk, False, 'Denied'),
+            lambda: RW.propose_payout(actor, self.customer, 'ledger'),
+            lambda: RW.decide_payout(actor, payout.pk, True),
+        ]:
+            with self.assertRaises(PermissionDenied):
+                call()
+        self.assertEqual(AuditEvent.objects.count(), before)
+        self.assertEqual(SchemeSettlement.objects.get(pk=payout.pk).status, 'proposed')
+        self.client.force_login(actor)
+        for url in [
+            reverse('scheme_payouts'), reverse('scheme_batch', args=[batch.pk]),
+            reverse('scheme_statement', args=[self.customer.pk]),
+            reverse('insight_area', args=['schemes']),
+        ]:
+            self.assertEqual(self.client.get(url).status_code, 403, url)
+        for url in [
+            reverse('scheme_batch_new', args=[evaluation.pk]),
+            reverse('scheme_batch_decide', args=[batch.pk, 'approve']),
+            reverse('scheme_payout_new', args=[self.customer.pk]),
+            reverse('scheme_payout_decide', args=[payout.pk, 'approve']),
+        ]:
+            self.assertEqual(self.client.post(url).status_code, 403, url)
+        labels = {x['label'] for x in I.my_queue(actor)}
+        self.assertNotIn('Scheme entitlements to approve', labels)
+        self.assertNotIn('Scheme payouts to approve', labels)
