@@ -43,9 +43,9 @@ def territories(request):
     permitted(request.user,'view_salesterritory')
     nodes=SalesTerritory.objects.filter(site__in=sites_for(request.user)).select_related('site','parent','parent__parent')
     for node in nodes:node.branch_active=node.site.active and all(n.active for n in beats.path(node))
-    assignments=beats.scope(DealerTerritoryAssignment.objects.select_related('site','territory','owner','partner'),request.user)
+    assignments=beats.scope(DealerTerritoryAssignment.objects.select_related('site','territory','owner','partner','outgoing_transfer','incoming_transfer'),request.user)
     today=timezone.localdate()
-    if request.GET.get('history')!='1':assignments=assignments.filter(Q(ends_on__isnull=True)|Q(ends_on__gte=today))
+    if request.GET.get('history')!='1':assignments=assignments.filter(superseded_at__isnull=True).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=today))
     q=request.GET.get('q','').strip()
     if q:assignments=assignments.filter(Q(partner__name__icontains=q)|Q(partner__code__icontains=q)|Q(territory__name__icontains=q))
     return render(request,'erp/territories.html',dict(title='Territories & dealer ownership',nodes=nodes,
@@ -134,7 +134,7 @@ def detail(request,pk):
             and all(u.has_perm('erp.'+p) for p in ['publish_beatpromise','add_receipt','access_company_finance']))
     return render(request,'erp/beat_detail.html',dict(title=plan.number,plan=plan,stops=stops,stop_form=StopForm(plan=plan),can_decide=can_decide,
         can_edit=editor and plan.status=='draft' and u.has_perm('erp.change_beatplan'),can_submit=editor and plan.status=='draft' and u.has_perm('erp.submit_beatplan'),
-        can_cancel=editor and u.has_perm('erp.change_beatplan') and plan.status not in ['finished','cancelled'] and all(s.status=='planned' for s in stops),
+        can_cancel=editor and u.has_perm('erp.change_beatplan') and plan.status not in ['finished','cancelled'] and all(s.status in ['planned','reassigned'] for s in stops),
         can_follow=executor and u.has_perm('erp.record_beatstop'),reviews=plan.reviews.select_related('actor'),covers=plan.execution_covers.select_related('recipient'),
         can_cover=u.has_perm('erp.manage_salesterritory') and u.has_perm('erp.view_team_beats') and plan.status in ['approved','finished'],
         history=AuditEvent.objects.filter(reference=plan.number,site=plan.site).select_related('actor').order_by('-created_at')[:30]))

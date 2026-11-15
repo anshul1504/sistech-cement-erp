@@ -9,9 +9,9 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 | Area | Implemented baseline | Remaining scope / acceptance gate |
 |---|---|---|
-| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated delegation for configured risk actions implemented; configured approval routing and eligible unavailable-staff handoff implemented; remaining approval integrations/cross-module audit, reviewed CRM owner changes implemented; finite independently reviewed beat execution cover implemented; dated commercial dealer/route ownership transfer and security acceptance remain |
+| Identity and access (§3) | Password/email OTP, throttling, roles/sites, sessions, temporary expiry, sensitive-action reauthentication, dated delegation, configured approval routing, eligible unavailable-staff handoff, reviewed CRM/beat ownership transitions | Remaining approval integrations/cross-module audit, batch staffing orchestration, deployment scheduling and security acceptance |
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
-| CRM (§5.1) | Leads, onboarding, KYC review, targets, territories/beats, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
+| CRM (§5.1) | Leads, onboarding, KYC review, targets, territories/beats, reviewed dated ownership transfer, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
 | Schemes (§5.3) | Versioned rules, retained eligibility, accrual, payouts, recognition | Quantity/per-unit/margin and progressive rules, budgets/stacking, additional beneficiary/tax handling, full automatic reversal lifecycle |
 | Procurement (§5.4) | PR/RFQ/PO, inbound/GRN, matching, returns and AP | Demand/budget planning, deeper supplier verification, hardware/evidence acceptance |

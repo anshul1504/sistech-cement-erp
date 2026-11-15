@@ -105,7 +105,7 @@ def assign(user,data):
     _active(obj.territory);_owner(obj.owner,obj.site)
     if obj.starts_on<timezone.localdate():raise ValidationError('New ownership cannot be backdated; retained assignments preserve past coverage.')
     if obj.ends_on and obj.ends_on<obj.starts_on:raise ValidationError('End date cannot precede the start date.')
-    overlaps=DealerTerritoryAssignment.objects.filter(site=obj.site,partner=obj.partner).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=obj.starts_on))
+    overlaps=DealerTerritoryAssignment.objects.filter(site=obj.site,partner=obj.partner,superseded_at__isnull=True).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=obj.starts_on))
     if obj.ends_on:overlaps=overlaps.filter(starts_on__lte=obj.ends_on)
     if overlaps.exists():raise ValidationError('This customer already has an assignment during those dates at this site. End it before the next assignment starts.')
     obj.created_by=user;obj.full_clean();obj.save()
@@ -119,6 +119,7 @@ def end_assignment(user,pk,on,note):
     header=DealerTerritoryAssignment.objects.get(pk=pk);require_site(user,header.site)
     Site.objects.select_for_update().get(pk=header.site_id)
     obj=DealerTerritoryAssignment.objects.select_for_update().get(pk=pk)
+    if obj.superseded_at:raise ValidationError('This future assignment was superseded by a retained transfer.')
     if obj.ends_on:raise ValidationError('The retained assignment already has an end date. Prepare a new assignment for a later period.')
     if not on or on<max(obj.starts_on,timezone.localdate()) or not (note or '').strip():
         raise ValidationError('Choose an inclusive end date from today/start onward and record the handover reason.')
@@ -170,6 +171,7 @@ def save_plan(user,data,pk=None):
 
 
 def _check_assignment(plan,assignment,active=True):
+    if assignment.superseded_at:raise ValidationError('This assignment was superseded; use the replacement assignment.')
     if assignment.site_id!=plan.site_id or assignment.owner_id!=plan.owner_id or assignment.territory.kind!='area':raise ValidationError('The stop must use this owner’s area assignment at the route site.')
     if assignment.starts_on>plan.on or (assignment.ends_on and assignment.ends_on<plan.on):raise ValidationError('An assignment no longer covers the route date. Return the plan for changes.')
     if active:
@@ -182,7 +184,7 @@ def add_stop(user,pk,data):
     permitted(user,'change_beatplan')
     plan=_plan(user,pk);_editor(user,plan)
     if plan.status!='draft':raise ValidationError('Stops are locked after submission.')
-    if plan.stops.count()>=50:raise ValidationError('A daily route supports up to 50 stops.')
+    if plan.stops.exclude(status='reassigned').count()>=50:raise ValidationError('A daily route supports up to 50 stops.')
     form=StopForm(data,plan=plan)
     if not form.is_valid():raise _errors(form)
     stop=form.save(commit=False);stop.plan=plan
@@ -199,6 +201,7 @@ def remove_stop(user,pk,stop_pk):
     plan=_plan(user,pk);_editor(user,plan)
     if plan.status!='draft':raise ValidationError('Only draft stops can be removed.')
     stop=plan.stops.get(pk=stop_pk);code=stop.assignment.partner.code
+    if stop.status=='reassigned' or hasattr(stop,'transferred_from'):raise ValidationError('Retained transferred stops cannot be deleted; cancel the unused route if necessary.')
     stop.delete();plan.contributors.add(user)
     _log(user,plan.site,'Beat draft stop removed',plan.number,code)
 
@@ -212,7 +215,7 @@ def _stop_snapshot(stop):
 
 def _review(plan,user,action,note):
     snapshot=dict(title=plan.title,owner=plan.owner_id,owner_name=plan.owner.get_username(),on=str(plan.on),site=plan.site.code,
-                  stops=[dict(sequence=s.sequence,purpose=s.get_purpose_display(),instructions=s.instructions,customer=s.snapshot) for s in plan.stops.all()])
+                  stops=[dict(sequence=s.sequence,purpose=s.get_purpose_display(),status=s.status,instructions=s.instructions,customer=s.snapshot) for s in plan.stops.all()])
     review=BeatReview(plan=plan,revision=plan.revision,action=action,actor=user,note=note,snapshot=snapshot)
     review.full_clean();review.save()
     _log(user,plan.site,'Beat '+action.lower(),plan.number,f'Revision {plan.revision} · {note}')
@@ -224,7 +227,7 @@ def submit_plan(user,pk,note):
     plan=_plan(user,pk);_editor(user,plan)
     if plan.status!='draft' or plan.on<timezone.localdate() or not (note or '').strip():raise ValidationError('Submit a current/future draft with a submission note.')
     _owner(plan.owner,plan.site)
-    stops=list(plan.stops.select_related('assignment__partner','assignment__territory'))
+    stops=list(plan.stops.exclude(status='reassigned').select_related('assignment__partner','assignment__territory'))
     if not stops:raise ValidationError('Add at least one assigned customer stop.')
     for stop in stops:
         _check_assignment(plan,stop.assignment);stop.snapshot=_stop_snapshot(stop);stop.save(update_fields=['snapshot'])
@@ -244,8 +247,8 @@ def decide_plan(user,pk,approve,note):
     if approve:
         if plan.on<timezone.localdate():raise ValidationError('The planned day has passed; return for changes or cancel this plan.')
         _owner(plan.owner,plan.site)
-        if not plan.stops.exists():raise ValidationError('A route needs at least one stop.')
-        for stop in plan.stops.select_related('assignment__partner','assignment__territory'):
+        if not plan.stops.exclude(status='reassigned').exists():raise ValidationError('A route needs at least one stop.')
+        for stop in plan.stops.exclude(status='reassigned').select_related('assignment__partner','assignment__territory'):
             _check_assignment(plan,stop.assignment)
             if _stop_snapshot(stop)!=stop.snapshot:raise ValidationError('Assignment/customer evidence changed after submission. Return for changes and resubmit.')
         plan.status,plan.approved_by,plan.approved_at='approved',user,timezone.now()
@@ -258,7 +261,7 @@ def decide_plan(user,pk,approve,note):
 def cancel_plan(user,pk,note):
     permitted(user,'change_beatplan')
     plan=_plan(user,pk);_editor(user,plan)
-    if plan.status in ['finished','cancelled'] or plan.stops.exclude(status='planned').exists():raise ValidationError('A route with recorded outcomes cannot be cancelled; retain and finish its remaining stops.')
+    if plan.status in ['finished','cancelled'] or plan.stops.exclude(status__in=['planned','reassigned']).exists():raise ValidationError('A route with recorded outcomes cannot be cancelled; retain and finish its remaining stops.')
     if not (note or '').strip():raise ValidationError('Record the cancellation reason.')
     plan.status='cancelled';plan.decision_note=note;plan.save();_review(plan,user,'Cancelled',note)
     return plan
@@ -326,7 +329,7 @@ def publish_promise(user,pk,note):
 def coverage(user,start,end):
     permitted(user,'view_beatplan')
     if start>end or (end-start).days>366:raise ValidationError('Choose a report period of up to 367 inclusive days.')
-    assignments=scope(DealerTerritoryAssignment.objects.select_related('territory','partner','owner','site'),user).filter(starts_on__lte=end).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=start))
+    assignments=scope(DealerTerritoryAssignment.objects.select_related('territory','partner','owner','site'),user).filter(superseded_at__isnull=True,starts_on__lte=end).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=start))
     stops=scope(BeatStop.objects.select_related('plan__owner','plan__site','assignment__territory','assignment__partner'),user,'plan').filter(plan__on__range=(start,end),plan__status__in=['approved','finished'])
     rows={}
     def row(site,owner,area_id,area_name):
@@ -336,6 +339,7 @@ def coverage(user,start,end):
         item=row(a.site,a.owner,a.territory_id,a.territory.name);item['assigned'][a.partner_id]=a.partner
     for s in stops:
         item=row(s.plan.site,s.plan.owner,s.snapshot.get('territory',s.assignment.territory_id),s.snapshot.get('area',s.assignment.territory.name))
+        if s.status=='reassigned':continue
         item['planned']+=1
         if s.status=='completed':item['completed']+=1;item['visited'].add(s.snapshot.get('partner',s.assignment.partner_id))
         elif s.status=='missed':item['missed']+=1

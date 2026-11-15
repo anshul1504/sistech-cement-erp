@@ -98,7 +98,7 @@ def sensitive(request, match):
         'partners_new', 'partners_edit', 'organization_edit', 'crm_application_edit',
         'scheme_payout_new', 'scheme_payout_decide', 'damage_decide',
         'member_new', 'member_edit', 'member_status', 'member_set_password',
-        'delegation_new', 'delegation_revoke', 'approval_assign', 'work_handoff', 'beat_cover_new', 'beat_cover_action',
+        'delegation_new', 'delegation_revoke', 'approval_assign', 'work_handoff', 'beat_cover_new', 'beat_cover_action', 'dealer_transfer_new',
         'role_new', 'role_edit', 'role_delete', 'role_duplicate',
         'prices_new', 'prices_edit', 'price_revise', 'price_end',
     }:

@@ -64,7 +64,7 @@ class StopForm(forms.ModelForm):
     def __init__(self,*args,plan,**kwargs):
         super().__init__(*args,**kwargs)
         from django.db.models import Q
-        self.fields['assignment'].queryset=DealerTerritoryAssignment.objects.filter(site=plan.site,owner=plan.owner,starts_on__lte=plan.on,territory__active=True,territory__parent__active=True,territory__parent__parent__active=True,partner__active=True).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=plan.on)).select_related('partner','territory','owner','territory__site')
+        self.fields['assignment'].queryset=DealerTerritoryAssignment.objects.filter(superseded_at__isnull=True,site=plan.site,owner=plan.owner,starts_on__lte=plan.on,territory__active=True,territory__parent__active=True,territory__parent__parent__active=True,partner__active=True).filter(Q(ends_on__isnull=True)|Q(ends_on__gte=plan.on)).select_related('partner','territory','owner','territory__site')
         self.fields['sequence'].initial=(plan.stops.order_by('-sequence').values_list('sequence',flat=True).first() or 0)+1
         style(self)
 

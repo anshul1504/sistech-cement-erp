@@ -64,7 +64,7 @@ Migration accounts.0007 adds an optional backup and routing/handoff tables. A lo
 
 ## Remaining SRS work
 
-- CRM lead edits now support reasoned ownership changes with retained onboarding evidence and mandatory resubmission. Automatic CRM handoff remains deliberately blocked pending explicit module review. Approved beat execution cover now handles outstanding visits/follow-ups with independent review and expiry; active qualified cover suppresses unavailable-owner attention until it expires or loses access. Complete dated commercial territory/route ownership transitions and remaining approval-type routing.
+- CRM lead edits now support reasoned ownership changes with retained onboarding evidence and mandatory resubmission. Automatic CRM handoff remains deliberately blocked pending explicit module review. Approved beat execution cover now handles outstanding visits/follow-ups with independent review and expiry; active qualified cover suppresses unavailable-owner attention until it expires or loses access. Explicit preview-bound dated dealer ownership transfer now creates replacement assignment/route lineage and requires renewed route review. Automatic backup handoff does not silently perform either ownership workflow. Complete remaining approval-type routing and batch staffing orchestration.
 - Configure the company's real backup coverage and operational escalation rules.
 - Verify PostgreSQL concurrency, deployment scheduling/monitoring and business/security UAT.
 - Apply the same authorization/availability contract to the future API/mobile/background approval stack.

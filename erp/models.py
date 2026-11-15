@@ -3006,6 +3006,7 @@ class DealerTerritoryAssignment(models.Model):
     end_note = models.CharField(max_length=300, blank=True)
     ended_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    superseded_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -3052,7 +3053,8 @@ class BeatStop(models.Model):
     purpose = models.CharField(max_length=12, choices=BEAT_PURPOSES, default='visit')
     instructions = models.CharField(max_length=200, blank=True)
     snapshot = models.JSONField(default=dict, blank=True, editable=False)
-    status = models.CharField(max_length=10, default='planned', choices=[('planned','Planned'),('completed','Completed'),('missed','Missed')])
+    status = models.CharField(max_length=10, default='planned', choices=[('planned','Planned'),('completed','Completed'),('missed','Missed'),('reassigned','Reassigned')])
+    replacement_stop = models.OneToOneField('self', null=True, blank=True, on_delete=models.PROTECT, related_name='transferred_from', editable=False)
     visited_on = models.DateField(null=True, blank=True)
     outcome = models.CharField(max_length=12, choices=BEAT_OUTCOMES, blank=True)
     note = models.TextField(blank=True)
@@ -3071,7 +3073,8 @@ class BeatStop(models.Model):
 
     class Meta:
         ordering = ['sequence','pk']
-        constraints = [models.UniqueConstraint(fields=['plan','assignment'],name='unique_beat_assignment_stop'),
+        constraints = [models.CheckConstraint(condition=models.Q(status='reassigned',replacement_stop__isnull=False) | (~models.Q(status='reassigned') & models.Q(replacement_stop__isnull=True)), name='beat_reassigned_stop_lineage'),
+                       models.UniqueConstraint(fields=['plan','assignment'],name='unique_beat_assignment_stop'),
                        models.UniqueConstraint(fields=['plan','sequence'],name='unique_beat_stop_sequence')]
         permissions = [('record_beatstop','Record assigned field visit outcomes'), ('publish_beatpromise','Review field promises into collections')]
 
@@ -3200,3 +3203,17 @@ class BeatExecutionCover(models.Model):
 
     def __str__(self):
         return f'Beat cover {self.pk}'
+
+
+class DealerOwnershipTransfer(models.Model):
+    source = models.OneToOneField(DealerTerritoryAssignment, on_delete=models.PROTECT, related_name='outgoing_transfer')
+    replacement = models.OneToOneField(DealerTerritoryAssignment, on_delete=models.PROTECT, related_name='incoming_transfer')
+    effective_on = models.DateField()
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    reason = models.CharField(max_length=300)
+    request_key = models.UUIDField(unique=True)
+    payload_digest = models.CharField(max_length=64)
+    evidence = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):return f'Dealer transfer {self.pk}'
