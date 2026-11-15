@@ -356,3 +356,75 @@ class CRMTests(TestCase):
         response=self.client.get(reverse('partner_detail',args=[self.customer.pk]))
         self.assertEqual(response.status_code,200)
         self.assertEqual(response.context['summary']['Part dispatched'],1)
+
+@override_settings(EMAIL_OTP_ENABLED=False)
+class CRMOwnershipTests(TestCase):
+    def setUp(self):
+        seed_crm(self)
+
+    def move(self, lead, owner, reason='Reviewed staff handover'):
+        return crm.save_lead(self.maker, dict(site=self.site, owner=owner, mobile=lead.mobile,
+            owner_change_reason=reason), lead.pk)
+
+    def test_review_evidence_retained_and_new_submission_required(self):
+        app = submitted(self)
+        crm.decide_application(self.checker, app.pk, 'kyc', 'Reviewed original evidence')
+        app.refresh_from_db()
+        original = app.submission_snapshot
+        self.move(app.lead, self.peer)
+        app.refresh_from_db()
+        self.assertEqual(app.status, 'changes')
+        self.assertIsNone(app.kyc_by)
+        self.assertEqual(app.submission_snapshot, original)
+        review = app.reviews.get(action='Owner reassigned')
+        self.assertEqual(review.snapshot['before_handoff']['kyc_by'], self.checker.pk)
+        self.assertEqual(review.snapshot['ownership'], {'previous': self.maker.pk, 'recipient': self.peer.pk})
+        self.assertTrue(app.reviews.filter(action='KYC approved').exists())
+        with self.assertRaises(ValidationError):
+            crm.decide_application(self.finance, app.pk, 'credit', 'Cannot reuse old review', '75000', '21')
+        crm.submit_application(self.peer, app.pk, 'Reviewed handover and unchanged documents')
+        app.refresh_from_db()
+        self.assertEqual(app.revision, 2)
+        self.assertEqual(app.submission_snapshot['owner'], self.peer.pk)
+
+    def test_reason_required_and_failed_change_is_atomic(self):
+        app = submitted(self)
+        with self.assertRaises(ValidationError):
+            self.move(app.lead, self.peer, '')
+        app.lead.refresh_from_db()
+        app.refresh_from_db()
+        self.assertEqual(app.lead.owner_id, self.maker.pk)
+        self.assertEqual(app.status, 'submitted')
+        self.assertFalse(app.reviews.filter(action='Owner reassigned').exists())
+
+    def test_past_owners_cannot_become_checkers_after_another_transfer(self):
+        app = submitted(self)
+        self.move(app.lead, self.checker)
+        app.lead.refresh_from_db()
+        self.move(app.lead, self.peer)
+        crm.submit_application(self.peer, app.pk, 'Reviewed latest ownership')
+        with self.assertRaises(ValidationError):
+            crm.decide_application(self.checker, app.pk, 'kyc', 'Former owner cannot approve')
+        crm.decide_application(self.finance, app.pk, 'kyc', 'Independent review')
+
+    def test_expired_recipient_and_missing_assignment_authority_denied(self):
+        from accounts.models import UserProfile
+        lead = new_lead(self)
+        UserProfile.objects.update_or_create(user=self.peer, defaults={'access_expires_at': timezone.now() - timedelta(seconds=1)})
+        with self.assertRaises(ValidationError):
+            self.move(lead, self.peer)
+        self.maker.user_permissions.remove(Permission.objects.get(codename='assign_crmlead'))
+        self.maker = User.objects.get(pk=self.maker.pk)
+        with self.assertRaises(PermissionDenied):
+            self.move(lead, self.checker)
+
+    def test_owner_edit_requires_recent_identity_confirmation(self):
+        lead = new_lead(self)
+        self.client.force_login(self.maker)
+        response = self.client.post(reverse('crm_lead_edit', args=[lead.pk]), {})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('reauthenticate'), response.url)
+        force_login_recent(self.client, self.maker)
+        response = self.client.get(reverse('crm_lead_edit', args=[lead.pk]))
+        self.assertContains(response, 'owner_change_reason')
+        self.assertContains(response, 'must be resubmitted')

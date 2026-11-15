@@ -86,6 +86,8 @@ def confirmation_url(request, route, kwargs):
 def sensitive(request, match):
     """Single inventory for every currently exposed sensitive web entry point."""
     route, kw = match.url_name, match.kwargs
+    if request.method == 'POST' and route == 'crm_lead_edit':
+        return True
     if request.method == 'GET':
         return route == 'payments' and request.GET.get('export') == 'bank'
     if request.method != 'POST':

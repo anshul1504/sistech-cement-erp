@@ -9,7 +9,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 | Area | Implemented baseline | Remaining scope / acceptance gate |
 |---|---|---|
-| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated delegation for configured risk actions implemented; configured approval routing and eligible unavailable-staff handoff implemented; remaining approval integrations/cross-module audit, reviewed CRM/beat ownership handoff and security acceptance |
+| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated delegation for configured risk actions implemented; configured approval routing and eligible unavailable-staff handoff implemented; remaining approval integrations/cross-module audit, reviewed CRM owner changes implemented; beat ownership handoff and security acceptance remain |
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
 | CRM (§5.1) | Leads, onboarding, KYC review, targets, territories/beats, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |

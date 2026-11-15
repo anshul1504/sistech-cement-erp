@@ -20,7 +20,7 @@ from .crm_forms import DealerProfileForm, DealerUploadForm, PROFILE_FIELDS, PROT
 
 ZERO = Decimal('0')
 OPEN_APPLICATIONS = ['draft', 'submitted', 'changes', 'kyc', 'credit']
-MAKER_ACTIONS = ['Created', 'Profile updated', 'Document uploaded', 'Document withdrawn', 'Submitted']
+MAKER_ACTIONS = ['Created', 'Profile updated', 'Document uploaded', 'Document withdrawn', 'Submitted', 'Owner reassigned']
 
 
 def sites_for(user):
@@ -28,7 +28,8 @@ def sites_for(user):
 
 
 def owners_for(user):
-    ids = [u.pk for u in get_user_model().objects.filter(is_active=True) if u.has_perm('erp.view_crmlead')]
+    from accounts.security import access_allowed
+    ids = [u.pk for u in get_user_model().objects.filter(is_active=True) if access_allowed(u) and u.has_perm('erp.view_crmlead')]
     return get_user_model().objects.filter(pk__in=ids).order_by('first_name', 'username')
 
 
@@ -66,7 +67,8 @@ def _audit(user, lead, action, detail=''):
 
 
 def _owner(user, owner, site):
-    if not owner or not owner.is_active or not owner.has_perm('erp.view_crmlead'):
+    from accounts.security import access_allowed
+    if not owner or not access_allowed(owner) or not owner.has_perm('erp.view_crmlead'):
         raise ValidationError('Choose an active CRM user as the owner.')
     require_site(owner, site)
     if owner.pk != user.pk and not user.has_perm('erp.assign_crmlead'):
@@ -78,7 +80,17 @@ def save_lead(user, data, pk=None):
     permitted(user, 'change_crmlead' if pk else 'add_crmlead')
     site = data['site']
     require_site(user, site)
+    # Match the onboarding decision lock order before acquiring the lead row.
+    _lock()
+    applications = list(DealerApplication.objects.select_for_update().filter(lead_id=pk, status__in=OPEN_APPLICATIONS)) if pk else []
     lead = _lead(user, pk) if pk else CRMLead(site=site, created_by=user)
+    former_owner = lead.owner_id
+    owner_changed = bool(pk and former_owner != (data.get('owner') or user).pk)
+    reason = (data.get('owner_change_reason') or '').strip()
+    if owner_changed:
+        permitted(user, 'assign_crmlead')
+        if not reason or len(reason) > 1000:
+            raise ValidationError('Record an ownership change reason (up to 1000 characters).')
     if pk and lead.site_id != site.pk:
         raise ValidationError('The originating site cannot be changed.')
     if pk and lead.stage in ('won', 'lost'):
@@ -105,6 +117,20 @@ def save_lead(user, data, pk=None):
         lead.number = next_number('LEAD', site)
     lead.full_clean()
     lead.save()
+    if owner_changed:
+        for app in applications:
+            app.lead = lead
+            before = dict(status=app.status, submission=app.submission_snapshot, kyc_by=app.kyc_by_id, credit_by=app.credit_by_id,
+                          approved_by=app.approved_by_id, approved_credit=str(app.approved_credit) if app.approved_credit is not None else None,
+                          approved_terms_days=app.approved_terms_days)
+            if app.status in ('submitted', 'kyc', 'credit'):
+                app.status = 'changes'
+                app.kyc_by = app.credit_by = app.approved_by = None
+                app.approved_credit = app.approved_terms_days = app.approved_at = None
+                app.save()
+            _review(app, user, 'Owner reassigned', reason, {**_snapshot(app, app.submission_snapshot.get('policy', {})),
+                    'ownership': dict(previous=former_owner, recipient=owner.pk), 'before_handoff': before})
+        _audit(user, lead, 'CRM ownership reassigned', f'{former_owner} → {owner.pk} · {reason}')
     _audit(user, lead, 'CRM lead updated' if pk else 'CRM lead created', f'{lead.business_name} · owner {owner.get_username()}')
     return lead
 
@@ -324,7 +350,10 @@ def submit_application(user, pk, note):
 def _independent(app, user):
     makers = set(app.reviews.filter(action__in=MAKER_ACTIONS).values_list('actor_id', flat=True))
     makers.update(app.documents.values_list('uploaded_by_id', flat=True))
-    makers.update([app.created_by_id, app.updated_by_id, app.submitted_by_id])
+    makers.update([app.created_by_id, app.updated_by_id, app.submitted_by_id, app.lead.owner_id])
+    for snapshot in app.reviews.filter(action='Owner reassigned').values_list('snapshot', flat=True):
+        ownership = snapshot.get('ownership', {})
+        makers.update([ownership.get('previous'), ownership.get('recipient')])
     if user.pk in makers:
         raise ValidationError('A contributor to this application cannot approve it (maker-checker).')
 

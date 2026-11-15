@@ -64,3 +64,14 @@ RUN_BROWSER_TESTS=1 python manage.py test erp.test_crm_browser erp.test_business
 ```
 
 Policy UI follow-up: required-document options now use compact native checkboxes inside labelled, selected-state cards, with a separate GSTIN setting and responsive single-column layout. The browser regression checks all nine checkbox dimensions at each viewport, label toggling and GSTIN persistence after saving. CRM workflow tests (22) and the opt-in CRM browser test passed after this fix.
+
+
+## Reviewed lead ownership changes
+
+Editing an open lead to change its owner requires assignment authority, current site access and a reason. The recipient must have an enabled, unexpired CRM account at that site. Recent web identity confirmation is required before lead edits.
+
+Any submitted, KYC-reviewed or credit-reviewed open onboarding application returns to changes. Its previous submitted evidence and decision trail remain retained; a new submission revision and all independent reviews are required. The handoff review retains previous/recipient identities, prior status and reviewer/credit evidence. Existing draft/returned applications remain editable. Closed leads and final application decisions cannot be rewritten through this flow. Current and retained former application owners, plus the handoff actor and original contributors, cannot approve the application.
+
+This is an explicit CRM form workflow. Automatic staff backup handoff still leaves CRM rows for deliberate review; it does not silently reset applications. Dated commercial territory transfer and approved beat execution cover remain separate work. No migration or live ownership change was needed for this milestone.
+
+Verification (15 November 2026): full regression run 475 tests, 467 passed and eight opt-in browser checks skipped; the CRM browser check passed explicitly. The final five ownership tests also passed, including the identity-confirmation HTTP test added after full-suite discovery. Django check, migration application/drift checks and diff whitespace checks passed. No schema change or local business-data migration was performed. PostgreSQL concurrency and business acceptance remain rollout gates.

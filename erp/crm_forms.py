@@ -18,6 +18,8 @@ def style(form):
 
 class LeadForm(forms.ModelForm):
     mobile = forms.CharField(max_length=25)
+    owner_change_reason = forms.CharField(required=False, max_length=1000, widget=forms.Textarea(attrs={'rows': 2}),
+        help_text='Required when changing owner. Pending onboarding returns for changes and must be resubmitted for review.')
     class Meta:
         model = CRMLead
         fields = ['site', 'owner', 'business_name', 'contact_name', 'mobile', 'email', 'kind', 'source', 'district', 'territory', 'estimated_value', 'next_follow_up', 'notes']
@@ -30,6 +32,8 @@ class LeadForm(forms.ModelForm):
         self.fields['owner'].queryset = owners_for(user)
         if self.instance.pk:
             self.fields['site'].disabled = True
+        else:
+            self.fields.pop('owner_change_reason')
         if not user.has_perm('erp.assign_crmlead'):
             self.fields['owner'].queryset = get_user_model().objects.filter(pk=user.pk)
             self.fields['owner'].initial = user.pk

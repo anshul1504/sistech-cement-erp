@@ -64,7 +64,7 @@ Migration accounts.0007 adds an optional backup and routing/handoff tables. A lo
 
 ## Remaining SRS work
 
-- Complete reviewed CRM/territory/beat ownership transitions and remaining approval-type routing.
+- CRM lead edits now support reasoned ownership changes with retained onboarding evidence and mandatory resubmission. Automatic CRM handoff remains deliberately blocked pending explicit module review. Complete territory/beat ownership transitions and remaining approval-type routing.
 - Configure the company's real backup coverage and operational escalation rules.
 - Verify PostgreSQL concurrency, deployment scheduling/monitoring and business/security UAT.
 - Apply the same authorization/availability contract to the future API/mobile/background approval stack.
