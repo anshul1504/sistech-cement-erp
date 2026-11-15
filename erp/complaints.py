@@ -12,6 +12,9 @@ Controls:
 - a quality complaint closes only when every CAPA is verified effective, or with a written reason why no CAPA is needed;
 - CAPA effectiveness is verified by someone other than the action owner.
 """
+from accounts.delegation import authorize, can_approve
+import json
+from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -69,15 +72,45 @@ def complaint_makers(complaint):
     makers = {complaint.created_by_id, complaint.owner_id}
     makers.update(AuditEvent.objects.filter(reference=complaint.number, action='Complaint investigated').values_list('actor_id', flat=True))
     makers.update(former_owners('complaint', complaint.pk))
+    for detail in AuditEvent.objects.filter(reference=complaint.number,action='Complaint owner changed').values_list('detail',flat=True):
+        try:makers.add(json.loads(detail).get('previous'))
+        except (ValueError,TypeError,AttributeError):pass
     return makers - {None}
 
 
 def capa_makers(capa):
     from accounts.work_handoff import former_owners
-    makers = {capa.owner_id}
+    makers = {capa.owner_id,capa.created_by_id}
     makers.update(AuditEvent.objects.filter(reference__in=[f'CAPA-{capa.pk:05d}',str(capa)], action='CAPA implemented').values_list('actor_id', flat=True))
     makers.update(former_owners('capa', capa.pk))
     return makers - {None}
+
+
+
+def case_site(case):return case.invoice.site if case.invoice_id else None
+
+
+def can_decide(user,case,close=False):
+    return (user.has_perm('erp.view_complaint') and case.status==('decided' if close else 'investigating')
+        and user.pk not in complaint_makers(case) and scope(Complaint.objects.filter(pk=case.pk),user).exists()
+        and can_approve(user,'decide_complaint',case_site(case),makers=complaint_makers(case)))
+
+
+def can_verify(user,capa):
+    site=case_site(capa.complaint) if capa.complaint_id else None
+    return (user.has_perm('erp.view_complaint') and user.has_perm('erp.view_capaaction') and capa.status=='done'
+        and user.pk not in capa_makers(capa) and capa_scope(CapaAction.objects.filter(pk=capa.pk),user).exists()
+        and can_approve(user,'verify_capaaction',site,makers=capa_makers(capa)))
+
+
+def reviewable(qs,user,capa=False,close=False):
+    from accounts.delegation import approvable
+    permission='verify_capaaction' if capa else 'decide_complaint'
+    scoped=capa_scope(qs,user) if capa else scope(qs,user)
+    candidates=approvable(scoped,user,permission,site_field='complaint__invoice__site' if capa else 'invoice__site',
+        maker_fields=('owner_id',) if capa else ('created_by_id','owner_id'))
+    ids=[obj.pk for obj in candidates if (can_verify(user,obj) if capa else can_decide(user,obj,close))]
+    return qs.filter(pk__in=ids)
 
 
 def _log(user, c, action, detail=''):
@@ -137,28 +170,36 @@ def investigate(user, pk, findings, owner=None):
         raise ValidationError('Findings can be recorded before the decision only.')
     if not (findings or '').strip():
         raise ValidationError('Write the findings (site visit, test results, transporter statement…).')
+    previous_owner=c.owner_id
     c.findings, c.status = findings.strip(), 'investigating'
     if owner: c.owner = owner
     elif not c.owner: c.owner = user
     c.save()
+    if previous_owner and previous_owner!=c.owner_id:
+        _log(user,c,'Complaint owner changed',json.dumps(dict(previous=previous_owner,recipient=c.owner_id)))
     _log(user, c, 'Complaint investigated', findings[:200])
     return c
 
 
 @transaction.atomic
 def decide(user, pk, decision, accepted_quantity, resolution, note):
-    _need(user, 'decide_complaint')
+    _need(user, 'view_complaint')
     c = _lock(user, pk)
     if c.status != 'investigating':
         raise ValidationError('Record the investigation findings first.')
     if user.pk in complaint_makers(c):
         raise ValidationError('The person who logged or investigated the complaint cannot decide it.')
+    authorize(user,'decide_complaint',case_site(c),makers=complaint_makers(c),reference=c.number)
     note = (note or '').strip()
     if decision not in ('accept', 'partial', 'reject'):
         raise ValidationError('Choose the decision.')
     if not note:
         raise ValidationError('Explain the decision to the customer.')
-    accepted_quantity = accepted_quantity or 0
+    try:
+        accepted_quantity=Decimal(str(accepted_quantity or 0))
+        if decision!='reject' and (not accepted_quantity.is_finite() or accepted_quantity<0):raise ValueError
+    except (ValueError,InvalidOperation,TypeError):
+        raise ValidationError('Accepted quantity must be a finite, non-negative number.') from None
     if decision == 'reject':
         accepted_quantity, resolution = 0, 'none'
     elif c.quantity and accepted_quantity > c.quantity:
@@ -218,8 +259,10 @@ def closure_problems(c):
 
 @transaction.atomic
 def close(user, pk, waiver=''):
-    _need(user, 'decide_complaint')
+    _need(user, 'view_complaint')
     c = _lock(user, pk)
+    if user.pk in complaint_makers(c):raise ValidationError('The complaint creator, owner or investigator cannot approve closure of their own work.')
+    authorize(user,'decide_complaint',case_site(c),makers=complaint_makers(c),reference=c.number+':close')
     if waiver.strip() and not c.capas.exists():
         c.capa_waiver = waiver.strip()[:200]
     problems = closure_problems(c)
@@ -268,13 +311,15 @@ def implement(user, pk, note):
 
 @transaction.atomic
 def verify(user, pk, effective, note):
-    _need(user, 'verify_capaaction')
+    _need(user, 'view_complaint')
+    _need(user, 'view_capaaction')
     x = CapaAction.objects.select_for_update().get(pk=pk)
     _require_capa(user, x)
     if x.status != 'done':
         raise ValidationError('Verify after the action is implemented.')
     if user.pk in capa_makers(x):
-        raise ValidationError('The action owner cannot verify their own CAPA.')
+        raise ValidationError('The action owner cannot verify their own CAPA; creators and implementers also require an independent checker.')
+    authorize(user,'verify_capaaction',case_site(x.complaint) if x.complaint_id else None,makers=capa_makers(x),reference=f'CAPA-{x.pk:05d}')
     if not (note or '').strip():
         raise ValidationError('Record the evidence of effectiveness (e.g. no repeat in 3 months, test results).')
     x.status, x.verified_by, x.verified_at, x.effectiveness_note = ('effective' if effective else 'reopened'), user, timezone.now(), note.strip()[:300]

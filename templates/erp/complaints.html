@@ -18,6 +18,6 @@
         <a class="org-btn is-light is-sm mst-open" href="{% url 'complaint_detail' c.pk %}">Open</a></li>{% endfor %}</ul>
     {% else %}<div class="doc-empty"><svg><use href="#ic-shield"/></svg><strong>No complaints here</strong><span>Log a customer complaint against its invoice.</span></div>{% endif %}</section>
   <section class="org-card ord-items"><header class="acc-card-head"><h2>Open CAPA</h2></header>
-    {% if capas %}<ul class="mst-order-list">{% for x in capas %}<li><a href="{% if x.complaint %}{% url 'complaint_detail' x.complaint_id %}{% else %}#{% endif %}"><strong>{{ x }}</strong><small>{% if x.complaint %}{{ x.complaint.number }} · {% endif %}owner {{ x.owner|who }} · due {{ x.due_on|date:'d M Y' }}</small></a><span class="doc-badge{% if x.overdue %} is-danger{% elif x.status == 'done' %} is-warning{% endif %}">{{ x.get_status_display }}</span><span></span></li>{% endfor %}</ul>{% else %}<p class="acc-muted">No open actions.</p>{% endif %}</section>
+    {% if capas %}<ul class="mst-order-list">{% for x in capas %}<li><a href="{% url 'capa_detail' x.pk %}"><strong>{{ x }}</strong><small>{% if x.complaint %}{{ x.complaint.number }} · {% endif %}owner {{ x.owner|who }} · due {{ x.due_on|date:'d M Y' }}</small></a><span class="doc-badge{% if x.overdue %} is-danger{% elif x.status == 'done' %} is-warning{% endif %}">{{ x.get_status_display }}</span><span></span></li>{% endfor %}</ul>{% else %}<p class="acc-muted">No open actions.</p>{% endif %}</section>
 </div>
 {% endblock %}

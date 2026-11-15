@@ -631,12 +631,14 @@ def my_queue(user, sites=None):
         add('Returned goods to inspect', ReturnRequest.objects.filter(status__in=['approved', 'transit'], site__in=sites), reverse('returns') + '?status=arrival', 'Good / damaged / not accepted')
     if fin and has('view_returnrequest') and has('add_creditnote'):
         add('Returns waiting for credit note', ReturnRequest.objects.filter(status='inspected', site__in=sites).exclude(created_by=user).exclude(inspected_by=user), reverse('returns') + '?status=inspected', 'Inspected goods in quarantine')
-    if has('decide_complaint'):
-        add('Complaints to decide', CM.scope(Complaint.objects.filter(status='investigating'), user).exclude(created_by=user).exclude(owner=user), reverse('complaints') + '?status=investigating', 'Findings recorded')
+    if has('view_complaint'):
+        add('Complaints to decide', CM.reviewable(Complaint.objects.filter(status='investigating'),user), reverse('complaints') + '?status=investigating', 'Independent findings review')
+        from accounts.approval_work import pending
+        add('Complaints ready for closure',CM.reviewable(pending('complaint_closure'),user,close=True),reverse('complaints')+'?status=decided','Settlement/CAPA evidence checked on closure')
     if has('view_complaint'):
         add('Complaints you own', CM.scope(Complaint.objects.filter(owner=user), user).exclude(status='closed'), reverse('complaints'), 'Investigation and closure')
-    if has('verify_capaaction'):
-        add('CAPA to verify', CM.capa_scope(CapaAction.objects.filter(status='done'), user).exclude(owner=user), reverse('complaints'), 'Effectiveness check')
+    if has('view_capaaction'):
+        add('CAPA to verify', CM.reviewable(CapaAction.objects.filter(status='done'),user,capa=True), reverse('complaints'), 'Independent effectiveness check')
     add('CAPA actions you own', CM.capa_scope(CapaAction.objects.filter(owner=user, status__in=['open', 'reopened']), user), reverse('complaints'), 'Corrective action due')
     if has('verify_influencerusage'):
         add('Mason / engineer purchases to verify', InfluencerUsage.objects.filter(status='pending').exclude(created_by=user), reverse('influencer_usage'), 'Star programme points')

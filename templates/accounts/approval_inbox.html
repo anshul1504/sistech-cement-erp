@@ -2,5 +2,5 @@
 {% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page"><div class="org-head"><div><div class="eyebrow">MY WORK</div><h1>Assigned approvals</h1><p>Current assigned work you are still authorized to review. Assignment does not bypass source evidence or maker-checker checks.</p></div></div>
-<section class="org-card"><div class="table-responsive"><table class="table"><thead><tr><th>Source</th><th>Scope</th><th>Assigned at</th></tr></thead><tbody>{% for row in rows %}<tr><td><a href="{{ row.url }}">{{ row.task.reference }}</a></td><td>{{ row.task.site|default:'Company finance' }}</td><td>{{ row.routing.assigned_at|date:'d M Y, H:i T' }}</td></tr>{% empty %}<tr><td colspan="3">No pending assigned approvals available for you.</td></tr>{% endfor %}</tbody></table></div></section></div>
+<section class="org-card"><div class="table-responsive"><table class="table"><thead><tr><th>Source</th><th>Scope</th><th>Assigned at</th></tr></thead><tbody>{% for row in rows %}<tr><td><a href="{{ row.url }}">{{ row.task.reference }}</a></td><td>{{ row.task.scope_label }}</td><td>{{ row.routing.assigned_at|date:'d M Y, H:i T' }}</td></tr>{% empty %}<tr><td colspan="3">No pending assigned approvals available for you.</td></tr>{% endfor %}</tbody></table></div></section></div>
 {% endblock %}

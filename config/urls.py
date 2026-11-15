@@ -317,6 +317,8 @@ urlpatterns += [
     path('complaints/', cmv.complaints, name='complaints'),
     path('complaints/new/', cmv.complaint_new, name='complaint_new'),
     path('complaints/<int:pk>/', cmv.complaint_detail, name='complaint_detail'),
+    path('capa/<int:pk>/',cmv.capa_detail,name='capa_detail'),
+    path('capa/<int:pk>/<str:action>/',cmv.capa_action,name='capa_action'),
     path('complaints/<int:pk>/do/<str:action>/', cmv.complaint_action, name='complaint_action'),
 ]
 

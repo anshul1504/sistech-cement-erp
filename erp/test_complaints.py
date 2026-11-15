@@ -41,7 +41,7 @@ class ComplaintTests(TestCase):
         self.assertTrue(any('credit note' in m for m in e.exception.messages) and any('CAPA' in m for m in e.exception.messages))
         cn = CreditNote.objects.create(number='CMP-CN', invoice=self.inv, partner=self.customer, reason='quality', taxable=500, cgst=45, sgst=45, igst=0, round_off=0, total=590, created_by=self.maker)
         CM.settle(self.maker, c.pk, credit_note=cn)
-        x = CM.add_capa(self.qm, c, 'Dealer storage advice', 'Stored on wet floor', 'Pallets and storage leaflet for dealers', self.checker, self.today + timedelta(days=10))
+        x = CM.add_capa(self.maker, c, 'Dealer storage advice', 'Stored on wet floor', 'Pallets and storage leaflet for dealers', self.checker, self.today + timedelta(days=10))
         CM.implement(self.checker, x.pk, 'Leaflets distributed, 20 dealers visited')
         with self.assertRaisesMessage(ValidationError, 'owner cannot verify'):
             CM.verify(self.checker, x.pk, True, 'ok')

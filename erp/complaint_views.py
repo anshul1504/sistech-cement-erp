@@ -80,15 +80,15 @@ def complaint_detail(request, pk):
     u = request.user
     capas = list(c.capas.select_related('owner', 'verified_by'))
     for capa in capas:
-        capa.can_verify = u.has_perm('erp.verify_capaaction') and u.pk not in CM.capa_makers(capa)
+        capa.can_verify = CM.can_verify(u,capa)
     return render(request, 'erp/complaint_detail.html', {
         'title': c.number, 'c': c, 'capas': capas, 'users': _users(), 'problems': CM.closure_problems(c) if c.status == 'decided' else [],
         'credit_notes': CreditNote.objects.filter(invoice=c.invoice) if c.invoice_id else [], 'orders': site_scope(Order.objects.filter(kind='Sale', partner=c.partner), request.user).order_by('-created_at')[:20],
         'history': AuditEvent.objects.filter(reference=c.number).select_related('actor').order_by('-created_at')[:15], 'today': timezone.localdate().isoformat(),
         'can': {'investigate': c.status in ('open', 'investigating') and u.has_perm('erp.change_complaint'),
-                'decide': c.status == 'investigating' and u.has_perm('erp.decide_complaint') and u.pk not in CM.complaint_makers(c),
+                'decide': CM.can_decide(u,c),
                 'settle': c.status == 'decided' and c.resolution in ('credit', 'replace') and u.has_perm('erp.change_complaint'),
-                'close': c.status == 'decided' and u.has_perm('erp.decide_complaint'), 'capa': c.status != 'closed' and u.has_perm('erp.add_capaaction'),
+                'close': CM.can_decide(u,c,close=True), 'capa': c.status != 'closed' and u.has_perm('erp.add_capaaction'),
                 'verify': u.has_perm('erp.verify_capaaction')}})
 
 
@@ -123,3 +123,26 @@ def complaint_action(request, pk, action):
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
     return redirect('complaint_detail', pk=pk)
+
+
+@login_required
+def capa_detail(request,pk):
+    permitted(request.user,'view_capaaction')
+    x=get_object_or_404(CM.capa_scope(CapaAction.objects.select_related('complaint__invoice__site','owner','created_by','verified_by'),request.user),pk=pk)
+    return render(request,'erp/capa_detail.html',dict(title=f'CAPA-{x.pk:05d}',capa=x,
+        can_implement=x.status in ['open','reopened'] and (x.owner_id==request.user.pk or request.user.has_perm('erp.change_capaaction')),
+        can_verify=CM.can_verify(request.user,x),history=AuditEvent.objects.filter(reference__in=[f'CAPA-{x.pk:05d}',str(x)]).select_related('actor').order_by('-created_at')[:30]))
+
+
+@login_required
+@require_POST
+def capa_action(request,pk,action):
+    permitted(request.user,'view_capaaction')
+    x=get_object_or_404(CM.capa_scope(CapaAction.objects.all(),request.user),pk=pk)
+    try:
+        if action=='implement':CM.implement(request.user,pk,request.POST.get('note',''))
+        elif action in ['effective','reopen']:CM.verify(request.user,pk,action=='effective',request.POST.get('note',''))
+        else:raise Http404
+    except ValidationError as e:messages.error(request,' '.join(e.messages))
+    else:messages.success(request,'CAPA action recorded with its history.')
+    return redirect('capa_detail',pk=pk)

@@ -12,6 +12,8 @@ from .security import access_allowed
 
 # permission: label, site-specific, separately requires existing company-finance scope
 POLICIES = {
+    'decide_complaint': ('Complaint decision / closure', True, False),
+    'verify_capaaction': ('CAPA effectiveness verification', True, False),
     'approve_freightbill': ('Consolidated freight bill review', False, True),
     'review_dealerkyc': ('Dealer KYC review', True, False),
     'review_dealercredit': ('Dealer credit review', True, False),
@@ -56,6 +58,10 @@ def _qualified(user, permission, site):
     if permission not in POLICIES or not access_allowed(user):
         return False
     _, scoped, finance = POLICIES[permission]
+    if permission in {'decide_complaint','verify_capaaction'} and not user.has_perm('erp.view_complaint'):
+        return False
+    if permission == 'verify_capaaction' and not user.has_perm('erp.view_capaaction'):
+        return False
     if permission == 'approve_freightbill' and not user.has_perm('erp.view_freightbill'):
         return False
     if permission in {'review_dealerkyc','review_dealercredit','approve_dealerapplication'} and not (user.has_perm('erp.view_team_crm') and user.has_perm('erp.view_dealerapplication')):

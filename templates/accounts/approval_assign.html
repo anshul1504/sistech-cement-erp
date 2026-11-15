@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'accounts/_admin_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page">
-  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'approval_board' %}">← Approval routing</a></div><h1>Assign approval reviewer</h1><p><a href="{{ source_url }}">{{ task.reference }}</a> · {{ task.status }} · {{ task.site|default:'Company finance' }}</p></div></div>
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'approval_board' %}">← Approval routing</a></div><h1>Assign approval reviewer</h1><p><a href="{{ source_url }}">{{ task.reference }}</a> · {{ task.status }} · {{ task.scope_label }}</p></div></div>
   <form method="post" class="org-card" novalidate>{% csrf_token %}<input type="hidden" name="request_key" value="{{ request_key }}">
     {% if form.non_field_errors %}<div class="org-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
     <div class="org-grid">{% for field in form %}<div class="org-field"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for e in field.errors %}<div class="org-error">{{ e }}</div>{% endfor %}</div>{% endfor %}</div>
