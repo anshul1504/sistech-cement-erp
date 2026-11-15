@@ -86,16 +86,26 @@ def approve_recipe(user, pk):
         raise ValidationError('Approve an active product with a valid output basis, yield and material lines.')
     if any(not line.material.active or line.material_id==r.product_id or not line.quantity.is_finite() or line.quantity<=0 or not line.tolerance_pct.is_finite() or line.tolerance_pct<0 for line in lines):
         raise ValidationError('Recipe materials, quantities and tolerances must be active and valid.')
-    if r.effective_from <= timezone.localdate():
-        Recipe.objects.filter(product=r.product, status='approved', effective_from__lte=timezone.localdate()).update(status='retired')
+    if recipe_approval_conflict(r):
+        raise ValidationError('A newer approved version is already effective by this approval horizon. Create a new recipe version instead of reviving an older draft.')
+    older=Recipe.objects.filter(product=r.product,status='approved',version__lt=r.version)
+    if r.effective_from>timezone.localdate():
+        older=older.filter(effective_from__gte=r.effective_from)
+    retired=list(older.values_list('version',flat=True))
+    older.update(status='retired')
     r.status, r.approved_by, r.approved_at = 'approved', user, timezone.now()
     r.save()
-    _log(user, None, 'Recipe approved', f'{r.product.code} v{r.version}', 'Earlier versions retired')
+    _log(user, None, 'Recipe approved', f'{r.product.code} v{r.version}', f'Effective {r.effective_from}; retired superseded versions {retired}')
     return r
 
 
+def recipe_approval_conflict(recipe):
+    return Recipe.objects.filter(product_id=recipe.product_id,status='approved',version__gt=recipe.version,
+        effective_from__lte=max(timezone.localdate(),recipe.effective_from)).exists()
+
+
 def can_approve_recipe(user,recipe):
-    return recipe.status=='draft' and user.has_perm('erp.view_recipe') and user.pk!=recipe.created_by_id and can_approve(user,'approve_recipe',makers=[recipe.created_by_id])
+    return recipe.status=='draft' and not recipe_approval_conflict(recipe) and user.has_perm('erp.view_recipe') and user.pk!=recipe.created_by_id and can_approve(user,'approve_recipe',makers=[recipe.created_by_id])
 
 
 def current_recipe(product, on=None):

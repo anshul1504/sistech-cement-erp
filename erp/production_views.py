@@ -168,7 +168,9 @@ def recipes(request):
     permitted(request.user, 'view_recipe')
     qs = Recipe.objects.select_related('product', 'created_by', 'approved_by').prefetch_related('lines__material')
     qs=list(qs)
-    for recipe in qs:recipe.can_approve=PR.can_approve_recipe(request.user,recipe)
+    for recipe in qs:
+        recipe.can_approve=PR.can_approve_recipe(request.user,recipe)
+        recipe.approval_conflict=recipe.status=='draft' and PR.recipe_approval_conflict(recipe)
     return render(request, 'erp/recipes.html', {'title': 'Recipes & BOM', 'recipes': qs, 'can_add': request.user.has_perm('erp.add_recipe'),
                                                 'can_approve': request.user.has_perm('erp.approve_recipe')})
 
@@ -207,7 +209,7 @@ def recipe_new(request):
 def recipe_approve(request, pk):
     try:
         r = PR.approve_recipe(request.user, pk)
-        messages.success(request, f'{r} approved. Earlier versions retired; new process orders use it.')
+        messages.success(request, f'{r} approved from {r.effective_from:%d %b %Y}. Existing batches keep their recipe; new orders follow the effective approved version.')
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
     return redirect('recipes')

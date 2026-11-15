@@ -75,6 +75,12 @@ def path(obj, dotted):
 def pending(kind):
     workflow=CATALOG[kind]
     qs=workflow.model.objects.filter(**workflow.filters)
+    if kind=='recipe':
+        from django.db.models import F, Value
+        from django.db.models.functions import Greatest
+        qs=qs.alias(_approval_horizon=Greatest(F('effective_from'),Value(timezone.localdate())))
+        newer=M.Recipe.objects.filter(product_id=OuterRef('product_id'),status='approved',version__gt=OuterRef('version'),effective_from__lte=OuterRef('_approval_horizon'))
+        qs=qs.alias(_superseded_draft=Exists(newer)).filter(_superseded_draft=False)
     if kind=='weight_exception':qs=qs.exclude(exception='')
     if kind=='complaint_closure':
         qs=qs.exclude(resolution='credit',credit_note__isnull=True).exclude(resolution='replace',replacement_order__isnull=True)

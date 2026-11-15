@@ -607,8 +607,8 @@ def my_queue(user, sites=None):
     if has('view_dispatch'):
         add('Truck weight exceptions',approvable(Dispatch.objects.filter(site__in=sites,status='weighed',exception_approved_by=None).exclude(exception=''),user,'approve_weight_exception',maker_fields=('created_by_id','loaded_by_id','weighments__captured_by_id')),reverse('dispatch_board'),'Independent overload or variance review','danger')
     if has('view_recipe'):
-        from .models import Recipe
-        add('Recipe versions to approve',approvable(Recipe.objects.filter(status='draft'),user,'approve_recipe'),reverse('recipes'),'Independent material/yield review')
+        from accounts.approval_work import pending as approval_pending
+        add('Recipe versions to approve',approvable(approval_pending('recipe'),user,'approve_recipe'),reverse('recipes'),'Independent material/yield review')
     if has('pod_dispatch'):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
     if has('view_freightbill'):
