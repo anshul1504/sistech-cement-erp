@@ -7,13 +7,14 @@ from accounts.delegation import authorize, can_approve
 from .gst import inr
 from decimal import Decimal
 
+from django import forms
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from .services import require_site
-from .models import Site, FreightRate, FreightBill, FreightBillLine, Dispatch, AuditEvent, clean_place
+from .models import Site, FreightRate, FreightBill, FreightBillLine, Dispatch, AuditEvent, Partner, clean_place
 
 ZERO = Decimal('0.00')
 
@@ -104,34 +105,61 @@ def allowed_extra(dispatch, days, claimed_extra):
     return min(Decimal(claimed_extra), cap)
 
 
+def _amount(value,label,model=FreightBillLine,field='claimed'):
+    definition=model._meta.get_field(field)
+    try:
+        return forms.DecimalField(max_digits=definition.max_digits,decimal_places=definition.decimal_places,min_value=ZERO).clean(value)
+    except ValidationError as error:
+        raise ValidationError([f'{label}: {message}' for message in error.messages]) from None
+
+
+def _days(value):
+    try:
+        if isinstance(value,bool):raise ValidationError('Enter a whole number.')
+        return forms.IntegerField(min_value=0,max_value=32767).clean(0 if value in (None,'') else value)
+    except ValidationError as error:
+        raise ValidationError([f'Detention days: {message}' for message in error.messages]) from None
+
+
 @transaction.atomic
 def create_bill(user, transporter, bill_number, bill_date, rows, advance=0, notes=''):
-    """rows: {Dispatch: {'claimed': x, 'days': n, 'extra': y, 'reason': s}}"""
-    if not user.has_perm('erp.add_freightbill'):
-        raise PermissionDenied
-    bill_number = (bill_number or '').strip()
-    problems = []
-    if not bill_number: problems.append("Enter the transporter's bill number.")
-    if FreightBill.objects.filter(transporter=transporter, bill_number__iexact=bill_number).exclude(status='rejected').exists():
-        problems.append(f'Bill {bill_number} from {transporter.name} is already entered.')
-    if bill_date and bill_date > timezone.localdate(): problems.append('Bill date cannot be in the future.')
-    open_trips = {d.pk: d for d in billable_trips(transporter)}
-    if not rows: problems.append('Tick at least one trip.')
-    for d, row in rows.items():
-        require_site(user, d.site)
-        if d.pk not in open_trips: problems.append(f'{d.number} is not billable for {transporter.name}.')
-        if row['claimed'] < 0 or row['extra'] < 0: problems.append(f'{d.number}: amounts cannot be negative.')
-        if row['extra'] and not row['reason'].strip(): problems.append(f'{d.number}: give the reason for the extra charge.')
-        if d.freight_amount is None: problems.append(f'{d.number}: no freight rate for {d.site.code} → {destination_of(d) or "district not set"}. Add the lane rate first.')
-    if Decimal(advance or 0) < 0: problems.append('Advance cannot be negative.')
-    if problems:
-        raise ValidationError(problems)
-    bill = FreightBill.objects.create(transporter=transporter, bill_number=bill_number, bill_date=bill_date, advance=Decimal(advance or 0), notes=notes[:200], created_by=user)
-    for d, row in rows.items():
-        FreightBillLine.objects.create(bill=bill, dispatch=d, contracted=d.freight_amount, claimed=row['claimed'], detention_days=row['days'], extra=row['extra'],
-                                       extra_reason=row['reason'][:120], shortage_recovery=shortage_value(d), allowed_extra=allowed_extra(d, row['days'], row['extra']))
+    """Validate amounts and lock authoritative trips; passed model instances supply IDs only."""
+    if not user.has_perm('erp.add_freightbill'):raise PermissionDenied
+    transporter=Partner.objects.select_for_update().get(pk=transporter.pk)
+    if transporter.kind!='Transporter':raise ValidationError('Choose a transporter.')
+    bill_number=forms.CharField(max_length=40).clean(bill_number)
+    bill_date=forms.DateField().clean(bill_date)
+    if bill_date>timezone.localdate():raise ValidationError('Bill date cannot be in the future.')
+    advance=_amount(0 if advance in (None,'') else advance,'Advance',FreightBill,'advance')
+    if FreightBill.objects.filter(transporter=transporter,bill_number__iexact=bill_number).exists():
+        raise ValidationError(f'Bill {bill_number} from {transporter.name} is already entered. Use a distinct corrected reference for a rejected claim.')
+    if not rows:raise ValidationError('Tick at least one trip.')
+    selected=list(rows.items())
+    identifiers=[getattr(dispatch,'pk',None) for dispatch,row in selected]
+    if None in identifiers:raise ValidationError('Select existing dispatched trips.')
+    locked={dispatch.pk:dispatch for dispatch in Dispatch.objects.select_for_update(of=('self',)).filter(pk__in=identifiers).select_related('site','transporter','freight_rate').order_by('pk')}
+    billed=set(FreightBillLine.objects.filter(dispatch_id__in=identifiers).values_list('dispatch_id',flat=True))
+    clean=[]
+    for supplied,row in selected:
+        dispatch=locked.get(supplied.pk)
+        if dispatch is None:raise ValidationError('A selected trip no longer exists.')
+        require_site(user,dispatch.site)
+        if dispatch.transporter_id!=transporter.pk or dispatch.status not in ['gate_out','delivered'] or dispatch.freight_payable_by!='company' or dispatch.pk in billed:
+            raise ValidationError(f'{dispatch.number} is not billable for {transporter.name}.')
+        if dispatch.freight_amount is None:
+            raise ValidationError(f'{dispatch.number}: no freight rate for {dispatch.site.code} → {destination_of(dispatch) or "district not set"}. Add the lane rate first.')
+        contracted=_amount(dispatch.freight_amount,'Contracted freight',field='contracted')
+        claimed=_amount(row.get('claimed',0),'Claimed freight')
+        extra=_amount(row.get('extra',0),'Extra charge',field='extra')
+        days=_days(row.get('days',0));reason=(row.get('reason') or '').strip()
+        if extra and not reason:raise ValidationError(f'{dispatch.number}: give the reason for the extra charge.')
+        clean.append((dispatch,contracted,claimed,extra,days,reason))
+    bill=FreightBill.objects.create(transporter=transporter,bill_number=bill_number,bill_date=bill_date,advance=advance,notes=(notes or '')[:200],created_by=user)
+    for dispatch,contracted,claimed,extra,days,reason in clean:
+        FreightBillLine.objects.create(bill=bill,dispatch=dispatch,contracted=contracted,claimed=claimed,detention_days=days,extra=extra,
+            extra_reason=reason[:120],shortage_recovery=shortage_value(dispatch),allowed_extra=allowed_extra(dispatch,days,extra))
     recompute(bill)
-    AuditEvent.objects.create(actor=user, action='Freight bill entered', reference=f'freight:{bill.pk}', detail=f'{transporter.name} · {bill_number} · ₹{bill.claimed + bill.extras}')
+    AuditEvent.objects.create(actor=user,action='Freight bill entered',reference=f'freight:{bill.pk}',detail=f'{transporter.name} · {bill_number} · ₹{bill.claimed+bill.extras}')
     return bill
 
 
@@ -143,6 +171,8 @@ def recompute(bill):
     bill.deductions = sum((l.shortage_recovery for l in lines), ZERO)
     payable = sum((l.payable for l in lines), ZERO) - bill.advance
     bill.payable = max(payable, ZERO)
+    for field in ['contracted','claimed','extras','deductions','advance','payable']:
+        setattr(bill,field,_amount(getattr(bill,field),field.replace('_',' ').capitalize(),FreightBill,field))
     bill.save()
 
 
