@@ -34,7 +34,7 @@ def payments(request):
     if status: qs = qs.filter(status=status)
     if request.GET.get('export') == 'bank':
         permitted(request.user, 'release_supplierpayment')
-        approved = SupplierPayment.objects.filter(status='approved').select_related('payee')
+        approved = SupplierPayment.objects.filter(status='approved').exclude(mode='offset').select_related('payee')
         try:
             bank_csv = TR.bank_file(approved)
         except ValidationError as e:
@@ -44,8 +44,8 @@ def payments(request):
         response['Content-Disposition'] = f'attachment; filename="bank-payments-{timezone.localdate()}.csv"'
         AuditEvent.objects.create(actor=request.user, action='Bank payment file exported', reference='CSV', detail=f'{approved.count()} payment(s)')
         return response
-    return render(request, 'erp/payments.html', {'title': 'Payments', 'payments': qs[:200], 'status': status, 'payees': TR.payees(), 'statuses': SupplierPayment._meta.get_field('status').choices,
-                                                 'approved': SupplierPayment.objects.filter(status='approved').count(), 'can_add': request.user.has_perm('erp.add_supplierpayment')})
+    return render(request, 'erp/payments.html', {'title': 'Payments', 'payments': qs[:200], 'status': status, 'payees': TR.payees(), 'statuses': [(k,'Paid / settled' if k=='paid' else 'Failed / reversed' if k=='failed' else label) for k,label in SupplierPayment._meta.get_field('status').choices],
+                                                 'approved': SupplierPayment.objects.filter(status='approved').exclude(mode='offset').count(), 'can_add': request.user.has_perm('erp.add_supplierpayment')})
 
 
 @login_required
@@ -71,14 +71,14 @@ def payment_new(request, payee_pk):
         else:
             messages.success(request, f'{pay.number} for ₹{TR.inr(pay.amount, 2)} proposed. A different user approves it.')
             return redirect('payment_detail', pk=pay.pk)
-    return render(request, 'erp/payment_new.html', {'title': f'Pay {payee.name}', 'payee': payee, 'items': items, 'banks': _banks(), 'modes': PAYMENT_MODES, 'errors': errors,
+    return render(request, 'erp/payment_new.html', {'title': f'Pay / offset {payee.name}', 'payee': payee, 'items': items, 'banks': _banks(), 'modes': PAYMENT_MODES, 'errors': errors,
                                                     'post': P, 'today': timezone.localdate().isoformat(), 'total': sum((i['amount'] for i in items), Decimal('0'))})
 
 
 @login_required
 def payment_detail(request, pk):
     permitted(request.user, 'view_supplierpayment')
-    pay = get_object_or_404(SupplierPayment.objects.select_related('payee', 'bank', 'created_by', 'approved_by', 'paid_by'), pk=pk)
+    pay = get_object_or_404(SupplierPayment.objects.select_related('payee', 'bank', 'created_by', 'approved_by', 'paid_by', 'returned_by'), pk=pk)
     u = request.user
     return render(request, 'erp/payment_detail.html', {'title': pay.number, 'pay': pay,
                                                        'allocs': pay.allocations.select_related('supplier_invoice', 'freight_bill', 'debit_note', 'fixed_asset'),
@@ -86,7 +86,7 @@ def payment_detail(request, pk):
                                                        'can': {'decide': pay.status == 'proposed' and can_approve(u, 'approve_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
                                                                'cancel': pay.status == 'approved' and can_approve(u, 'approve_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
                                                                'release': pay.status == 'approved' and can_approve(u, 'release_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
-                                                               'fail': pay.status == 'paid' and can_approve(u, 'release_supplierpayment', makers=(pay.created_by_id,))}})
+                                                               'offset':pay.mode=='offset', 'fail': pay.status == 'paid' and pay.created_by_id!=u.pk and can_approve(u, 'release_supplierpayment', makers=(pay.created_by_id,))}})
 
 
 @login_required
@@ -98,6 +98,10 @@ def payment_action(request, pk, action):
     try:
         if action in ('approve', 'cancel'):
             TR.decide(request.user, pk, action == 'approve', P.get('note', '')); msg = 'Decision recorded.'
+        elif action=='settle':
+            TR.settle(request.user,pk,P.get('note',''));msg='Non-cash offset settled; no bank payment was created.'
+        elif action=='reverse_offset':
+            TR.reverse_offset(request.user,pk,P.get('reason',''));msg='Non-cash settlement reversed; source balances are open again.'
         elif action == 'release':
             TR.release(request.user, pk, P.get('reference', ''), date.fromisoformat(P['date']) if P.get('date') else None); msg = 'Payment released and posted.'
         elif action == 'fail':

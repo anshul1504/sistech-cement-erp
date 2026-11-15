@@ -686,7 +686,7 @@ def my_queue(user, sites=None):
     if fin and has('view_supplierpayment'):
         add('Payments to approve', approvable(SupplierPayment.objects.filter(status='proposed').exclude(created_by=user), user, 'approve_supplierpayment'), reverse('payments'), 'Supplier and transporter')
     if fin and has('view_supplierpayment'):
-        add('Approved payments to release', approvable(SupplierPayment.objects.filter(status='approved'), user, 'release_supplierpayment'), reverse('payments'), 'Enter UTR after paying')
+        add('Approved payments / offsets to complete', approvable(SupplierPayment.objects.filter(status='approved'), user, 'release_supplierpayment'), reverse('payments'), 'Record bank release or an approved non-cash settlement')
     if fin and has('view_journalentry'):
         add('Journal vouchers to approve', approvable(JournalEntry.objects.filter(status='draft').exclude(created_by=user), user, 'approve_journalentry'), reverse('journals'), 'Manual vouchers')
     return items

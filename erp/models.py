@@ -2075,7 +2075,7 @@ class JournalLine(models.Model):
 
 # ---------- Payments, bank reconciliation, fixed assets (Step 7b/7c, FR-FIN-007/008/012) ----------
 
-PAYMENT_MODES = [('neft', 'NEFT'), ('rtgs', 'RTGS'), ('cheque', 'Cheque'), ('upi', 'UPI / IMPS')]
+PAYMENT_MODES = [('neft', 'NEFT'), ('rtgs', 'RTGS'), ('cheque', 'Cheque'), ('upi', 'UPI / IMPS'), ('offset', 'Non-cash offset')]
 PAYMENT_STATUSES = [('proposed', 'Waiting approval'), ('approved', 'Approved — to pay'), ('paid', 'Paid'), ('failed', 'Failed / returned'), ('cancelled', 'Cancelled')]
 
 
@@ -2083,7 +2083,7 @@ class SupplierPayment(models.Model):
     """Payment to a supplier or transporter against their approved bills: proposal → approval (different user) → paid with UTR."""
     number = models.CharField(max_length=20, unique=True, editable=False)
     payee = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='payments')
-    bank = models.ForeignKey('Account', on_delete=models.PROTECT, related_name='payments', limit_choices_to={'is_bank': True})
+    bank = models.ForeignKey('Account', null=True, blank=True, on_delete=models.PROTECT, related_name='payments', limit_choices_to={'is_bank': True})
     date = models.DateField(default=timezone.localdate)
     mode = models.CharField(max_length=6, choices=PAYMENT_MODES, default='neft')
     amount = models.DecimalField(max_digits=16, decimal_places=2)
@@ -2099,12 +2099,24 @@ class SupplierPayment(models.Model):
     paid_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
     paid_at = models.DateTimeField(null=True, blank=True)
     returned_on = models.DateField(null=True, blank=True, editable=False)
+    proposal_note = models.CharField(max_length=200,blank=True,editable=False)
+    approval_note = models.CharField(max_length=200,blank=True,editable=False)
+    settlement_note = models.CharField(max_length=200,blank=True,editable=False)
+    reversal_reason = models.CharField(max_length=200,blank=True,editable=False)
+    returned_by = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.PROTECT,related_name='+')
+    returned_at = models.DateTimeField(null=True,blank=True,editable=False)
 
     class Meta:
         ordering = ['-created_at']
         permissions = [('approve_supplierpayment', 'Approve supplier payments'), ('release_supplierpayment', 'Record payment release (UTR) and failures')]
+        constraints=[models.CheckConstraint(condition=(models.Q(mode='offset',bank__isnull=True,amount=0) | (~models.Q(mode='offset') & models.Q(bank__isnull=False,amount__gt=0))),name='payment_cash_or_offset')]
 
     def __str__(self): return self.number
+
+    @property
+    def status_label(self):
+        if self.mode=='offset':return {'proposed':'Offset awaiting approval','approved':'Approved — to settle','paid':'Settled without cash','failed':'Settlement reversed','cancelled':'Cancelled'}.get(self.status,self.get_status_display())
+        return self.get_status_display()
 
     @property
     def badge(self):

@@ -91,6 +91,11 @@ def source_gaps(as_of):
         if not original or not JournalEntry.objects.filter(reversal_of=original, status='posted', date__lte=as_of).exists():
             missing.append(dict(source=f'rct-return:{receipt.pk}', reference=receipt.number))
     for payment in SupplierPayment.objects.filter(status__in=['paid', 'failed'], date__lte=as_of):
+        from .treasury import offset_totals
+        needs_journal=payment.mode!='offset' or any(offset_totals(payment))
+        if not needs_journal:
+            if payment.status=='failed' and not payment.returned_on:missing.append(dict(source=f'pay-return-date:{payment.pk}',reference=payment.number))
+            continue
         original = JournalEntry.objects.filter(source=f'pay:{payment.pk}', status='posted', date__lte=as_of).first()
         if not original:
             missing.append(dict(source=f'pay:{payment.pk}', reference=payment.number))

@@ -478,7 +478,7 @@ def subledger_check(as_of=None):
     from . import payables
     from .models import FreightBill, FreightRecoveryAdjustment, PaymentAllocation
     ap = _posted().filter(account__system_key='ap').aggregate(d=Sum('debit'), c=Sum('credit'))
-    sub_ap = sum((payables.balance(p)['balance'] for p in Partner.objects.filter(kind='Supplier')), ZERO)
+    sub_ap = sum((payables.balance(p)['balance'] for p in Partner.objects.filter(Q(kind='Supplier') | Q(supplier_invoices__isnull=False) | Q(assets__credit_purchase=True) | Q(debit_notes__isnull=False)).distinct()), ZERO)
     out.append(('Supplier payables', (ap['c'] or ZERO) - (ap['d'] or ZERO), sub_ap))
     freight = _posted().filter(account__system_key='ap_freight').aggregate(d=Sum('debit'), c=Sum('credit'))
     freight_billed = FreightBill.objects.filter(status='approved').aggregate(t=Sum('payable'))['t'] or ZERO

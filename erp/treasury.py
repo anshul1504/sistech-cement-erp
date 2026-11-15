@@ -33,6 +33,8 @@ LIVE = ('proposed', 'approved', 'paid')
 
 
 def _need(user, perm):
+    from accounts.security import access_allowed
+    if not access_allowed(user):raise PermissionDenied
     require_company_finance(user)
     if not user.has_perm('erp.' + perm):
         raise PermissionDenied
@@ -81,7 +83,7 @@ def payees():
     for p in Partner.objects.filter(pk__in=ids).order_by('name'):
         items = open_items(p)
         total = sum((i['amount'] for i in items), ZERO)
-        if total > 0:
+        if any(i['amount']>0 for i in items):
             out.append({'payee': p, 'total': total, 'overdue': sum((i['amount'] for i in items if i['amount'] > 0 and i['due_date'] and i['due_date'] < today), ZERO),
                         'count': len([i for i in items if i['amount'] > 0])})
     return out
@@ -98,7 +100,10 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
         problems.append('Choose a valid bank payment mode.')
     if on and on > timezone.localdate():
         problems.append('Payment date cannot be in the future.')
-    if not bank or not bank.is_bank or not bank.active or bank.system_key == 'cash':
+    if mode=='offset':
+        if bank is not None:problems.append('A non-cash offset must not select a bank account.')
+        if not (note or '').strip() or len(note.strip())>200:problems.append('Record a non-cash offset reason of up to 200 characters.')
+    elif not bank or not bank.is_bank or not bank.active or bank.system_key == 'cash':
         problems.append('Choose the bank account to pay from.')
     if mode in ('neft', 'rtgs') and not (payee.bank_account_number and payee.bank_ifsc):
         problems.append(f'{payee.name} has no bank account / IFSC on file — update the partner master (verified) first.')
@@ -109,7 +114,9 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
             amt = Decimal(amt or 0)
             if not amt.is_finite():
                 raise InvalidOperation
+            if mode=='offset' and amt!=amt.quantize(CENT):raise ValidationError('Offset amounts must use exact paise, with at most two decimal places.')
             amt = amt.quantize(CENT)
+            PaymentAllocation._meta.get_field('amount').clean(amt,None)
         except (InvalidOperation, TypeError, ValueError):
             raise ValidationError('Payment amounts must be finite numbers.')
         if not amt:
@@ -126,6 +133,8 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
         problems.append('Payment exceeds the net open balance; apply available debit notes or reduce the payment.')
     if not allocs:
         problems.append('Select at least one bill.')
+    elif mode=='offset':
+        if total!=0 or not any(a>0 for _,a in allocs) or not any(a<0 for _,a in allocs):problems.append('A non-cash offset requires equal positive bills and negative credits; the net must be exactly zero.')
     elif total <= 0:
         problems.append('Debit notes cannot exceed the bills being paid.')
     if mode == 'cash':
@@ -133,10 +142,11 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
     if problems:
         raise ValidationError(problems)
     pay = SupplierPayment.objects.create(number=next_number('PAY', None, on), payee=payee, bank=bank, date=on or timezone.localdate(), mode=mode, amount=total,
-                                         note=(note or '')[:200], created_by=user, beneficiary_name=payee.name,
+                                         note=(note or '')[:200], proposal_note=(note or '').strip()[:200], created_by=user, beneficiary_name=payee.name,
                                          beneficiary_account=payee.bank_account_number, beneficiary_ifsc=payee.bank_ifsc)
     for item, amt in allocs:
         PaymentAllocation.objects.create(payment=pay, amount=amt, **{{'sinv': 'supplier_invoice', 'frb': 'freight_bill', 'dn': 'debit_note', 'asset': 'fixed_asset'}[item['kind']]: item['obj']})
+    if mode=='offset':check_offset(pay)
     _log(user, 'Payment proposed', pay.number, f'{payee.name} · ₹{inr(total, 2)} · {len(allocs)} item(s)')
     return pay
 
@@ -152,12 +162,14 @@ def decide(user, pk, approve, note=''):
         Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
         from .freight_recovery import check_payment
         check_payment(pay)
+        if pay.mode=='offset':check_offset(pay)
     if pay.created_by_id == user.pk:
         raise ValidationError('The person who proposed the payment cannot approve it (maker-checker).')
     if not approve and not (note or '').strip():
         raise ValidationError('Give the reason for cancelling.')
     pay.status, pay.approved_by = ('approved' if approve else 'cancelled'), user
     if note: pay.note = note.strip()[:200]
+    if approve:pay.approval_note=(note or '').strip()[:200]
     pay.save()
     _log(user, 'Payment approved' if approve else 'Payment cancelled', pay.number, f'{pay.payee.name} · ₹{inr(pay.amount, 2)}')
     return pay
@@ -166,7 +178,8 @@ def decide(user, pk, approve, note=''):
 @transaction.atomic
 def release(user, pk, reference, on=None):
     require_company_finance(user)
-    pay = SupplierPayment.objects.select_for_update().select_related('payee', 'bank').get(pk=pk)
+    pay = SupplierPayment.objects.select_for_update(of=('self',)).select_related('payee', 'bank').get(pk=pk)
+    if pay.mode=='offset':raise ValidationError('Use the explicit non-cash settlement action; no bank release or UTR applies.')
     authorize(user, 'release_supplierpayment', makers=(pay.created_by_id,), reference=pay.number)
     if pay.status != 'approved':
         raise ValidationError('Only approved payments can be released.')
@@ -202,6 +215,7 @@ def fail(user, pk, reason):
     require_company_finance(user)
     pay = SupplierPayment.objects.select_for_update().get(pk=pk)
     authorize(user, 'release_supplierpayment', makers=(pay.created_by_id,), reference=pay.number)
+    if pay.mode=='offset':raise ValidationError('Use the explicit settlement reversal action; this is not a returned bank payment.')
     if pay.status != 'paid':
         raise ValidationError('Only released payments can be marked failed.')
     if not (reason or '').strip():
@@ -209,8 +223,90 @@ def fail(user, pk, reason):
     Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
     gl.reverse_source(user, f'pay:{pay.pk}', reason=f'Payment returned: {reason}')
     pay.status, pay.note, pay.returned_on = 'failed', reason.strip()[:200], timezone.localdate()
+    pay.reversal_reason=reason.strip()[:200];pay.returned_by=user;pay.returned_at=timezone.now()
     pay.save()
     _log(user, 'Payment failed', pay.number, reason)
+    return pay
+
+
+def check_offset(pay):
+    """Payee mutex is held. Recheck the reserved zero-cash source set on every stage."""
+    from .freight_recovery import check_payment
+    allocations=list(pay.allocations.select_related('supplier_invoice','freight_bill','fixed_asset','debit_note'))
+    if pay.mode!='offset' or pay.bank_id is not None or pay.amount!=0 or sum((a.amount for a in allocations),ZERO)!=0 or not any(a.amount>0 for a in allocations) or not any(a.amount<0 for a in allocations):
+        raise ValidationError('A non-cash offset requires matching bills and credits with zero cash and no bank.')
+    gl.check_open(pay.date)
+    if pay.date>timezone.localdate():raise ValidationError('Settlement date cannot be in the future.')
+    # Stable vendor lock serializes reservations. Lock each source category in a fixed order too.
+    for model,field,date_field,vendor_field in [(SupplierInvoice,'supplier_invoice','invoice_date','supplier_id'),
+        (FixedAsset,'fixed_asset','put_to_use','supplier_id'),(DebitNote,'debit_note','date','supplier_id'),(FreightBill,'freight_bill','bill_date','transporter_id')]:
+        ids=[getattr(a,field+'_id') for a in allocations if getattr(a,field+'_id')]
+        for obj in model.objects.select_for_update().filter(pk__in=ids).order_by('pk'):
+            if getattr(obj,vendor_field)!=pay.payee_id:raise ValidationError('A settlement source belongs to another payee.')
+            if getattr(obj,date_field)>pay.date:raise ValidationError('Settlement cannot precede its source documents.')
+            if field=='supplier_invoice' and (obj.status not in ['matched','approved'] or allocated(field,obj)>obj.payable):raise ValidationError('The supplier invoice is no longer available for this offset.')
+            if field=='fixed_asset' and (not obj.credit_purchase or allocated(field,obj)>obj.cost):raise ValidationError('The asset payable is no longer available for this offset.')
+            if field=='debit_note' and (obj.supplier_invoice_id and obj.supplier_invoice.decision=='matched' or -allocated(field,obj)>obj.total):raise ValidationError('The debit note credit is no longer available for this offset.')
+            if field=='freight_bill':
+                dates=list(obj.recovery_adjustments.filter(status='approved').values_list('on',flat=True))
+                dates.extend(obj.allocations.filter(payment__status='paid').values_list('payment__date',flat=True))
+                if dates and max(dates)>pay.date:raise ValidationError('Settlement cannot precede recognized freight recovery or its paid credit backing.')
+    check_payment(pay)
+
+
+def offset_totals(pay):
+    rows=list(pay.allocations.all())
+    ap=sum((row.amount for row in rows if row.freight_bill_id is None),ZERO)
+    freight=sum((row.amount for row in rows if row.freight_bill_id),ZERO)
+    return ap,freight
+
+
+def _settlement_read(user):
+    from accounts.security import access_allowed
+    if not access_allowed(user) or not user.has_perm('erp.view_supplierpayment'):raise PermissionDenied
+    require_company_finance(user)
+
+
+@transaction.atomic
+def settle(user,pk,finding):
+    _settlement_read(user)
+    pay=SupplierPayment.objects.select_for_update().get(pk=pk)
+    authorize(user,'release_supplierpayment',makers=(pay.created_by_id,),reference=pay.number)
+    if pay.created_by_id==user.pk:raise ValidationError('The settlement maker cannot execute their own offset (maker-checker).')
+    if pay.status!='approved' or pay.mode!='offset':raise ValidationError('Only an approved non-cash offset can be settled.')
+    finding=(finding or '').strip()
+    if not finding or len(finding)>200:raise ValidationError('Record a settlement finding of up to 200 characters.')
+    Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
+    check_offset(pay)
+    ap,freight=offset_totals(pay)
+    # Within one control account the source allocations cancel, so no empty journal exists.
+    if ap or freight:
+        gl.post(user,f'pay:{pay.pk}',pay.date,None,f'Non-cash settlement {pay.number}',[
+            (gl.acct('ap'),max(ap,ZERO),max(-ap,ZERO),pay.payee,finding),
+            (gl.acct('ap_freight'),max(freight,ZERO),max(-freight,ZERO),pay.payee,finding)])
+    pay.status='paid';pay.paid_by=user;pay.paid_at=timezone.now();pay.note=finding;pay.settlement_note=finding;pay.save()
+    _log(user,'Non-cash offset settled',pay.number,finding)
+    return pay
+
+
+@transaction.atomic
+def reverse_offset(user,pk,reason):
+    _settlement_read(user)
+    pay=SupplierPayment.objects.select_for_update().get(pk=pk)
+    authorize(user,'release_supplierpayment',makers=(pay.created_by_id,),reference=pay.number)
+    if pay.created_by_id==user.pk:raise ValidationError('The settlement maker cannot reverse their own offset (maker-checker).')
+    if pay.mode!='offset' or pay.status!='paid':raise ValidationError('Only a completed non-cash offset can be reversed.')
+    reason=(reason or '').strip()
+    if not reason or len(reason)>200:raise ValidationError('Record a settlement reversal reason of up to 200 characters.')
+    Partner.objects.select_for_update(no_key=True).get(pk=pay.payee_id)
+    gl.check_open(timezone.localdate())
+    ap,freight=offset_totals(pay)
+    if ap or freight:
+        original=gl.JournalEntry.objects.filter(source=f'pay:{pay.pk}',status='posted').first()
+        if not original or hasattr(original,'reversed_by'):raise ValidationError('The original settlement journal is missing or already reversed; reconcile it before reversal.')
+        gl.reverse_source(user,f'pay:{pay.pk}',reason=f'Non-cash offset reversed: {reason}')
+    pay.status='failed';pay.returned_on=timezone.localdate();pay.note=reason;pay.reversal_reason=reason;pay.returned_by=user;pay.returned_at=timezone.now();pay.save()
+    _log(user,'Non-cash offset reversed',pay.number,reason)
     return pay
 
 
@@ -220,6 +316,7 @@ def bank_file(payments):
     w = csv.writer(buf)
     w.writerow(['Payment ref', 'Beneficiary name', 'Account number', 'IFSC', 'Amount', 'Mode', 'Narration'])
     for p in payments:
+        if p.mode=='offset':continue
         if (p.beneficiary_name, p.beneficiary_account, p.beneficiary_ifsc) != (p.payee.name, p.payee.bank_account_number, p.payee.bank_ifsc):
             raise ValidationError(f'{p.number}: beneficiary details changed. Cancel and propose a fresh payment before exporting.')
         w.writerow([p.number, p.beneficiary_name, p.beneficiary_account, p.beneficiary_ifsc, f'{p.amount:.2f}', p.get_mode_display(), f'Sistech {p.number}'[:30]])

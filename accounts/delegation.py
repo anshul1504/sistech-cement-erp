@@ -63,6 +63,8 @@ def _qualified(user, permission, site):
     if permission not in POLICIES or not access_allowed(user):
         return False
     _, scoped, finance = POLICIES[permission]
+    if permission in {'approve_supplierpayment','release_supplierpayment'} and not user.has_perm('erp.view_supplierpayment'):
+        return False
     if permission == 'approve_recipe' and not user.has_perm('erp.view_recipe'):
         return False
     if permission in {'approve_weight_exception','approve_pod_correction'} and not user.has_perm('erp.view_dispatch'):
