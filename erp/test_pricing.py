@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -69,7 +70,7 @@ class PriceRuleTests(TestCase):
     def test_order_uses_list_price_and_flags_discount(self):
         admin = User.objects.create_superuser('pr-admin', 'pr@example.com', 'Original-Password-816!')
         with self.settings(EMAIL_OTP_ENABLED=False):
-            self.client.force_login(admin)
+            force_login_recent(self.client, admin)
             due = (timezone.localdate() + timedelta(days=2)).isoformat()
             data = {'site': self.site.pk, 'partner': self.dealer.pk, 'due_date': due, 'freight_terms': 'ex_works', 'place_of_supply': '',
                     'lines-TOTAL_FORMS': 2, 'lines-INITIAL_FORMS': 0, 'lines-MIN_NUM_FORMS': 1, 'lines-MAX_NUM_FORMS': 50,
@@ -105,7 +106,7 @@ class PriceRuleTests(TestCase):
     def test_price_revise_versioning_and_overlap(self):
         admin = User.objects.create_superuser('pr-admin2', 'pr2@example.com', 'Original-Password-816!')
         with self.settings(EMAIL_OTP_ENABLED=False):
-            self.client.force_login(admin)
+            force_login_recent(self.client, admin)
             today = timezone.localdate()
             base = {'product': self.opc.pk, 'rate': '401', 'min_quantity': '0', 'site': '', 'district': '', 'partner_kind': '', 'partner': '',
                     'valid_from': today.isoformat(), 'valid_to': '', 'active': 'on', 'notes': ''}

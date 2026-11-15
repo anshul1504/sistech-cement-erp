@@ -1,4 +1,5 @@
 """Regression cases for finance authorization and money movement boundaries."""
+from accounts.test_support import force_login_recent
 from datetime import date, timedelta
 from decimal import Decimal as D
 
@@ -37,7 +38,7 @@ class FinanceControlsTests(TestCase):
                        [(self.bank, D(amount), 0, None, reference), (gl.acct('capital'), 0, D(amount), None, '')])
 
     def test_module_permissions_do_not_grant_company_books(self):
-        self.client.force_login(self.viewer)
+        force_login_recent(self.client, self.viewer)
         for route in ['journals', 'trial_balance', 'profit_loss', 'balance_sheet', 'payments', 'bank_rec', 'fixed_assets', 'cash_flow', 'gst_summary', 'periods', 'chart']:
             self.assertEqual(self.client.get(reverse(route)).status_code, 403, route)
         self.assertNotContains(self.client.get(reverse('dashboard')), 'href="/accounts-ledger/"')
@@ -132,7 +133,7 @@ class FinanceControlsTests(TestCase):
         from .closing import prepare_period
         last = timezone.localdate().replace(day=1) - timedelta(days=1)
         period = gl.period_for(last)
-        self.client.force_login(self.checker)
+        force_login_recent(self.client, self.checker)
         page = self.client.get(reverse('periods'))
         self.assertContains(page, reverse('period_detail', args=[period.pk]))
         prepare_period(self.maker, last, 'Tax, stock and bank reviewed', tax_reviewed=True, stock_reviewed=True, bank_reviewed=True)
@@ -150,7 +151,7 @@ class FinanceControlsTests(TestCase):
 
     def test_system_posting_cannot_be_reversed_from_journal_screen(self):
         entry = self.deposit()
-        self.client.force_login(self.checker)
+        force_login_recent(self.client, self.checker)
         self.assertNotContains(self.client.get(reverse('journal_detail', args=[entry.pk])), 'Reverse this voucher')
         self.client.post(reverse('journal_action', args=[entry.pk, 'reverse']), {'reason': 'No'})
         self.assertFalse(JournalEntry.objects.filter(reversal_of=entry).exists())

@@ -1,5 +1,6 @@
 """Sales order controls (FR-SLS-004…010, FR-AR-003/004): duplicate check, credit override, price exception, ATP / backorder,
 hold and release, revision, reasons on cancel / short-close, stages and screens."""
+from accounts.test_support import force_login_recent
 from datetime import timedelta
 from decimal import Decimal as D
 
@@ -115,7 +116,7 @@ class SalesOrderTests(TestCase):
         transition_order(self.checker, o.pk, 'post')
         o.refresh_from_db()
         self.assertEqual((sales.stage(o), sales.progress(o)[0]['sent']), ('Dispatched', D(10)))
-        self.client.force_login(self.checker)
+        force_login_recent(self.client, self.checker)
         late = self.order(due_date=self.today - timedelta(days=2), priority='urgent')
         transition_order(self.checker, late.pk, 'approve')
         for q in ['', '?status=late', '?status=urgent', '?status=all', '?status=Completed&q=' + o.number, f'?site={self.site.pk}&from=2020-01-01']:

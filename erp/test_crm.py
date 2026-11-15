@@ -1,4 +1,5 @@
 """CRM workflow regressions with fictional evidence and customers."""
+from accounts.test_support import force_login_recent
 from datetime import timedelta
 from decimal import Decimal as D
 
@@ -66,7 +67,7 @@ def activated(target, app):
 class CRMTests(TestCase):
     def setUp(self):
         seed_crm(self)
-        self.client.force_login(self.maker)
+        force_login_recent(self.client, self.maker)
 
     def test_normalized_mobile_and_duplicate_site_scope(self):
         lead = new_lead(self, mobile='+91 98765-43210')
@@ -85,13 +86,13 @@ class CRMTests(TestCase):
         app = crm.start_application(self.maker, lead.pk)
         doc = evidence(self, app)
         for actor in [self.peer, self.outsider]:
-            self.client.force_login(actor)
+            force_login_recent(self.client, actor)
             self.assertEqual(self.client.get(reverse('crm_lead_detail', args=[lead.pk])).status_code, 404)
             self.assertEqual(self.client.get(reverse('crm_application_detail', args=[app.pk])).status_code, 404)
             self.assertEqual(self.client.get(reverse('crm_document_file', args=[doc.pk])).status_code, 404)
             self.assertNotContains(self.client.get(reverse('crm_leads') + '?export=csv'), lead.number)
             with self.assertRaises(PermissionDenied): crm.change_stage(actor, lead.pk, 'qualified')
-        self.client.force_login(self.maker)
+        force_login_recent(self.client, self.maker)
         self.assertContains(self.client.get(reverse('crm_leads')), lead.number)
 
     def test_followups_loss_reopen_and_no_manual_conversion(self):
@@ -254,9 +255,9 @@ class CRMTests(TestCase):
         doc = app.partner.documents.first()
         self.client.post(reverse('partner_document_delete', args=[app.partner_id, doc.pk]))
         self.assertTrue(PartnerDocument.objects.filter(pk=doc.pk).exists())
-        self.client.force_login(self.outsider)
+        force_login_recent(self.client, self.outsider)
         self.assertEqual(self.client.get(reverse('partner_document_file', args=[app.partner_id, doc.pk])).status_code, 403)
-        self.client.force_login(self.maker)
+        force_login_recent(self.client, self.maker)
         self.client.post(reverse('partner_delete', args=[app.partner_id]))
         self.assertTrue(Partner.objects.filter(pk=app.partner_id).exists())
         self.assertEqual(self.client.get(reverse('partner_detail', args=[app.partner_id])).status_code, 200)
@@ -286,7 +287,7 @@ class CRMTests(TestCase):
         with self.assertRaises(PermissionDenied): crm.save_target(self.outsider, data)
         with self.assertRaises(PermissionDenied): crm.save_target(self.peer, data)
         self.assertEqual(crm.performance(self.peer, self.today), [])
-        self.client.force_login(self.peer)
+        force_login_recent(self.client, self.peer)
         self.assertEqual(self.client.get(reverse('crm_performance_detail', args=[self.site.pk, self.maker.pk])).status_code, 404)
 
     def test_month_sales_credit_collections_and_current_overdue(self):
@@ -313,7 +314,7 @@ class CRMTests(TestCase):
         actor.user_permissions.add(Permission.objects.get(codename='view_crmlead'))
         SiteAccess.objects.create(user=actor, site=self.site)
         lead = new_lead(self, owner=actor)
-        self.client.force_login(actor)
+        force_login_recent(self.client, actor)
         self.assertEqual(self.client.get(reverse('crm_lead_detail', args=[lead.pk])).status_code, 200)
         for action, data in [('stage', {'stage':'qualified'}), ('activity', {'kind':'call'}), ('apply', {})]:
             self.assertEqual(self.client.post(reverse('crm_lead_action', args=[lead.pk,action]), data).status_code, 403)

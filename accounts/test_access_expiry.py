@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
@@ -41,8 +42,8 @@ class TemporaryAccessTests(TestCase):
 
     def test_all_existing_sessions_lose_access_before_cleanup(self):
         other = Client()
-        self.client.force_login(self.user)
-        other.force_login(self.user)
+        force_login_recent(self.client, self.user)
+        force_login_recent(other, self.user)
         self.assertEqual(self.client.get(reverse('profile')).status_code, 200)
         self.expire()
         for client in (self.client, other):
@@ -52,10 +53,10 @@ class TemporaryAccessTests(TestCase):
         self.assertTrue(self.user.is_active)  # denial does not depend on the scheduler
 
     def test_cleanup_is_idempotent_and_preserves_unexpired_users(self):
-        self.client.force_login(self.user)
+        force_login_recent(self.client, self.user)
         other = User.objects.create_user('ongoing')
         client = Client()
-        client.force_login(other)
+        force_login_recent(client, other)
         other_session = client.session.session_key
         self.expire()
         for _ in range(2):
@@ -80,7 +81,7 @@ class TemporaryAccessTests(TestCase):
         form = MemberForm(data, instance=self.user)
         self.assertFalse(form.is_valid())
         self.assertIn('access_expires_at', form.errors)
-        self.client.force_login(self.user)
+        force_login_recent(self.client, self.user)
         self.assertEqual(self.client.post(reverse('member_edit', args=[self.user.pk]), data).status_code, 403)
 
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
@@ -101,11 +102,11 @@ class TemporaryAccessTests(TestCase):
             issue_challenge(request, self.user)
 
     def test_admin_policy_renewal_revokes_old_sessions(self):
-        self.client.force_login(self.user)
+        force_login_recent(self.client, self.user)
         old_key = self.client.session.session_key
         admin = User.objects.create_superuser('expiry-admin', 'expiry-admin@sistech.co.in', self.password)
         client = Client()
-        client.force_login(admin)
+        force_login_recent(client, admin)
         response = client.post(reverse('member_edit', args=[self.user.pk]), {
             'first_name': 'Temporary', 'last_name': '', 'email': self.user.email, 'is_active': 'on',
             'access_expires_at': (timezone.localtime() + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M'),

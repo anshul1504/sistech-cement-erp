@@ -1,4 +1,5 @@
 """Scheme entitlements, accrual, recovery and payout (Step 8b stage 2)."""
+from accounts.test_support import force_login_recent
 from decimal import Decimal as D
 from uuid import uuid4
 
@@ -86,7 +87,7 @@ class RewardTests(TestCase):
             RW.decide_payout(self.boss, s.pk, False)
         RW.decide_payout(self.boss, s.pk, False, note='Dealer asked for bank transfer')
         self.assertEqual(RW.payable_dealers()[0]['due'], D('40.00'))
-        self.client.force_login(self.maker)
+        force_login_recent(self.client, self.maker)
         for url in [reverse('scheme_payouts'), reverse('scheme_batch', args=[b.pk]), reverse('scheme_statement', args=[self.customer.pk])]:
             self.assertEqual(self.client.get(url).status_code, 200, url)
         self.assertEqual(SchemeEntitlementBatch.objects.count(), 1)
@@ -107,7 +108,7 @@ class RewardTests(TestCase):
             RW.decide_batch(self.outsider, batch.pk, True)
         batch.refresh_from_db()
         self.assertEqual(batch.status, 'submitted')
-        self.client.force_login(self.outsider)
+        force_login_recent(self.client, self.outsider)
         self.assertEqual(self.client.get(reverse('scheme_batch', args=[batch.pk])).status_code, 404)
         response = self.client.get(reverse('scheme_payouts'))
         self.assertEqual(response.status_code, 200)
@@ -136,7 +137,7 @@ class RewardTests(TestCase):
                 call()
         self.assertEqual(AuditEvent.objects.count(), before)
         self.assertEqual(SchemeSettlement.objects.get(pk=payout.pk).status, 'proposed')
-        self.client.force_login(actor)
+        force_login_recent(self.client, actor)
         for url in [
             reverse('scheme_payouts'), reverse('scheme_batch', args=[batch.pk]),
             reverse('scheme_statement', args=[self.customer.pk]),

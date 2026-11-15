@@ -4,7 +4,7 @@ A runnable first implementation of the supplied Cement Manufacturing ERP SRS usi
 
 Complaint/CAPA and quotation site-access hardening is implemented, including scoped reports and work queues. Scheme accruals now enforce site access; payouts, statements and financial dashboards require explicit company-finance scope. See [access controls and verification boundaries](docs/ACCESS_HARDENING.md). Full SRS completion and production acceptance remain pending.
 
-The remaining SRS work and acceptance gates are tracked in [SRS completion](docs/SRS_COMPLETION.md). Administrator-managed temporary account expiry is implemented; production scheduling and approval reassignment remain separate rollout work.
+The remaining SRS work and acceptance gates are tracked in [SRS completion](docs/SRS_COMPLETION.md). Administrator-managed temporary account expiry and [sensitive web action reauthentication](docs/SENSITIVE_AUTHENTICATION.md) are implemented; dated delegation, production scheduling and approval reassignment remain separate work.
 
 ## Run locally on Windows
 

@@ -152,3 +152,5 @@ Quotation domain services and complaint/CAPA workflows now enforce site boundari
 Scheme entitlement services, batch screens and approval queues now enforce scheme-site access; payout/statement/dashboard access requires explicit company-finance scope. Fresh presets separate Accountant preparation from Finance controller approval; existing role assignments are preserved.
 
 Temporary account expiry is implemented with admin policy, authentication/OTP denial and an idempotent session-cleanup command. Dated delegation, approval reassignment and sensitive-action reauthentication remain pending. The full outstanding scope is tracked in [SRS completion](SRS_COMPLETION.md).
+
+Sensitive web actions now require a session-bound confirmation no older than five minutes, established by completed login or current-password reauthentication. Payment/payout, override, bank-master, stock-loss, manual journal/reopening and access-administration entry points are covered. See [sensitive authentication](SENSITIVE_AUTHENTICATION.md). Dated delegation, API authorization and production security acceptance remain pending.

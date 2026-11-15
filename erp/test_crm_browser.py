@@ -1,4 +1,5 @@
 """Opt-in CRM browser checks; all customer records and files are fictional."""
+from accounts.test_support import force_login_recent
 import importlib.util
 import os
 from decimal import Decimal
@@ -37,9 +38,9 @@ class CRMBrowserTests(StaticLiveServerTestCase):
         reviewer_sessions = {}
         for key, actor in [('kyc', f.checker), ('credit', f.finance), ('final', f.final)]:
             session_client = Client()
-            session_client.force_login(actor)
+            force_login_recent(session_client, actor)
             reviewer_sessions[key] = session_client.cookies[settings.SESSION_COOKIE_NAME].value
-        self.client.force_login(f.maker)
+        force_login_recent(self.client, f.maker)
         out=Path(settings.BASE_DIR)/'test-results'/'crm';out.mkdir(parents=True,exist_ok=True)
         with sync_playwright() as p:
             browser=p.chromium.launch()

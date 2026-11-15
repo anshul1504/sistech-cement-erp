@@ -25,6 +25,11 @@ class BrowserFlowTests(StaticLiveServerTestCase):
         role_id = Group.objects.get(name='Sales executive').pk
         out = settings.BASE_DIR / 'test-results'
         out.mkdir(exist_ok=True)
+        from concurrent.futures import ThreadPoolExecutor
+        executor = ThreadPoolExecutor(max_workers=1)
+        self.addCleanup(executor.shutdown)
+        def db_call(fn):
+            return executor.submit(fn).result()
         with sync_playwright() as p:
             browser = p.chromium.launch()
             page = browser.new_page(viewport={'width': 1440, 'height': 1000})
@@ -64,6 +69,34 @@ class BrowserFlowTests(StaticLiveServerTestCase):
                 if name == 'member':
                     expect(page.get_by_label('Access expires at', exact=True)).to_be_visible()
                     expect(page.locator('#id_access_expires_at')).to_have_attribute('type', 'datetime-local')
+            # Expire the server-side proof, keeping the real password+OTP session.
+            from django.contrib.sessions.backends.db import SessionStore
+            from accounts.reauth import SESSION_KEY, TTL_SECONDS
+            cookie = next(c for c in page.context.cookies() if c['name'] == settings.SESSION_COOKIE_NAME)
+            def expire_confirmation():
+                session = SessionStore(session_key=cookie['value'])
+                proof = session[SESSION_KEY]
+                proof['at'] -= TTL_SECONDS + 1
+                session[SESSION_KEY] = proof
+                session.save()
+            db_call(expire_confirmation)
+            page.goto(self.live_server_url + '/accounts/access/roles/new/')
+            page.locator('#role-name').fill('Confirmed browser role')
+            page.get_by_role('button', name='Create role', exact=True).click()
+            page.wait_for_url(re.compile(r'.*/accounts/confirm-identity/.*'))
+            self.assertFalse(db_call(lambda: Group.objects.filter(name='Confirmed browser role').exists()))
+            for width in (320, 390, 768, 1440):
+                page.set_viewport_size({'width': width, 'height': 900})
+                self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'confirmation {width}')
+                self.assertIn('Poppins', page.locator('body').evaluate('(el) => getComputedStyle(el).fontFamily'))
+            page.locator('#id_password').fill(password)
+            page.get_by_role('button', name='Confirm identity', exact=True).click()
+            page.wait_for_url(self.live_server_url + '/accounts/access/roles/new/')
+            self.assertFalse(db_call(lambda: Group.objects.filter(name='Confirmed browser role').exists()))
+            page.locator('#role-name').fill('Confirmed browser role')
+            page.get_by_role('button', name='Create role', exact=True).click()
+            page.wait_for_url(re.compile(r'.*/accounts/access/roles/\d+/'))
+            self.assertTrue(db_call(lambda: Group.objects.filter(name='Confirmed browser role').exists()))
             page.goto(self.live_server_url + '/')
             page.get_by_role('button', name='Account menu', exact=True).click()
             page.get_by_role('button', name='Sign out', exact=True).click()

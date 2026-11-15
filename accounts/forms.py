@@ -233,3 +233,19 @@ class AdminSetPasswordForm(SetPasswordForm):
         self.fields['new_password2'].widget.attrs['placeholder'] = 'Type the new password again'
         self.fields['new_password1'].help_text = ''
 
+
+
+class ReauthenticateForm(forms.Form):
+    password = forms.CharField(label='Current password', strip=False, max_length=4096,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'current-password', 'autofocus': True}))
+
+    def __init__(self, *args, request, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+        style_fields(self)
+
+    def clean(self):
+        data = super().clean()
+        if not allow_attempt(self.request, 'sensitive-confirmation', str(self.request.user.pk)):
+            raise forms.ValidationError('Too many confirmation attempts. Please wait 15 minutes and try again.')
+        return data

@@ -9,7 +9,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 | Area | Implemented baseline | Remaining scope / acceptance gate |
 |---|---|---|
-| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry milestone in progress; sensitive-action reauthentication; dated approval delegation; remaining cross-module audit; approval reassignment; security acceptance |
+| Identity and access (§3) | Password/email OTP, throttling, roles/sites, session management; complaint/quotation/reward hardening | Temporary-access expiry and sensitive-web-action reauthentication implemented; dated approval delegation; remaining cross-module audit; approval reassignment; security acceptance |
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
 | CRM (§5.1) | Leads, onboarding, KYC review, targets, territories/beats, project pipeline | Audited duplicate merge, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
@@ -41,3 +41,5 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 - Complaint/CAPA and quotation access boundaries: commit d8d63bb.
 - Scheme finance/site boundaries and preserved custom role assignments: commit 3271810.
 - Temporary-access expiry: developer verified (405 full-suite tests passed; eight optional browser checks skipped; authentication browser and seven expiry checks passed explicitly); see [access hardening](ACCESS_HARDENING.md).
+
+- Sensitive web reauthentication: implemented; see [controls and verification](SENSITIVE_AUTHENTICATION.md). Dated delegation and approval reassignment remain next in the access workstream.

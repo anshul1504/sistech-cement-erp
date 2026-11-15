@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from datetime import timedelta
 from decimal import Decimal
 
@@ -26,7 +27,7 @@ class PartnerTests(TestCase):
         cls.product = Product.objects.create(code='C1', name='OPC', category='Cement', grade='OPC 53', unit='BAG', bag_weight_kg=50)
 
     def setUp(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
 
     def post(self, url, **data):
         return self.client.post(url, {**BASE, **data})
@@ -67,11 +68,11 @@ class PartnerTests(TestCase):
         self.assertEqual(self.client.get(reverse('partner_document_file', args=[p.pk, doc.pk]))['Content-Type'], 'application/pdf')
         bad = self.client.post(reverse('partner_document_new', args=[p.pk]), {'doc_type': 'other', 'upload': SimpleUploadedFile('x.html', b'<html>', 'text/html')})
         self.assertContains(bad, 'Upload a PDF, PNG, JPG or WebP file')
-        self.client.force_login(self.viewer)
+        force_login_recent(self.client, self.viewer)
         self.assertEqual(self.client.get(reverse('partner_document_file', args=[p.pk, doc.pk])).status_code, 200)
         self.assertEqual(self.client.get(reverse('partner_document_new', args=[p.pk])).status_code, 403)
         self.assertEqual(self.client.post(reverse('partner_document_delete', args=[p.pk, doc.pk])).status_code, 403)
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         self.client.post(reverse('partner_document_delete', args=[p.pk, doc.pk]))
         self.assertFalse(PartnerDocument.objects.exists())
 

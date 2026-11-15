@@ -52,6 +52,8 @@ class SignInView(auth.LoginView):
             self.request.session.set_expiry(15 * 60)
             return redirect('otp_verify')
         response = super().form_valid(form)
+        from .reauth import confirm
+        confirm(self.request.session, form.get_user())
         if settings.EMAIL_OTP_ENABLED:
             # Username sign-in without OTP (allowed by EMAIL_OTP_SKIP_FOR_USERNAME).
             self.request.session['password_login_user'] = str(form.get_user().pk)
@@ -100,6 +102,8 @@ class OTPVerifyView(FormView):
         for key in ['otp_challenge', 'otp_next', 'otp_remember', 'otp_identifier']:
             self.request.session.pop(key, None)
         login(self.request, user, backend='accounts.backends.EmailOrUsernameBackend')
+        from .reauth import confirm
+        confirm(self.request.session, user)
         self.request.session['email_otp_verified_user'] = str(user.pk)
         self.request.session['email_otp_verified_email'] = user.email.strip().casefold()
         self.request.session.set_expiry(8 * 60 * 60 if remember else 0)

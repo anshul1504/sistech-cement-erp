@@ -3,7 +3,10 @@ from django.contrib.auth import views as auth
 from django.views.generic import TemplateView, RedirectView
 from . import auth_views as av, views as v, account_views as acc
 
+from .reauth_views import reauthenticate
+
 urlpatterns = [
+    path('confirm-identity/', reauthenticate, name='reauthenticate'),
     path('login/', av.SignInView.as_view(), name='login'),
     path('otp/verify/', av.OTPVerifyView.as_view(), name='otp_verify'),
     path('otp/resend/', av.otp_resend, name='otp_resend'),

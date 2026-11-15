@@ -1,0 +1,19 @@
+{% extends 'registration/auth_base.html' %}
+{% block title %}Confirm your identity{% endblock %}
+{% block auth_content %}
+<div class="auth-symbol"><svg><use href="#i-shield"/></svg></div>
+<div class="auth-eyebrow">SISTECH ERP</div>
+<h2>Confirm your identity</h2>
+<p class="auth-description">Enter your current password to continue with sensitive actions for the next five minutes. Then review the document and submit your action again.</p>
+{% if form.errors %}<div class="auth-alert" role="alert">{{ form.non_field_errors }}{{ form.password.errors }}</div>{% endif %}
+<form method="post" class="auth-form">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="auth-field">
+    <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+    <div class="input-wrap">{{ form.password }}</div>
+  </div>
+  <button class="auth-submit" type="submit">Confirm identity</button>
+  <a href="{{ next }}" class="auth-back">Cancel and return</a>
+</form>
+{% endblock %}

@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from django.contrib.auth.models import User, Group, Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -32,14 +33,14 @@ class OrganizationSetupTests(TestCase):
         cls.viewer.groups.add(view); cls.editor.groups.add(edit)
 
     def post(self, user, **extra):
-        self.client.force_login(user)
+        force_login_recent(self.client, user)
         return self.client.post(reverse('organization_edit'), {**VALID, **extra})
 
     def test_access_rules(self):
-        self.client.force_login(self.plain)
+        force_login_recent(self.client, self.plain)
         self.assertEqual(self.client.get(reverse('organization')).status_code, 403)
         self.assertNotContains(self.client.get(reverse('dashboard')), 'href="/organisation/"')
-        self.client.force_login(self.viewer)
+        force_login_recent(self.client, self.viewer)
         response = self.client.get(reverse('organization'))
         self.assertContains(response, 'Sistech Cement &amp; TMT Pvt. Ltd.')
         self.assertNotContains(response, reverse('organization_edit'))
@@ -70,7 +71,7 @@ class OrganizationSetupTests(TestCase):
 
     def test_at_least_one_business_line(self):
         data = {k: v for k, v in VALID.items() if k not in ('deals_cement', 'deals_tmt')}
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         self.assertContains(self.client.post(reverse('organization_edit'), data), 'Select at least one business line')
 
     def test_logo_upload_served_and_branding_shown_to_other_users(self):
@@ -79,7 +80,7 @@ class OrganizationSetupTests(TestCase):
         self.assertEqual(org.icon_type, 'image/png')
         asset = self.client.get(reverse('brand_asset', args=['icon']))
         self.assertEqual((asset.status_code, asset['Content-Type'], asset['X-Content-Type-Options']), (200, 'image/png', 'nosniff'))
-        self.client.force_login(self.plain)
+        force_login_recent(self.client, self.plain)
         page = self.client.get(reverse('profile'))
         self.assertContains(page, '/brand/icon/?v=')
         self.assertContains(page, 'ACME')
@@ -99,7 +100,7 @@ class OrganizationSetupTests(TestCase):
         self.assertEqual(self.client.get(reverse('brand_asset', args=['icon'])).status_code, 404)
 
     def test_role_matrix_offers_organisation_module(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         self.assertContains(self.client.get(reverse('role_new')), 'Organisation setup')
 
     def test_gst_type_and_bag_weight_rules(self):
@@ -108,7 +109,7 @@ class OrganizationSetupTests(TestCase):
 
     def test_new_product_uses_standard_bag_weight(self):
         self.post(self.admin, default_bag_weight='40')
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         form = self.client.get(reverse('products_new')).context['form']
         self.assertEqual(float(form.initial['bag_weight_kg']), 40.0)
         org = Organization.current()
@@ -130,7 +131,7 @@ class OrganizationDocumentTests(TestCase):
         cls.viewer.groups.add(view)
 
     def upload(self, user, content=PDF, name='gst.pdf', **extra):
-        self.client.force_login(user)
+        force_login_recent(self.client, user)
         data = {'doc_type': 'gst_certificate', 'number': '23ABCDE1234F1Z5', 'title': '', 'notes': '', 'issued_on': '', 'valid_until': '',
                 'upload': SimpleUploadedFile(name, content, 'application/pdf'), **extra}
         return self.client.post(reverse('organization_document_new'), data)
@@ -157,10 +158,10 @@ class OrganizationDocumentTests(TestCase):
         from .models import OrganizationDocument
         self.upload(self.admin)
         doc = OrganizationDocument.objects.get()
-        self.client.force_login(self.plain)
+        force_login_recent(self.client, self.plain)
         self.assertEqual(self.client.get(reverse('organization_documents')).status_code, 403)
         self.assertEqual(self.client.get(reverse('organization_document_file', args=[doc.pk])).status_code, 403)
-        self.client.force_login(self.viewer)
+        force_login_recent(self.client, self.viewer)
         page = self.client.get(reverse('organization_documents'))
         self.assertContains(page, doc.display_title)
         self.assertNotContains(page, reverse('organization_document_new'))
@@ -213,7 +214,7 @@ class OrganizationDocumentTests(TestCase):
         self.assertEqual([d.number for d in page.context['documents']], ['FACT-778'])
 
     def test_overview_masks_bank_account(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         self.client.post(reverse('organization_edit'), {**VALID, 'bank_account_number': '123456789012'})
         page = self.client.get(reverse('organization'))
         self.assertContains(page, '••••••••9012')

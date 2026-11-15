@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from datetime import datetime, timedelta
 from unittest.mock import patch
 from django.contrib.auth import authenticate
@@ -69,7 +70,7 @@ class AuthenticationTests(TestCase):
     def test_login_and_logout_csrf_and_post_only(self):
         client = Client(enforce_csrf_checks=True)
         self.assertEqual(client.post(reverse('login'), {'username': 'teammate', 'password': 'test'}).status_code, 403)
-        self.client.force_login(self.user)
+        force_login_recent(self.client, self.user)
         self.assertEqual(self.client.get(reverse('logout')).status_code, 405)
         self.assertRedirects(self.client.post(reverse('logout')), reverse('signed_out'))
         self.assertNotIn('_auth_user_id', self.client.session)
@@ -81,13 +82,13 @@ class AuthenticationTests(TestCase):
         self.assertContains(response, 'Too many sign-in attempts')
 
     def test_nonstaff_admin_redirect_does_not_loop(self):
-        self.client.force_login(self.user)
+        force_login_recent(self.client, self.user)
         response = self.client.get('/admin/', follow=True)
         self.assertEqual(response.status_code, 403)
         self.assertLess(len(response.redirect_chain), 3)
 
     def test_current_password_attempts_are_limited(self):
-        self.client.force_login(self.user)
+        force_login_recent(self.client, self.user)
         for _ in range(5):
             self.client.post(reverse('password_change'), {'old_password': 'wrong', 'new_password1': 'Changed-Password-619!', 'new_password2': 'Changed-Password-619!'})
         response = self.client.post(reverse('password_change'), {'old_password': 'Original-Password-816!', 'new_password1': 'Changed-Password-619!', 'new_password2': 'Changed-Password-619!'})
@@ -140,8 +141,8 @@ class AuthenticationTests(TestCase):
 
     def test_password_change_validates_and_invalidates_other_sessions(self):
         other = Client()
-        self.client.force_login(self.user)
-        other.force_login(self.user)
+        force_login_recent(self.client, self.user)
+        force_login_recent(other, self.user)
         url = reverse('password_change')
         weak = self.client.post(url, {'old_password': 'Original-Password-816!', 'new_password1': '123', 'new_password2': '123'})
         self.assertEqual(weak.status_code, 200)
@@ -177,7 +178,7 @@ class RoleAccessTests(TestCase):
         OrderLine.objects.create(order=cls.order, product=cls.product, quantity=100, rate=500)
 
     def test_sales_role_cannot_access_purchase_routes_or_dashboard_data(self):
-        self.client.force_login(self.sales)
+        force_login_recent(self.client, self.sales)
         self.assertEqual(self.client.get(reverse('sales')).status_code, 200)
         self.assertEqual(self.client.get(reverse('purchases')).status_code, 403)
         self.assertEqual(self.client.get(reverse('order_new', args=['Purchase'])).status_code, 403)
@@ -190,13 +191,13 @@ class RoleAccessTests(TestCase):
         self.assertNotContains(dashboard, 'href="/accounts/access/"')
 
     def test_access_administration_requires_superuser(self):
-        self.client.force_login(self.sales)
+        force_login_recent(self.client, self.sales)
         for name in ['access_control', 'role_new', 'member_new']:
             self.assertEqual(self.client.get(reverse(name)).status_code, 403)
             self.assertEqual(self.client.post(reverse(name), {}).status_code, 403)
 
     def test_custom_matrix_persists_and_rejects_privilege_injection(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         response = self.client.post(reverse('role_new'), {'name': 'Dispatch only', 'permissions': ['view_sales_order', 'post_sales_order']})
         group = Group.objects.get(name='Dispatch only')
         self.assertRedirects(response, reverse('role_detail', args=[group.pk]))
@@ -208,7 +209,7 @@ class RoleAccessTests(TestCase):
         self.assertFalse(group.permissions.filter(codename='change_user').exists())
 
     def test_matrix_requires_view_before_action_and_unique_role_name(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         response = self.client.post(reverse('role_new'), {'name': 'Incomplete', 'permissions': ['post_sales_order']})
         self.assertContains(response, 'Enable View')
         self.assertFalse(Group.objects.filter(name='Incomplete').exists())
@@ -216,7 +217,7 @@ class RoleAccessTests(TestCase):
         self.assertContains(response, 'already exists')
 
     def test_role_change_immediately_revokes_existing_session(self):
-        self.client.force_login(self.sales)
+        force_login_recent(self.client, self.sales)
         self.assertEqual(self.client.get(reverse('sales')).status_code, 200)
         group = Group.objects.get(name='Sales executive')
         group.permissions.clear()
@@ -225,12 +226,12 @@ class RoleAccessTests(TestCase):
     def test_export_requires_separate_permission(self):
         viewer = User.objects.create_user('report-viewer')
         viewer.user_permissions.add(Permission.objects.get(codename='view_stockmovement'))
-        self.client.force_login(viewer)
+        force_login_recent(self.client, viewer)
         self.assertEqual(self.client.get(reverse('reports')).status_code, 200)
         self.assertEqual(self.client.get('/reports/?export=csv').status_code, 403)
 
     def test_new_member_assigns_roles_sites_and_cannot_escalate(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         role = Group.objects.get(name='Sales executive')
         response = self.client.post(reverse('member_new'), {'first_name': 'New', 'last_name': 'Member', 'username': 'new-member', 'email': 'new@example.test', 'password1': 'Initial-Password-665!', 'password2': 'Initial-Password-665!', 'is_active': 'on', 'roles': [role.pk], 'sites': [self.site.pk], 'is_superuser': 'on', 'is_staff': 'on'})
         user = User.objects.get(username='new-member')
@@ -242,22 +243,22 @@ class RoleAccessTests(TestCase):
         self.assertTrue(SiteAccess.objects.filter(user=user, site=self.site).exists())
 
     def test_duplicate_email_rejected_case_insensitively(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         response = self.client.post(reverse('member_edit', args=[self.sales.pk]), {'email': 'ADMIN@EXAMPLE.TEST', 'is_active': 'on'})
         self.assertContains(response, 'already associated')
         self.sales.refresh_from_db()
         self.assertEqual(self.sales.email, 'sales@example.test')
 
     def test_superuser_cannot_be_disabled_through_member_editor(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         self.assertEqual(self.client.post(reverse('member_edit', args=[self.admin.pk]), {'email': self.admin.email}).status_code, 403)
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
 
     def test_disabling_user_revokes_existing_session(self):
         client = Client()
-        client.force_login(self.sales)
-        self.client.force_login(self.admin)
+        force_login_recent(client, self.sales)
+        force_login_recent(self.client, self.admin)
         self.client.post(reverse('member_edit', args=[self.sales.pk]), {'email': self.sales.email})
         self.assertEqual(client.get(reverse('sales')).status_code, 302)
 
@@ -265,12 +266,12 @@ class RoleAccessTests(TestCase):
         self.sales.is_staff = True
         self.sales.save()
         self.sales.user_permissions.add(Permission.objects.get(codename='change_user'), Permission.objects.get(codename='change_group'))
-        self.client.force_login(self.sales)
+        force_login_recent(self.client, self.sales)
         self.assertEqual(self.client.get(f'/admin/auth/user/{self.sales.pk}/change/').status_code, 403)
         self.assertEqual(self.client.get('/admin/auth/group/').status_code, 403)
 
     def test_admin_pages_and_profile_render(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
         self.assertRedirects(self.client.get(reverse('password_change_done')), reverse('account_security'))
         for name in ['access_control', 'role_new', 'member_new', 'profile', 'profile_edit', 'account_security', 'account_activity', 'account_contacts', 'contact_new', 'password_change']:
             with self.subTest(name=name): self.assertEqual(self.client.get(reverse(name)).status_code, 200)

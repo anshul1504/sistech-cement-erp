@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from django.contrib.auth.models import User, Group
 from django.core import mail
 from django.test import TestCase, Client, override_settings
@@ -22,7 +23,7 @@ class AdministrationTests(TestCase):
         SiteAccess.objects.create(user=cls.member, site=cls.site)
 
     def setUp(self):
-        self.client.force_login(self.admin)
+        force_login_recent(self.client, self.admin)
 
     def test_pages_render_and_are_superuser_only(self):
         role = Group.objects.get(name='Sales executive')
@@ -32,7 +33,7 @@ class AdministrationTests(TestCase):
         for url in urls:
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
-        other = Client(); other.force_login(self.member)
+        other = Client(); force_login_recent(other, self.member)
         for url in urls:
             with self.subTest(member=url):
                 self.assertEqual(other.get(url).status_code, 403)
@@ -51,7 +52,7 @@ class AdministrationTests(TestCase):
         self.assertEqual(UserProfile.objects.get(user=self.member).designation, 'Dispatch supervisor')
 
     def test_disable_enable_signs_out_and_cannot_target_self_or_superuser(self):
-        device = Client(); device.force_login(self.member)
+        device = Client(); force_login_recent(device, self.member)
         self.client.post(reverse('member_status', args=[self.member.pk]))
         self.member.refresh_from_db()
         self.assertFalse(self.member.is_active)
@@ -63,7 +64,7 @@ class AdministrationTests(TestCase):
         self.assertTrue(AuditEvent.objects.filter(action='User disabled').exists())
 
     def test_sign_out_everywhere(self):
-        device = Client(); device.force_login(self.member)
+        device = Client(); force_login_recent(device, self.member)
         self.client.post(reverse('member_sign_out', args=[self.member.pk]))
         self.assertEqual(device.get(reverse('profile')).status_code, 302)
 
@@ -71,7 +72,7 @@ class AdministrationTests(TestCase):
         self.client.post(reverse('member_reset_link', args=[self.member.pk]))
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ['ravi@sistech.co.in'])
-        device = Client(); device.force_login(self.member)
+        device = Client(); force_login_recent(device, self.member)
         response = self.client.post(reverse('member_set_password', args=[self.member.pk]), {'new_password1': 'Brand-New-Pass-771!', 'new_password2': 'Brand-New-Pass-771!'})
         self.assertRedirects(response, reverse('member_detail', args=[self.member.pk]))
         self.member.refresh_from_db()
