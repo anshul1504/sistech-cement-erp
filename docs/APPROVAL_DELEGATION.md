@@ -38,7 +38,7 @@ Regression coverage includes exact date boundaries, overlapping windows, unautho
 
 ## Remaining acceptance / scope
 
-The original milestone covered the fifteen risk actions above; the subsequent site integrations are described below. CRM onboarding, freight, recognition and complaint/CAPA approvals remain direct-role actions pending their resource-specific integrations. Arbitrary permissions, financial read scope, payment-file export, master edits and login authority cannot be delegated through this feature.
+The original milestone covered the fifteen risk actions above; the subsequent site integrations are described below. CRM onboarding and freight were integrated subsequently below; recognition and complaint/CAPA approvals remain direct-role actions pending their resource-specific integrations. Arbitrary permissions, financial read scope, payment-file export, master edits and login authority cannot be delegated through this feature.
 
 Reassignment/escalation of pending work when people become unavailable remains separate work. A disabled principal cannot lend authority; an administrator must arrange independent direct authority or an eligible active principal. Broader dimensional access, API/mobile enforcement, PostgreSQL concurrency/load validation and company security/business UAT remain pending. Do not use SQLite sequential tests as evidence of production races.
 
@@ -54,7 +54,7 @@ RFQ award creates a new PO rather than merely deciding an existing document. The
 
 Manufacturing-partner supply-rate writes now enforce site access in the service. Candidate plants, pending contracts, scorecards and sourcing-advisor rows are also scoped to assigned sites; an inaccessible contract action returns 404 on the web. Trusted internal read helpers retain optional site filters, which every current sourcing web entry point supplies.
 
-The remaining direct-role approval integrations include freight, recognition and complaint/CAPA workflows. CRM onboarding is integrated below. Unavailable-staff work reassignment remains separate. These outstanding items must not be inferred complete from the expanded configured list.
+The remaining direct-role approval integrations include recognition and complaint/CAPA workflows. CRM onboarding and freight are integrated below. Unavailable-staff work reassignment remains separate. These outstanding items must not be inferred complete from the expanded configured list.
 
 The transfer's original creator is also excluded from shortage resolution, alongside dispatch/receipt participants, both directly and through a deputy. Final verification for this extension: full suite 452 tests (444 passed; eight opt-in browser checks skipped), all eight browser checks passed explicitly during the extension, and 61 affected workflow/queue/maker regressions passed after the last stock-loss rule. The suite includes 28 delegation tests. Django and migration application/drift checks pass; this extension needs no new schema migration or role changes.
 
@@ -69,7 +69,14 @@ The actual deputy remains the reviewer and customer activation actor. Business s
 
 Stage-specific accountable routing now supports all three lanes. A stage transition removes the completed assignment from pending inboxes without deleting its routing/history. Disabled staff can hand off an explicitly routed review only to an existing qualified independent backup; a deputy whose principal became unavailable is ineligible. Unassigned shared-role work is not fabricated into historical named assignments.
 
-This extension needs no schema migration or local policy/role changes. Freight, recognition, complaint/CAPA integrations, batch staffing orchestration, deployment scheduling, API/mobile and production/security acceptance remain separate work.
+This extension needs no schema migration or local policy/role changes. Recognition, complaint/CAPA integrations, batch staffing orchestration, deployment scheduling, API/mobile and production/security acceptance remain separate work.
 
 
 Onboarding verification on 15 November 2026: full regression discovery ran 509 tests (498 passed; eleven opt-in browser checks skipped). The final eleven onboarding regressions passed separately, including three added after full-suite discovery and retained-principal exclusion after revocation. Both affected CRM browser checks passed explicitly; the new check completes assigned-inbox → delegated KYC → stage completion at 320/390/768/1440px without overflow or browser errors. Django check, applied-migration/drift checks and diff checks passed. Reproduce with `python manage.py test erp.test_crm_approvals erp.test_crm accounts.test_handoff accounts.test_delegation erp.test_insights` and `RUN_BROWSER_TESTS=1 python manage.py test erp.test_crm_approval_browser erp.test_crm_browser`. No live grant, routing, customer activation, role or schema change was made. PostgreSQL concurrency, company UAT and the remaining SRS are not certified by these developer checks.
+
+
+## Consolidated freight review
+
+The configured inventory now includes 29 action types. Freight-bill approval/rejection adds a company-scoped action because one bill may contain trips from several sites. Both principal and deputy require existing freight-bill read and explicit company-finance scope; no site/role/financial scope is granted. Existing direct site checkers retain the rule that every trip must be in their site scope; named central routing/delegation uses explicit company-finance coverage. Bill makers cannot approve directly or through a deputy. Uses reference the freight bill identity, retain the actual checker and roll back on claim/ledger failures.
+
+See [freight approval evidence](FREIGHT_APPROVALS.md) for retained rejected claims, migration and verification. Recognition and complaint/CAPA integration, cross-module auditing, production scheduling/acceptance and the rest of the SRS remain pending.

@@ -155,7 +155,7 @@ def freight_bill_detail(request, pk):
     bill = get_object_or_404(F.visible_bills(FreightBill.objects.select_related('transporter', 'created_by', 'checked_by'), request.user), pk=pk)
     return render(request, 'erp/freight_bill_detail.html', {'title': f'Freight bill {bill.bill_number}', 'bill': bill,
                                                             'lines': bill.lines.select_related('dispatch__vehicle', 'dispatch__order__partner', 'dispatch__freight_rate'),
-                                                            'can_decide': request.user.has_perm('erp.approve_freightbill') and bill.status == 'submitted' and bill.created_by_id != request.user.pk})
+                                                            'can_decide': F.can_decide(request.user,bill)})
 
 
 @login_required

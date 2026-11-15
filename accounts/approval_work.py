@@ -23,6 +23,7 @@ class Workflow:
 
 
 CATALOG = {
+    'freight_bill': Workflow(M.FreightBill,'approve_freightbill','view_freightbill',{'status':'submitted'},'',route='freight_bill_detail'),
     'dealer_kyc': Workflow(M.DealerApplication,'review_dealerkyc','view_dealerapplication',{'status':'submitted'},route='crm_application_detail'),
     'dealer_credit': Workflow(M.DealerApplication,'review_dealercredit','view_dealerapplication',{'status':'kyc'},route='crm_application_detail'),
     'dealer_activation': Workflow(M.DealerApplication,'approve_dealerapplication','view_dealerapplication',{'status':'credit'},route='crm_application_detail'),
@@ -127,6 +128,10 @@ def eligible(person, task):
         from erp.crm import can_review_application
         if not can_review_application(person,task['object'],task['permission']):
             return False,'The recipient needs scoped CRM review authority and independence from the preceding review lane.'
+    if task['kind'] == 'freight_bill':
+        from erp.freight import can_decide
+        if not can_decide(person,task['object']):
+            return False,'The recipient lacks current consolidated freight scope or independent review authority.'
     policy = D.POLICIES[task['permission']]
     if policy[1] and not (person.is_superuser or M.SiteAccess.objects.filter(user=person,site=task['site']).exists()):
         return False, 'The recipient needs existing access to the source site.'

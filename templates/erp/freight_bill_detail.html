@@ -24,7 +24,7 @@
           <span data-label="Allowed extra">₹{{ l.allowed_extra|indian:2 }}</span>
           <span data-label="Recovery">{% if l.shortage_recovery %}−₹{{ l.shortage_recovery|indian:2 }}{% else %}—{% endif %}</span>
           <span data-label="Payable"><strong>₹{{ l.payable|indian:2 }}</strong></span>
-        </div>{% empty %}<p class="acc-muted" style="padding:12px 0">Trips were released when the bill was rejected.</p>{% endfor %}
+        </div>{% empty %}{% for trip in bill.review_snapshot.trips %}<div class="ord-tr" role="row"><span class="ord-name"><strong>{{ trip.vehicle }} · {{ trip.number }}</strong><small>{{ trip.customer }} · retained decision evidence{% if trip.reason %} · {{ trip.reason }}{% endif %}</small></span><span data-label="Contract">₹{{ trip.contracted|indian:2 }}</span><span data-label="Claimed">₹{{ trip.claimed|indian:2 }}</span><span data-label="Extra">₹{{ trip.extra|indian:2 }}</span><span data-label="Allowed extra">₹{{ trip.allowed_extra|indian:2 }}</span><span data-label="Recovery">₹{{ trip.shortage_recovery|indian:2 }}</span><span data-label="Payable">₹{{ trip.payable|indian:2 }}</span></div>{% empty %}<p class="acc-muted" style="padding:12px 0">Trips were released when this earlier bill was rejected; no retained line-level decision snapshot is available.</p>{% endfor %}{% endfor %}
       </div>
       <div class="ord-summary"><span></span><div class="ord-totals is-static">
         <div><span>Contract</span><strong>₹{{ bill.contracted|indian:2 }}</strong></div><div><span>Claimed + extras</span><strong>₹{{ bill.claimed|plus:bill.extras|indian:2 }}</strong></div>

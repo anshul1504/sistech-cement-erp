@@ -605,8 +605,11 @@ def my_queue(user, sites=None):
         add('Truck weight exceptions', Dispatch.objects.filter(site__in=sites).exclude(exception='').filter(exception_approved_by=None).exclude(status__in=['delivered', 'cancelled']), reverse('dispatch_board'), 'Overload or variance', 'danger')
     if has('pod_dispatch'):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
-    if has('approve_freightbill'):
-        add('Freight bills to check', FreightBill.objects.filter(status='submitted').exclude(created_by=user), reverse('freight_bills'), 'Against contracted freight')
+    if has('view_freightbill'):
+        from .freight import visible_bills,can_decide
+        candidates=approvable(visible_bills(FreightBill.objects.filter(status='submitted'),user),user,'approve_freightbill')
+        ids=[bill.pk for bill in candidates if can_decide(user,bill)]
+        add('Freight bills to check', FreightBill.objects.filter(pk__in=ids), reverse('freight_bills'), 'Independent contracted-freight review')
     from .models import BeatPlan,BeatStop,ReturnRequest,SalesProject
     if has('view_salesproject'):
         from .projects import scope as project_scope

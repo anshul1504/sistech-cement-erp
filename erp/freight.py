@@ -3,6 +3,7 @@
 Payable per trip = min(claimed, contracted) + allowed extras (detention days × lane detention + unloading) − shortage/damage recovery.
 Anything claimed above contract is shown as variance and not paid. Ex-works trips (customer arranges the truck) are never billed to Sistech.
 """
+from accounts.delegation import authorize, can_approve
 from .gst import inr
 from decimal import Decimal
 
@@ -27,6 +28,23 @@ def visible_bills(queryset, user):
     forbidden = Site.objects.exclude(siteaccess__user=user)
     return queryset.exclude(lines__dispatch__site__in=forbidden).filter(Q(lines__isnull=False) | Q(created_by=user)).distinct()
 
+
+
+def can_decide(user,bill):
+    return (user.has_perm('erp.view_freightbill') and bill.status=='submitted' and bill.created_by_id!=user.pk
+        and visible_bills(FreightBill.objects.filter(pk=bill.pk),user).exists()
+        and can_approve(user,'approve_freightbill',makers=[bill.created_by_id]))
+
+
+def decision_evidence(bill):
+    return dict(bill_number=bill.bill_number,transporter=bill.transporter_id,bill_date=str(bill.bill_date),
+        contracted=str(bill.contracted),claimed=str(bill.claimed),extras=str(bill.extras),deductions=str(bill.deductions),
+        advance=str(bill.advance),payable=str(bill.payable),
+        trips=[dict(dispatch_id=line.dispatch_id,number=line.dispatch.number,site_id=line.dispatch.site_id,
+            vehicle=line.dispatch.vehicle.registration,customer=line.dispatch.order.partner.name,net_kg=str(line.dispatch.net_kg),
+            contracted=str(line.contracted),claimed=str(line.claimed),extra=str(line.extra),allowed_extra=str(line.allowed_extra),
+            shortage_recovery=str(line.shortage_recovery),payable=str(line.payable),detention_days=line.detention_days,reason=line.extra_reason)
+            for line in bill.lines.select_related('dispatch__vehicle','dispatch__order__partner').order_by('pk')])
 
 
 def destination_of(dispatch):
@@ -130,7 +148,7 @@ def recompute(bill):
 
 @transaction.atomic
 def decide(user, pk, approve, note):
-    if not user.has_perm('erp.approve_freightbill'):
+    if not user.has_perm('erp.view_freightbill'):
         raise PermissionDenied
     bill = FreightBill.objects.select_for_update().get(pk=pk)
     if not user.has_perm('erp.access_company_finance'):
@@ -140,11 +158,14 @@ def decide(user, pk, approve, note):
         raise ValidationError('This bill has already been decided.')
     if bill.created_by_id == user.pk:
         raise ValidationError('The person who entered the bill cannot approve or reject it (maker-checker).')
+    authorize(user,'approve_freightbill',makers=[bill.created_by_id],reference=f'freight:{bill.pk}')
+    if not bill.lines.exists():raise ValidationError('A submitted freight bill needs retained trip lines before review.')
     note = (note or '').strip()
     if not approve and not note:
         raise ValidationError('Give the reason for rejecting.')
     if approve and bill.variance > 0 and not note:
         raise ValidationError(f'Claim is ₹{inr(bill.variance, 2)} above contract — note why the payable is acceptable.')
+    bill.review_snapshot = decision_evidence(bill)
     bill.status, bill.checked_by, bill.checked_at, bill.check_note = ('approved' if approve else 'rejected'), user, timezone.now(), note[:200]
     bill.save()
     if not approve:

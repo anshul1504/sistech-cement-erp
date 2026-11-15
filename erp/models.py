@@ -1258,6 +1258,7 @@ class FreightBill(models.Model):
     deductions = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     advance = models.DecimalField('Advance already paid', max_digits=14, decimal_places=2, default=0, validators=MONEY)
     payable = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    review_snapshot = models.JSONField(default=dict, blank=True, editable=False)
     notes = models.CharField(max_length=200, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)

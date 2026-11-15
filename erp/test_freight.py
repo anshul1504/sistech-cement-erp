@@ -1,3 +1,4 @@
+from accounts.test_support import force_login_recent
 from datetime import timedelta
 from decimal import Decimal
 
@@ -92,7 +93,7 @@ class FreightTests(TestCase):
         bill = FreightBill.objects.get()
         self.assertRedirects(r, reverse('freight_bill_detail', args=[bill.pk]))
         self.assertNotContains(self.client.get(reverse('freight_bill_detail', args=[bill.pk])), 'Approve payable')  # maker cannot see decide
-        self.client.force_login(self.checker)
+        force_login_recent(self.client,self.checker)
         self.client.post(reverse('freight_bill_decide', args=[bill.pk, 'reject']), {'note': ''})
         self.assertEqual(FreightBill.objects.get().status, 'submitted')
         self.client.post(reverse('freight_bill_decide', args=[bill.pk, 'reject']), {'note': 'Wrong LR'})
