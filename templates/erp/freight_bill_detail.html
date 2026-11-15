@@ -11,6 +11,7 @@
   </section>
   {% if bill.variance > 0 %}<ul class="ord-checks"><li class="is-warn">Claimed ₹{{ bill.variance|indian:2 }} more than contract (freight + extras). Only contracted freight and allowed extras are payable.</li></ul>{% endif %}
   {% if bill.check_note %}<ul class="ord-checks"><li class="is-info">Checker's note: {{ bill.check_note }}</li></ul>{% endif %}
+  {% if review_issues %}<ul class="ord-checks">{% for issue in review_issues %}<li class="is-warn">{{ issue }}</li>{% endfor %}<li class="is-info">Reject this pending claim and enter a corrected bill with current delivery evidence.</li></ul>{% endif %}
   <div class="acc-grid">
     <section class="org-card org-view acc-wide ord-items">
       <header class="acc-card-head"><h2>Trips</h2></header>
@@ -32,8 +33,8 @@
         <div class="is-grand"><span>Payable</span><strong>₹{{ bill.payable|indian:2 }}</strong></div></div></div>
     </section>
     {% if can_decide %}<section class="org-card org-view acc-wide ord-items"><header class="acc-card-head"><h2>Check</h2><span class="acc-muted">You did not enter this bill, so you can decide it.</span></header>
-      <form method="post" action="{% url 'freight_bill_decide' bill.pk 'approve' %}" id="fb-decide">{% csrf_token %}<div class="org-field"><label class="form-label" for="fb-note">Note (required to reject, or to approve a claim above contract)</label><input class="form-control" id="fb-note" name="note" maxlength="200"></div>
-        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'freight_bill_decide' bill.pk 'reject' %}">Reject</button><button class="org-btn is-primary" type="submit">Approve payable</button></div></form></section>
+      <form method="post" action="{% url 'freight_bill_decide' bill.pk 'approve' %}" id="fb-decide">{% csrf_token %}<input type="hidden" name="evidence" value="{{ review_token }}"><div class="org-field"><label class="form-label" for="fb-note">Note (required to reject, or to approve a claim above contract)</label><input class="form-control" id="fb-note" name="note" maxlength="200"></div>
+        <div class="inf-log-actions"><button class="org-btn is-light is-danger" type="submit" formaction="{% url 'freight_bill_decide' bill.pk 'reject' %}">Reject</button>{% if not review_issues %}<button class="org-btn is-primary" type="submit">Approve payable</button>{% endif %}</div></form></section>
     {% elif bill.status == 'submitted' %}<section class="org-card org-view acc-wide ord-items"><p class="acc-muted">Waiting for a logistics manager other than the person who entered it.</p></section>{% endif %}
   </div>
 </div>

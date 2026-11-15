@@ -14,7 +14,7 @@ from django.utils import timezone
 from accounts import delegation as D,work_handoff as H
 from accounts.models import ApprovalDelegationUse
 from accounts.test_support import force_login_recent
-from . import freight as F
+from . import freight as F,logistics as L
 from . import test_freight as freight_fixture
 
 
@@ -27,6 +27,7 @@ class FreightApprovalBrowserTests(StaticLiveServerTestCase):
         dispatch=freight_fixture.FreightTests.trip(f,f.truck,f.driver,100)
         bill=F.create_bill(f.admin,f.trans,'FREIGHT-BROWSER-QA',timezone.localdate(),{
             dispatch:dict(claimed=dispatch.freight_amount+50,days=1,extra=Decimal('2000'),reason='Fictional detention')})
+        L.deliver(f.admin,dispatch.pk,'Fictional late receiver',shortage=2,notes='Late POD shortage')
         deputy=User.objects.create_user('freight-browser-deputy');deputy.user_permissions.set(Permission.objects.filter(codename__in=['view_freightbill','access_company_finance']))
         now=timezone.now();grant=D.create(f.admin,f.checker,deputy,'approve_freightbill',None,now,now+timedelta(days=1),'Freight review cover')
         H.assign_approval(f.admin,'freight_bill',bill.pk,deputy,'Independent accountable freight checker',uuid4())
@@ -39,6 +40,8 @@ class FreightApprovalBrowserTests(StaticLiveServerTestCase):
                 for route in [reverse('approval_inbox'),reverse('freight_bill_detail',args=[bill.pk])]:
                     self.assertEqual(page.goto(self.live_server_url+route).status,200)
                     self.assertTrue(page.evaluate('document.documentElement.scrollWidth<=innerWidth'))
+            self.assertIn('current POD recovery',page.locator('main').inner_text())
+            self.assertEqual(page.get_by_role('button',name='Approve payable',exact=True).count(),0)
             page.locator('#fb-note').fill('Detention evidence does not match transporter claim')
             page.get_by_role('button',name='Reject',exact=True).click();page.wait_for_load_state('networkidle')
             self.assertIn('retained decision evidence',page.locator('main').inner_text())
@@ -50,5 +53,6 @@ class FreightApprovalBrowserTests(StaticLiveServerTestCase):
             self.assertEqual(errors,[]);browser.close()
         bill.refresh_from_db();self.assertEqual(bill.checked_by_id,deputy.pk);self.assertEqual(bill.status,'rejected')
         self.assertEqual(bill.review_snapshot['trips'][0]['dispatch_id'],dispatch.pk)
+        self.assertEqual(bill.review_snapshot['source_evidence']['trips'][0]['current_recovery'],'800.00')
         self.assertTrue(ApprovalDelegationUse.objects.filter(delegation=grant,actor=deputy).exists())
         self.assertTrue(F.billable_trips(f.trans).filter(pk=dispatch.pk).exists())

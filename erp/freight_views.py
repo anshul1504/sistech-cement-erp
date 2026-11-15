@@ -153,8 +153,10 @@ def freight_bill_new(request, transporter_pk):
 def freight_bill_detail(request, pk):
     permitted(request.user, 'view_freightbill')
     bill = get_object_or_404(F.visible_bills(FreightBill.objects.select_related('transporter', 'created_by', 'checked_by'), request.user), pk=pk)
+    _,issues=F.review_state(bill) if bill.status=='submitted' else ({},[])
     return render(request, 'erp/freight_bill_detail.html', {'title': f'Freight bill {bill.bill_number}', 'bill': bill,
                                                             'lines': bill.lines.select_related('dispatch__vehicle', 'dispatch__order__partner', 'dispatch__freight_rate'),
+                                                            'review_issues':issues,'review_token':F.review_token(bill) if bill.status=='submitted' else '',
                                                             'can_decide': F.can_decide(request.user,bill)})
 
 
@@ -166,7 +168,7 @@ def freight_bill_decide(request, pk, decision):
         raise Http404
     get_object_or_404(F.visible_bills(FreightBill.objects.all(), request.user), pk=pk)
     try:
-        bill = F.decide(request.user, pk, decision == 'approve', request.POST.get('note', ''))
+        bill = F.decide(request.user, pk, decision == 'approve', request.POST.get('note', ''),expected_evidence=request.POST.get('evidence',''))
         messages.success(request, f'Bill {bill.bill_number} {bill.get_status_display().lower()}.')
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))

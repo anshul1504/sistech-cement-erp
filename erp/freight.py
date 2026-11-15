@@ -4,6 +4,8 @@ Payable per trip = min(claimed, contracted) + allowed extras (detention days × 
 Anything claimed above contract is shown as variance and not paid. Ex-works trips (customer arranges the truck) are never billed to Sistech.
 """
 from accounts.delegation import authorize, can_approve
+import hashlib
+import json
 from .gst import inr
 from decimal import Decimal
 
@@ -35,6 +37,44 @@ def can_decide(user,bill):
     return (user.has_perm('erp.view_freightbill') and bill.status=='submitted' and bill.created_by_id!=user.pk
         and visible_bills(FreightBill.objects.filter(pk=bill.pk),user).exists()
         and can_approve(user,'approve_freightbill',makers=[bill.created_by_id]))
+
+
+
+def review_state(bill):
+    """Current financial/POD evidence only; no file bytes or bank data in the fingerprint."""
+    rows=[];issues=[]
+    for line in bill.lines.select_related('dispatch__freight_rate','dispatch__invoice').order_by('pk'):
+        trip=line.dispatch
+        invoice=getattr(trip,'invoice',None)
+        invoice_quantity=sum((row.quantity for row in invoice.lines.all()),Decimal(0)) if invoice else Decimal(0)
+        recovery=shortage_value(trip)
+        extra=allowed_extra(trip,line.detention_days,line.extra)
+        if trip.transporter_id!=bill.transporter_id or trip.freight_payable_by!='company' or trip.status not in ['gate_out','delivered']:
+            issues.append(f'{trip.number}: this trip is no longer billable on this claim.')
+        if trip.freight_amount!=line.contracted:issues.append(f'{trip.number}: contracted freight changed after entry.')
+        if recovery!=line.shortage_recovery:
+            issues.append(f'{trip.number}: current POD recovery is ₹{inr(recovery,2)}; this claim records ₹{inr(line.shortage_recovery,2)}.')
+        if (trip.shortage_qty or trip.damaged_qty) and (not invoice or invoice_quantity<=0):
+            issues.append(f'{trip.number}: shortage recovery requires linked invoice quantities.')
+        if extra!=line.allowed_extra:issues.append(f'{trip.number}: allowed extra-charge evidence changed after entry.')
+        rows.append(dict(line=line.pk,trip=trip.pk,status=trip.status,transporter=trip.transporter_id,payer=trip.freight_payable_by,
+            invoice_id=invoice.pk if invoice else None,invoice_quantity=str(invoice_quantity),invoice_taxable=str(invoice.taxable) if invoice else None,
+            freight_rate_id=trip.freight_rate_id,contract=str(trip.freight_amount),claimed=str(line.claimed),extra=str(line.extra),days=line.detention_days,reason=line.extra_reason,
+            recorded_contract=str(line.contracted),recorded_extra=str(line.allowed_extra),recorded_recovery=str(line.shortage_recovery),
+            current_extra=str(extra),current_recovery=str(recovery),shortage=str(trip.shortage_qty),damaged=str(trip.damaged_qty),
+            delivered_at=str(trip.delivered_at),receiver=trip.received_by,pod_note=trip.pod_notes))
+    lines=list(bill.lines.all())
+    expected=dict(contracted=sum((l.contracted for l in lines),ZERO),claimed=sum((l.claimed for l in lines),ZERO),
+        extras=sum((l.extra for l in lines),ZERO),deductions=sum((l.shortage_recovery for l in lines),ZERO),
+        payable=max(sum((l.payable for l in lines),ZERO)-bill.advance,ZERO))
+    if any(getattr(bill,key)!=amount for key,amount in expected.items()):issues.append('The bill totals no longer match its retained trip calculations.')
+    state=dict(bill=bill.pk,status=bill.status,advance=str(bill.advance),totals={key:str(getattr(bill,key)) for key in expected},trips=rows)
+    return state,issues
+
+
+def review_token(bill):
+    state,_=review_state(bill)
+    return hashlib.sha256(json.dumps(state,sort_keys=True).encode()).hexdigest()
 
 
 def decision_evidence(bill):
@@ -108,7 +148,7 @@ def allowed_extra(dispatch, days, claimed_extra):
 def _amount(value,label,model=FreightBillLine,field='claimed'):
     definition=model._meta.get_field(field)
     try:
-        return forms.DecimalField(max_digits=definition.max_digits,decimal_places=definition.decimal_places,min_value=ZERO).clean(value)
+        return forms.DecimalField(max_digits=definition.max_digits,decimal_places=definition.decimal_places,min_value=ZERO).clean(value).quantize(Decimal('0.01'))
     except ValidationError as error:
         raise ValidationError([f'{label}: {message}' for message in error.messages]) from None
 
@@ -125,7 +165,7 @@ def _days(value):
 def create_bill(user, transporter, bill_number, bill_date, rows, advance=0, notes=''):
     """Validate amounts and lock authoritative trips; passed model instances supply IDs only."""
     if not user.has_perm('erp.add_freightbill'):raise PermissionDenied
-    transporter=Partner.objects.select_for_update().get(pk=transporter.pk)
+    transporter=Partner.objects.select_for_update(no_key=True).get(pk=transporter.pk)
     if transporter.kind!='Transporter':raise ValidationError('Choose a transporter.')
     bill_number=forms.CharField(max_length=40).clean(bill_number)
     bill_date=forms.DateField().clean(bill_date)
@@ -177,7 +217,7 @@ def recompute(bill):
 
 
 @transaction.atomic
-def decide(user, pk, approve, note):
+def decide(user, pk, approve, note, expected_evidence=None):
     if not user.has_perm('erp.view_freightbill'):
         raise PermissionDenied
     bill = FreightBill.objects.select_for_update().get(pk=pk)
@@ -190,12 +230,20 @@ def decide(user, pk, approve, note):
         raise ValidationError('The person who entered the bill cannot approve or reject it (maker-checker).')
     authorize(user,'approve_freightbill',makers=[bill.created_by_id],reference=f'freight:{bill.pk}')
     if not bill.lines.exists():raise ValidationError('A submitted freight bill needs retained trip lines before review.')
+    trip_ids=list(bill.lines.values_list('dispatch_id',flat=True))
+    list(Dispatch.objects.select_for_update().filter(pk__in=trip_ids).order_by('pk'))
+    state,issues=review_state(bill)
+    current=hashlib.sha256(json.dumps(state,sort_keys=True).encode()).hexdigest()
+    if expected_evidence is not None and expected_evidence!=current:
+        raise ValidationError('Trip or POD evidence changed or is missing. Reopen the bill and review its current evidence.')
+    if approve and issues:
+        raise ValidationError([*issues,'Reject this pending claim and enter a corrected bill using the current delivery evidence.'])
     note = (note or '').strip()
     if not approve and not note:
         raise ValidationError('Give the reason for rejecting.')
     if approve and bill.variance > 0 and not note:
         raise ValidationError(f'Claim is ₹{inr(bill.variance, 2)} above contract — note why the payable is acceptable.')
-    bill.review_snapshot = decision_evidence(bill)
+    bill.review_snapshot = {**decision_evidence(bill),'source_evidence':state,'evidence_digest':current}
     bill.status, bill.checked_by, bill.checked_at, bill.check_note = ('approved' if approve else 'rejected'), user, timezone.now(), note[:200]
     bill.save()
     if not approve:

@@ -96,7 +96,7 @@ class FreightTests(TestCase):
         force_login_recent(self.client,self.checker)
         self.client.post(reverse('freight_bill_decide', args=[bill.pk, 'reject']), {'note': ''})
         self.assertEqual(FreightBill.objects.get().status, 'submitted')
-        self.client.post(reverse('freight_bill_decide', args=[bill.pk, 'reject']), {'note': 'Wrong LR'})
+        self.client.post(reverse('freight_bill_decide', args=[bill.pk, 'reject']), {'note': 'Wrong LR','evidence':F.review_token(FreightBill.objects.get(pk=bill.pk))})
         self.assertEqual(FreightBill.objects.get().status, 'rejected')
         self.assertEqual(list(F.billable_trips(self.trans)), [a])
         for url in ['freight_rates', 'freight_bills']:
