@@ -1,0 +1,48 @@
+{% load erp_format %}
+{% if can_correct_pod %}
+<section class="org-card org-view acc-wide">
+  <header class="acc-card-head"><h2>Correct delivery details</h2></header>
+  <p class="acc-muted">Request an independent review. Previous details and the signed copy stay retained. Freight recovery and customer credits are reviewed separately.</p>
+  <form method="post" action="{% url 'pod_correction_action' d.pk 'propose' %}">
+    {% csrf_token %}<input type="hidden" name="request_key" value="{{ pod_key }}"><input type="hidden" name="evidence" value="{{ pod_digest }}">
+    <div class="org-grid">
+      <div class="org-field"><label class="form-label" for="pc-receiver">Received by</label><input class="form-control" id="pc-receiver" name="received_by" value="{{ d.received_by }}" maxlength="80" required></div>
+      <div class="org-field"><label class="form-label" for="pc-mobile">Receiver mobile</label><input class="form-control" id="pc-mobile" name="receiver_mobile" value="{{ d.receiver_mobile }}" maxlength="14" inputmode="tel"></div>
+      <div class="org-field"><label class="form-label" for="pc-short">Shortage (units)</label><input class="form-control" id="pc-short" name="shortage" type="number" min="0" step="0.001" value="{{ d.shortage_qty }}" required></div>
+      <div class="org-field"><label class="form-label" for="pc-damage">Damaged / wet (units)</label><input class="form-control" id="pc-damage" name="damaged" type="number" min="0" step="0.001" value="{{ d.damaged_qty }}" required></div>
+      <div class="org-field is-wide"><label class="form-label" for="pc-notes">Delivery notes</label><input class="form-control" id="pc-notes" name="notes" value="{{ d.pod_notes }}" maxlength="200"></div>
+      <div class="org-field is-wide"><label class="form-label" for="pc-reason">Correction reason and evidence</label><input class="form-control" id="pc-reason" name="reason" maxlength="300" required></div>
+    </div>
+    <button class="org-btn is-primary" type="submit">Request POD correction</button>
+  </form>
+</section>
+{% endif %}
+{% for item in pod_corrections %}
+<section class="org-card org-view acc-wide">
+  <header class="acc-card-head"><h2>POD correction {{ item.pk }} · {{ item.get_status_display }}</h2></header>
+  <p>{{ item.created_by|who }} · {{ item.created_at|date:'d M Y H:i' }} · {{ item.reason }}</p>
+  <dl>
+    <div><dt>Previous receiver</dt><dd>{{ item.before.received_by }} · {{ item.before.receiver_mobile|default:'—' }}</dd></div>
+    <div><dt>Requested receiver</dt><dd>{{ item.after.received_by }} · {{ item.after.receiver_mobile|default:'—' }}</dd></div>
+    <div><dt>Previous shortage / damage</dt><dd>{{ item.before.shortage_qty }} / {{ item.before.damaged_qty }}</dd></div>
+    <div><dt>Requested shortage / damage</dt><dd>{{ item.after.shortage_qty }} / {{ item.after.damaged_qty }}</dd></div>
+    <div class="is-wide"><dt>Previous notes</dt><dd>{{ item.before.pod_notes|default:'—' }}</dd></div>
+    <div class="is-wide"><dt>Requested notes</dt><dd>{{ item.after.pod_notes|default:'—' }}</dd></div>
+  </dl>
+  {% if item.reviewed_at %}<p>{{ item.reviewed_by|who }} · {{ item.reviewed_at|date:'d M Y H:i' }} · {{ item.review_note }}</p>{% endif %}
+  {% if item.can_decide %}
+  <form method="post" action="{% url 'pod_correction_action' d.pk 'approve' %}">
+    {% csrf_token %}<input type="hidden" name="correction" value="{{ item.pk }}">
+    <div class="org-field"><label class="form-label" for="pc-review-{{ item.pk }}">Independent finding</label><input class="form-control" id="pc-review-{{ item.pk }}" name="note" maxlength="300" required></div>
+    <div class="inf-log-actions"><button class="org-btn is-primary" type="submit">Approve POD correction</button><button class="org-btn is-light" type="submit" formaction="{% url 'pod_correction_action' d.pk 'reject' %}">Reject POD correction</button></div>
+  </form>
+  {% endif %}
+  {% if item.can_cancel %}
+  <form method="post" action="{% url 'pod_correction_action' d.pk 'cancel' %}">
+    {% csrf_token %}<input type="hidden" name="correction" value="{{ item.pk }}">
+    <div class="org-field"><label class="form-label" for="pc-cancel-{{ item.pk }}">Cancellation reason</label><input class="form-control" id="pc-cancel-{{ item.pk }}" name="note" maxlength="300" required></div>
+    <button class="org-btn is-light" type="submit">Cancel POD correction</button>
+  </form>
+  {% endif %}
+</section>
+{% endfor %}

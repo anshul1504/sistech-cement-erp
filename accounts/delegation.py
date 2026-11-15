@@ -13,6 +13,7 @@ from .security import access_allowed
 # permission: label, site-specific, separately requires existing company-finance scope
 POLICIES = {
     'approve_recipe': ('Recipe / BOM version approval', False, False),
+    'approve_pod_correction': ('Delivery evidence correction approval', True, False),
     'approve_weight_exception': ('Dispatch weight exception approval', True, False),
     'publish_recognitionprogram': ('Recognition winners publication', False, False),
     'verify_influencerusage': ('Recognition usage verification', False, False),
@@ -64,7 +65,7 @@ def _qualified(user, permission, site):
     _, scoped, finance = POLICIES[permission]
     if permission == 'approve_recipe' and not user.has_perm('erp.view_recipe'):
         return False
-    if permission == 'approve_weight_exception' and not user.has_perm('erp.view_dispatch'):
+    if permission in {'approve_weight_exception','approve_pod_correction'} and not user.has_perm('erp.view_dispatch'):
         return False
     if permission == 'publish_recognitionprogram' and not user.has_perm('erp.view_recognitionprogram'):
         return False

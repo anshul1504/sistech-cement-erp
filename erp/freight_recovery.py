@@ -8,7 +8,7 @@ from django.utils import timezone
 from accounts.delegation import authorize,can_approve
 from accounts.security import access_allowed
 from .finance_access import permitted,require_company_finance
-from .models import FreightBill,FreightRecoveryAdjustment,Partner,Dispatch,PaymentAllocation,AuditEvent
+from .models import FreightBill,FreightRecoveryAdjustment,Partner,Dispatch,PaymentAllocation,AuditEvent,PODCorrection
 from . import freight as F,gl
 ZERO=Decimal('0.00')
 
@@ -39,11 +39,9 @@ def basis(bill):
     approved=list(bill.recovery_adjustments.filter(status='approved').values('pk','amount','recovery_total','payable_after'))
     baseline=approved[0]['recovery_total'] if approved else bill.deductions
     current=sum((Decimal(row['current_recovery']) for row in state['trips']),ZERO)
-    if current<baseline:raise ValidationError('Recovery decreased after an approved adjustment; use a reviewed correction rather than reversing its evidence silently.')
     fixed=sum((min(line.claimed,line.contracted)+line.allowed_extra for line in bill.lines.all()),ZERO)-bill.advance
     target=max(fixed-current,ZERO)
     before=effective_payable(bill)
-    if target>before:raise ValidationError('This source change increases liability and requires a separately reviewed bill correction.')
     evidence=dict(source=state,approved=[{key:str(value) for key,value in row.items()} for row in approved],baseline=str(baseline),current=str(current),before=str(before),after=str(target))
     digest=hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest()
     return dict(evidence=evidence,digest=digest,recovery_total=current,payable_after=target,amount=before-target,changed=current!=baseline)
@@ -68,6 +66,15 @@ def _log(user,request,action,note):
     AuditEvent.objects.create(actor=user,action=action,reference=f'freight:{request.bill_id}',detail=f'Recovery {request.pk} · {note}'[:250])
 
 
+def check_date(bill,on):
+    prior_dates=list(bill.recovery_adjustments.filter(status='approved').values_list('on',flat=True))
+    corrections=PODCorrection.objects.filter(dispatch__freight_line__bill=bill,status='approved')
+    prior_dates.extend(timezone.localdate(row.reviewed_at) for row in corrections)
+    latest_pod=max([bill.bill_date,*prior_dates,*[timezone.localdate(trip.delivered_at) for trip in Dispatch.objects.filter(freight_line__bill=bill,delivered_at__isnull=False)]])
+    if on<latest_pod or on>timezone.localdate():raise ValidationError('Use a recovery date from the original bill/latest POD or approved correction through today.')
+
+
+
 @transaction.atomic
 def propose(user,bill_id,on,reason,key,expected_digest=None):
     _read(user);permitted(user,'add_freightbill')
@@ -83,8 +90,7 @@ def propose(user,bill_id,on,reason,key,expected_digest=None):
     if expected_digest is not None and expected_digest!=current['digest']:raise ValidationError('Recovery evidence changed. Reopen the bill and review the current POD.')
     if not current['changed']:raise ValidationError('No new recovery remains to reconcile.')
     if bill.recovery_adjustments.filter(status='requested').exists():raise ValidationError('A recovery request is already pending for this bill.')
-    latest_pod=max([bill.bill_date,*[timezone.localdate(trip.delivered_at) for trip in Dispatch.objects.filter(freight_line__bill=bill,delivered_at__isnull=False)]])
-    if on<latest_pod or on>timezone.localdate():raise ValidationError('Use a recovery date from the original bill/latest POD through today.')
+    check_date(bill,on)
     gl.check_open(on)
     request=FreightRecoveryAdjustment(bill=bill,on=on,reason=reason,created_by=user,request_key=key,
         amount=current['amount'],recovery_total=current['recovery_total'],payable_after=current['payable_after'],evidence=current['evidence'],source_digest=current['digest'])
@@ -107,10 +113,11 @@ def decide(user,pk,approve,note):
         if current['digest']!=request.source_digest:raise ValidationError('POD or recovery evidence changed. Reject and prepare a fresh request.')
         if PaymentAllocation.objects.filter(freight_bill=bill,payment__status__in=['proposed','approved']).exists():
             raise ValidationError('Cancel/review the existing pending payment allocations before approving recovery; allocations are never silently changed.')
+        check_date(bill,request.on)
         gl.check_open(request.on)
         if request.amount:
             request.journal=gl.post(user,f'freight-recovery:{request.pk}',request.on,None,f'Freight recovery · {bill.bill_number}',
-                [(gl.acct('ap_freight'),request.amount,0,bill.transporter,request.reason),(gl.acct('freight_out'),0,request.amount,None,request.reason)])
+                [(gl.acct('ap_freight'),max(request.amount,ZERO),max(-request.amount,ZERO),bill.transporter,request.reason),(gl.acct('freight_out'),max(-request.amount,ZERO),max(request.amount,ZERO),None,request.reason)])
     request.status='approved' if approve else 'rejected';request.reviewed_by=user;request.reviewed_at=timezone.now();request.review_note=note
     request.full_clean();request.save();_log(user,request,'Freight recovery '+request.status,note)
     return request

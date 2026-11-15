@@ -134,6 +134,7 @@ urlpatterns += [
     path('drivers/<int:pk>/edit/', lv.driver_form, name='driver_edit'),
     path('dispatch/', lv.dispatch_board, name='dispatch_board'),
     path('dispatch/plan/<int:order_pk>/', lv.dispatch_new, name='dispatch_new'),
+    path('dispatch/<int:pk>/pod-correction/<str:action>/', lv.pod_correction_action, name='pod_correction_action'),
     path('dispatch/<int:pk>/', lv.dispatch_detail, name='dispatch_detail'),
     path('dispatch/<int:pk>/do/<str:action>/', lv.dispatch_action, name='dispatch_action'),
     path('dispatch/<int:pk>/print/<str:doc>/', lv.dispatch_print, name='dispatch_print'),

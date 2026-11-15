@@ -1,5 +1,6 @@
 """Logistics screens: vehicles & drivers, gate & dispatch board, truck page with one action per step, weighment slip / gate pass, POD."""
 import re
+import uuid
 from .gst import inr
 from decimal import Decimal, InvalidOperation
 
@@ -220,7 +221,14 @@ def dispatch_detail(request, pk):
     at = flow.index(d.status) if d.status in flow else -1
     steps = [(labels[i], 'cancelled' if d.status == 'cancelled' else 'done' if i < at else 'current' if i == at else 'todo') for i in range(len(flow))]
     u = request.user
+    from . import pod
+    corrections=list(d.pod_corrections.select_related('dispatch__site','created_by','reviewed_by')[:50])
+    for item in corrections:
+        item.can_decide=pod.can_decide(u,item)
+        item.can_cancel=item.status=='requested' and (u.pk==item.created_by_id or u.is_superuser)
     return render(request, 'erp/dispatch_detail.html', {
+        'pod_corrections':corrections,'pod_key':uuid.uuid4(),'pod_digest':pod.digest(pod.snapshot(d)) if d.status=='delivered' else '',
+        'can_correct_pod':d.status=='delivered' and u.has_perm('erp.pod_dispatch') and not d.pod_corrections.filter(status='requested').exists(),
         'title': d.number, 'd': d, 'lines': lines, 'weighments': weighments, 'steps': steps, 'checks': L.GATE_CHECKS,
         'vehicle_problems': L.vehicle_problems(d.vehicle, exclude=d.pk) if d.status == 'planned' else [],
         'invoice': getattr(d, 'invoice', None), 'net': d.net_kg, 'loaded_mt': sum(((l.unit_kg() or 0) * l.quantity for l in lines), Decimal('0')) / 1000,
@@ -263,7 +271,7 @@ def dispatch_action(request, pk, action):
                 if len(data) > 5 * 1024 * 1024 or not kind:
                     raise ValidationError('POD file must be a PDF, PNG, JPEG or WebP up to 5 MB.')
                 file = (data, kind)
-            L.deliver(u, pk, P.get('received_by', ''), normalise_mobile(P.get('receiver_mobile', '')), P.get('shortage') or 0, P.get('damaged') or 0, P.get('notes', ''), file)
+            L.deliver(u, pk, P.get('received_by', ''), P.get('receiver_mobile', ''), P.get('shortage') or 0, P.get('damaged') or 0, P.get('notes', ''), file)
             msg = 'Delivery recorded.'
         elif action == 'cancel':
             L.cancel(u, pk, P.get('reason', '')); msg = 'Dispatch cancelled.'
@@ -307,3 +315,23 @@ def dispatch_pod(request, pk):
     response['X-Content-Type-Options'] = 'nosniff'
     response['Cache-Control'] = 'private, no-store'
     return response
+
+
+@login_required
+@require_POST
+def pod_correction_action(request,pk,action):
+    from . import pod
+    from .models import PODCorrection
+    permitted(request.user,'view_dispatch')
+    get_object_or_404(scope(Dispatch.objects.all(),request.user),pk=pk)
+    data=request.POST
+    try:
+        if action=='propose':pod.propose(request.user,pk,data,data.get('reason'),data.get('request_key'),data.get('evidence',''))
+        elif action in ['approve','reject','cancel']:
+            raw=data.get('correction','')
+            item=get_object_or_404(PODCorrection,dispatch_id=pk,pk=raw if raw.isascii() and raw.isdecimal() else 0)
+            pod.decide(request.user,item.pk,action,data.get('note',''))
+        else:raise Http404
+    except ValidationError as error:messages.error(request,' '.join(error.messages))
+    else:messages.success(request,'POD correction recorded. Freight and customer accounting remain separate reviewed documents.')
+    return redirect('dispatch_detail',pk=pk)

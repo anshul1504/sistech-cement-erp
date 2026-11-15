@@ -23,6 +23,7 @@ class Workflow:
 
 
 CATALOG = {
+    'pod_correction': Workflow(M.PODCorrection,'approve_pod_correction','view_dispatch',{'status':'requested'},'dispatch.site',(), 'dispatch_detail'),
     'freight_recovery': Workflow(M.FreightRecoveryAdjustment,'approve_freightbill','view_freightbill',{'status':'requested'},'',('created_by_id','bill.created_by_id'),'freight_bill_detail'),
     'journal_reversal': Workflow(M.JournalReversalRequest,'approve_journalentry','view_journalentry',{'status':'requested'},'',('created_by_id','entry.created_by_id'),'journal_detail'),
     'recipe': Workflow(M.Recipe,'approve_recipe','view_recipe',{'status':'draft'},'',route='recipes'),
@@ -127,6 +128,9 @@ def source(kind, pk, lock=False):
         makers.update(D.order_makers(obj))
     if kind in {'scheme_rules','beat_plan'}:
         makers.update(obj.contributors.values_list('pk',flat=True))
+    if kind == 'pod_correction':
+        from erp import pod
+        makers.update(pod.makers(obj))
     if kind == 'weight_exception':
         from erp.logistics import exception_makers
         makers.update(exception_makers(obj))
@@ -206,6 +210,7 @@ def source_url(task):
     route = CATALOG[task['kind']].route
     if not route:
         return reverse('grn_detail',args=[task['object'].grn_id])
+    if task['kind']=='pod_correction':return reverse('dispatch_detail',args=[task['object'].dispatch_id])
     if task['kind']=='freight_recovery':return reverse('freight_bill_detail',args=[task['object'].bill_id])
     if task['kind']=='journal_reversal':return reverse('journal_detail',args=[task['object'].entry_id])
     if route in {'scheme_payouts','mfg_partners','influencer_usage','recipes'}:

@@ -75,7 +75,7 @@ def source_gaps(as_of):
     ]:
         expected.extend((f'{prefix}:{pk}', label) for pk, label in model.objects.filter(**query).values_list('pk', 'code' if model is FixedAsset else 'bill_number' if model is FreightBill else 'number'))
     expected.extend((f'freight-recovery:{pk}', f'Recovery {pk} / {reference}') for pk,reference in
-        FreightRecoveryAdjustment.objects.filter(status='approved',on__lte=as_of,amount__gt=0).values_list('pk','bill__bill_number'))
+        FreightRecoveryAdjustment.objects.filter(status='approved',on__lte=as_of).exclude(amount=0).values_list('pk','bill__bill_number'))
     for movement in StockMovement.objects.filter(created_at__date__lte=as_of, kind__in=gl.STOCK_MAP).exclude(unit_cost=None):
         if movement.value:
             expected.append((f'stk:{movement.pk}', movement.source))

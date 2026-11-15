@@ -110,3 +110,10 @@ Recipe approval requires active output/materials, valid basis/yield and finite p
 ## Manual journal reversal requests
 
 Original posted manual journals now use a request → independent review → linked reversal workflow. The existing company-finance `approve_journalentry` policy covers approval/rejection of a reversal request; no new general permission or role grant is introduced. Requester and original voucher maker are retained as makers for direct/delegated review. The actual deputy is request reviewer and reversal approver; use references identify `REVREQ-{id}`. A reversal creator remains the requester. Closed-period or evidence failures roll back use and posting together. Routing targets the pending request and links back to its original journal, not an unrelated request ID interpreted as a journal ID. See [manual reversal verification](JOURNAL_REVERSALS.md).
+
+
+## POD evidence correction review
+
+The current inventory contains **36 configured action types**. `approve_pod_correction` is a dedicated site-scoped permission with existing dispatch read access for both principal and deputy. It does not reuse freight finance authority or grant plant access. The role matrix exposes approval alongside POD recording; the default Logistics manager template includes it for future template application. This milestone does not change existing staff/group grants.
+
+Requesters, original POD recorder, dispatch creator and creators of previously approved POD corrections are makers. Legacy original POD audit actors are included where retained; unknown original attribution stays unknown. Neither direct authority nor a principal/deputy grant can override these exclusions. Request creation changes no operational or financial source amounts. A successful independent approval retains the actual actor/time and the current evidence digest; any audit/source failure rolls back both the correction and delegated-use receipt. Source routing, eligible unavailable-staff handoff and My Work use the same stage and maker rules.

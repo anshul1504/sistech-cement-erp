@@ -367,16 +367,14 @@ def deliver(user, pk, received_by, receiver_mobile='', shortage=0, damaged=0, no
     _need(user, 'pod_dispatch')
     d = _lock(pk, user)
     _state(d, 'gate_out')
-    if not (received_by or '').strip():
-        raise ValidationError("Enter the receiver's name.")
-    shortage, damaged = Decimal(str(shortage or 0)), Decimal(str(damaged or 0))
-    loaded = sum((l.quantity for l in d.lines.all()), Decimal('0'))
-    if shortage < 0 or damaged < 0 or shortage + damaged > loaded:
-        raise ValidationError(f'Shortage + damaged cannot be more than the {qtxt(loaded)} units loaded.')
-    if (shortage or damaged) and not (notes or '').strip():
-        raise ValidationError('Describe the shortage / damage — it is used for the claim.')
-    d.status, d.delivered_at = 'delivered', timezone.now()
-    d.received_by, d.receiver_mobile, d.shortage_qty, d.damaged_qty, d.pod_notes = received_by.strip()[:80], (receiver_mobile or '')[:10], shortage, damaged, (notes or '').strip()[:200]
+    from .pod import details,validate_file
+    from accounts.security import access_allowed
+    if not access_allowed(user):raise PermissionDenied
+    file=validate_file(file)
+    values=details(d,received_by,receiver_mobile,shortage,damaged,notes)
+    shortage,damaged=Decimal(values['shortage_qty']),Decimal(values['damaged_qty'])
+    d.status,d.delivered_at,d.pod_recorded_by='delivered',timezone.now(),user
+    for field,value in values.items():setattr(d,field,Decimal(value) if field in ['shortage_qty','damaged_qty'] else value)
     if file:
         d.pod_file, d.pod_file_type = file
     d.save()

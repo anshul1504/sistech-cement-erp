@@ -163,7 +163,8 @@ class RecoveryTests(TestCase):
         req.refresh_from_db();self.assertIsNone(req.journal_id)
         self.assertTrue(R.clear_for_payment(bill))
         Dispatch.objects.filter(pk=trip.pk).update(shortage_qty=3)
-        with self.assertRaisesMessage(ValidationError,'Recovery decreased'):R.basis(bill)
+        self.assertTrue(R.basis(bill)['changed'])
+        self.assertEqual(R.basis(bill)['amount'],0)
 
     def test_historical_cutoff_and_missing_recovery_posting(self):
         from .models import JournalEntry

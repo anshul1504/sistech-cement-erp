@@ -1124,6 +1124,7 @@ class Dispatch(models.Model):
     gate_out_at = models.DateTimeField(null=True, blank=True)
     gate_out_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
     delivered_at = models.DateTimeField(null=True, blank=True)
+    pod_recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.PROTECT,related_name="+")
     received_by = models.CharField(max_length=80, blank=True)
     receiver_mobile = models.CharField(max_length=10, blank=True)
     shortage_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
@@ -1143,7 +1144,7 @@ class Dispatch(models.Model):
         ordering = ['-created_at']
         verbose_name_plural = 'dispatches'
         permissions = [('gate_dispatch', 'Gate-in / gate-out trucks'), ('weigh_dispatch', 'Record weighments'), ('load_dispatch', 'Record loading'),
-                       ('approve_weight_exception', 'Approve weight / overload exceptions'), ('pod_dispatch', 'Record proof of delivery')]
+                       ('approve_weight_exception', 'Approve weight / overload exceptions'), ('pod_dispatch', 'Record proof of delivery'), ('approve_pod_correction', 'Approve delivery evidence corrections')]
 
     def __str__(self): return self.number
 
@@ -3247,7 +3248,7 @@ class FreightRecoveryAdjustment(models.Model):
     bill = models.ForeignKey(FreightBill,on_delete=models.PROTECT,related_name='recovery_adjustments')
     on = models.DateField()
     reason = models.CharField(max_length=300)
-    amount = models.DecimalField(max_digits=14,decimal_places=2,validators=MONEY)
+    amount = models.DecimalField(max_digits=14,decimal_places=2)
     recovery_total = models.DecimalField(max_digits=20,decimal_places=2,validators=MONEY)
     payable_after = models.DecimalField(max_digits=14,decimal_places=2,validators=MONEY)
     evidence = models.JSONField(default=dict)
@@ -3266,3 +3267,24 @@ class FreightRecoveryAdjustment(models.Model):
         constraints=[models.UniqueConstraint(fields=['bill'],condition=models.Q(status='requested'),name='one_pending_freight_recovery')]
 
     def __str__(self):return f'Freight recovery {self.pk} · {self.bill.bill_number}'
+
+
+class PODCorrection(models.Model):
+    dispatch = models.ForeignKey(Dispatch,on_delete=models.PROTECT,related_name='pod_corrections')
+    before = models.JSONField()
+    after = models.JSONField()
+    source_digest = models.CharField(max_length=64)
+    reason = models.CharField(max_length=300)
+    request_key = models.UUIDField(unique=True)
+    status = models.CharField(max_length=10,default='requested',choices=[('requested','Review pending'),('approved','Approved'),('rejected','Rejected'),('cancelled','Cancelled')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL,null=True,blank=True,on_delete=models.PROTECT,related_name='+')
+    reviewed_at = models.DateTimeField(null=True,blank=True)
+    review_note = models.CharField(max_length=300,blank=True)
+
+    class Meta:
+        ordering=['-created_at','-pk']
+        constraints=[models.UniqueConstraint(fields=['dispatch'],condition=models.Q(status='requested'),name='one_pending_pod_correction')]
+
+    def __str__(self):return f'POD correction {self.pk} · {self.dispatch.number}'

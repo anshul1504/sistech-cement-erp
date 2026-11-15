@@ -49,6 +49,7 @@ def review_state(bill,ignore_recovery=False):
         invoice_quantity=sum((row.quantity for row in invoice.lines.all()),Decimal(0)) if invoice else Decimal(0)
         recovery=shortage_value(trip)
         extra=allowed_extra(trip,line.detention_days,line.extra)
+        if trip.pod_corrections.filter(status='requested').exists():issues.append(f'{trip.number}: a POD correction is pending independent review.')
         if trip.transporter_id!=bill.transporter_id or trip.freight_payable_by!='company' or trip.status not in ['gate_out','delivered']:
             issues.append(f'{trip.number}: this trip is no longer billable on this claim.')
         if trip.freight_amount!=line.contracted:issues.append(f'{trip.number}: contracted freight changed after entry.')
@@ -62,7 +63,8 @@ def review_state(bill,ignore_recovery=False):
             freight_rate_id=trip.freight_rate_id,contract=str(trip.freight_amount),claimed=str(line.claimed),extra=str(line.extra),days=line.detention_days,reason=line.extra_reason,
             recorded_contract=str(line.contracted),recorded_extra=str(line.allowed_extra),recorded_recovery=str(line.shortage_recovery),
             current_extra=str(extra),current_recovery=str(recovery),shortage=str(trip.shortage_qty),damaged=str(trip.damaged_qty),
-            delivered_at=str(trip.delivered_at),receiver=trip.received_by,pod_note=trip.pod_notes))
+            delivered_at=str(trip.delivered_at),receiver=trip.received_by,receiver_mobile=trip.receiver_mobile,pod_note=trip.pod_notes,
+            pod_corrections=list(trip.pod_corrections.filter(status='approved').order_by('pk').values_list('pk',flat=True))))
     lines=list(bill.lines.all())
     expected=dict(contracted=sum((l.contracted for l in lines),ZERO),claimed=sum((l.claimed for l in lines),ZERO),
         extras=sum((l.extra for l in lines),ZERO),deductions=sum((l.shortage_recovery for l in lines),ZERO),

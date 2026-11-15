@@ -137,6 +137,7 @@
       </details>{% endif %}
     </section>
 
+    {% include 'erp/_pod_corrections.html' %}
     {% if history %}<section class="org-card org-view acc-wide"><header class="acc-card-head"><h2>History</h2></header>
       <ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor.get_full_name|default:e.actor.username }}</small><small>{{ e.created_at|date:'d M, H:i' }}</small></li>{% endfor %}</ul></section>{% endif %}
   </div>
