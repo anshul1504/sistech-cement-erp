@@ -11,29 +11,35 @@ from django.views.decorators.http import require_POST
 
 from . import sourcing as SC
 from .models import Partner, Site, Product, SupplyContract, CUSTOMER_KINDS
-from .services import permitted
+from accounts.delegation import approvable
+from .services import permitted, scope
 
 
 @login_required
 def partners(request):
     permitted(request.user, 'view_supplycontract')
+    site_ids = None if request.user.is_superuser else list(Site.objects.filter(siteaccess__user=request.user).values_list('pk', flat=True))
     rows = []
     for p in Partner.objects.filter(manufacturing_partner=True).order_by('name'):
-        sc = SC.scorecard(p)
+        sc = SC.scorecard(p, site_ids=site_ids)
+        if not sc['rows'] and not request.user.is_superuser:
+            continue
         rows.append({'partner': p, 'sites': sc['rows'], 'since': sc['since'],
                      'capacity': sum((r['site'].capacity_tpa or 0 for r in sc['rows']), Decimal('0'))})
-    pending = SupplyContract.objects.filter(status='draft').select_related('partner', 'site', 'product', 'created_by')
+    pending = list(scope(SupplyContract.objects.filter(status='draft').select_related('partner', 'site', 'product', 'created_by'), request.user))
+    eligible = set(approvable(SupplyContract.objects.filter(pk__in=[c.pk for c in pending]), request.user, 'approve_supplycontract').values_list('pk', flat=True))
+    for contract in pending:
+        contract.can_decide = contract.pk in eligible
     return render(request, 'erp/mfg_partners.html', {'title': 'Manufacturing partners', 'rows': rows, 'pending': pending,
                                                      'total_capacity': sum((r['capacity'] for r in rows), Decimal('0')),
-                                                     'can_add': request.user.has_perm('erp.add_supplycontract'),
-                                                     'can_decide': request.user.has_perm('erp.approve_supplycontract')})
+                                                     'can_add': request.user.has_perm('erp.add_supplycontract')})
 
 
 @login_required
 def contract_new(request):
     permitted(request.user, 'add_supplycontract')
     partners = list(Partner.objects.filter(manufacturing_partner=True, active=True).order_by('name'))
-    sites = list(Site.objects.filter(active=True, operated_by__isnull=False).select_related('operated_by').order_by('code'))
+    sites = list(Site.objects.filter(active=True, operated_by__isnull=False).filter(**({} if request.user.is_superuser else {'siteaccess__user': request.user})).select_related('operated_by').order_by('code'))
     products = list(Product.objects.filter(active=True, category__in=['Cement', 'TMT']).order_by('category', 'name'))
     P, errors = request.POST, []
     if request.method == 'POST':
@@ -58,6 +64,7 @@ def contract_new(request):
 @login_required
 @require_POST
 def contract_decide(request, pk, decision):
+    get_object_or_404(scope(SupplyContract.objects.all(), request.user), pk=pk)
     try:
         c = SC.decide_contract(request.user, pk, decision == 'approve', request.POST.get('note', ''))
         messages.success(request, f'{c.product.code} at {c.site.code}: {c.get_status_display().lower()}.')
@@ -79,6 +86,6 @@ def advisor(request):
         qty = Decimal(G.get('qty') or 0)
     except InvalidOperation:
         qty = Decimal('0')
-    opts = SC.options(product, qty or 1, district) if product and district else None
+    opts = SC.options(product, qty or 1, district, site_ids=None if request.user.is_superuser else list(Site.objects.filter(siteaccess__user=request.user).values_list('pk', flat=True))) if product and district else None
     return render(request, 'erp/sourcing_advisor.html', {'title': 'Sourcing advisor', 'products': products, 'dealers': dealers, 'product': product, 'dealer': dealer,
                                                          'district': district, 'qty': qty, 'opts': opts})

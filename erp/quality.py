@@ -10,6 +10,7 @@ Controls enforced here (screens and the future API both call these functions):
 - a failing result recorded after release (e.g. 28-day strength) raises an audit alert for investigation;
 - released output enters stock once at the batch's actual cost.
 """
+from accounts.delegation import authorize, can_approve
 from datetime import timedelta
 from decimal import Decimal
 
@@ -85,9 +86,9 @@ def record_result(user, production_pk, spec, value, equipment=None, sample_ref='
 @transaction.atomic
 def release(user, pk, decision='release', note=''):
     """decision: 'release' (all required results pass), 'deviation' (out of spec, justified) or 'reject'."""
-    _need(user, 'release_production')
     p = Production.objects.select_for_update().select_related('site', 'product').get(pk=pk)
     require_site(user, p.site)
+    authorize(user, 'release_production', p.site, makers=(p.created_by_id, p.completed_by_id), reference=p.batch)
     note = (note or '').strip()
     if p.status != 'Quality hold':
         raise ValidationError('Batch must be on quality hold.')

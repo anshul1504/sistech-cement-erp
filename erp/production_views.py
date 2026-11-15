@@ -1,4 +1,5 @@
 """Production & quality screens: process orders, recipes, shift log, packing, lab results, equipment, COA and batch trace."""
+from accounts.delegation import can_approve
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -102,7 +103,7 @@ def production_detail(request, pk):
         'can': {'issue': p.status in ('Planned', 'In progress') and u.has_perm('erp.complete_production'),
                 'complete': p.status in ('Planned', 'In progress') and u.has_perm('erp.complete_production'),
                 'test': p.status in ('In progress', 'Quality hold', 'Released') and u.has_perm('erp.add_qualitytest'),
-                'release': p.status == 'Quality hold' and u.has_perm('erp.release_production') and u.pk not in (p.created_by_id, p.completed_by_id),
+                'release': p.status == 'Quality hold' and can_approve(u, 'release_production', p.site, makers=(p.created_by_id, p.completed_by_id)) and u.pk not in (p.created_by_id, p.completed_by_id),
                 'cancel': p.status == 'Planned' and not p.issues.exists() and u.has_perm('erp.add_production')}})
 
 

@@ -147,5 +147,5 @@ def initialize_roles(update=False):
 def order_permission(user, kind, action, site=None, makers=()):
     if action == 'approve' and site is not None:
         from .delegation import can_approve
-        return can_approve(user, f'approve_{"sales" if kind == "Sale" else "purchase"}_order', site, makers=makers)
+        return user.pk not in makers and can_approve(user, f'approve_{"sales" if kind == "Sale" else "purchase"}_order', site, makers=makers)
     return user.has_perm(f'erp.{action}_{"sales" if kind == "Sale" else "purchase"}_order')

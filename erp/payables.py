@@ -11,6 +11,7 @@ GSTIN + date + amount, is refused. All amounts are INR.
 Debit notes (FR-PUR-010) link to the GRN. A 'return' sends accepted stock back (stock reduces); its value counts only for
 quantity the supplier has already billed, so nothing is claimed twice. Other reasons are value claims without stock movement.
 """
+from accounts.delegation import authorize, can_approve
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -185,9 +186,9 @@ def create_invoice(user, supplier, header, rows, notes=''):
 
 @transaction.atomic
 def decide(user, pk, decision, note):
-    _need(user, 'approve_supplierinvoice')
     inv = SupplierInvoice.objects.select_for_update().select_related('supplier', 'site').get(pk=pk)
     require_site(user, inv.site)
+    authorize(user, 'approve_supplierinvoice', inv.site, makers=(inv.created_by_id,), reference=inv.number)
     note = (note or '').strip()
     if inv.status != 'exception':
         raise ValidationError('Only invoices in the exception queue need a decision.')

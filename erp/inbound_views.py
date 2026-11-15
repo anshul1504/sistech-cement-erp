@@ -1,4 +1,5 @@
 """Inbound screens: receiving board, gate-in against a PO, weighbridge, GRN posting, quality release, GRN print."""
+from accounts.delegation import can_approve
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -110,7 +111,7 @@ def grn_detail(request, pk):
         'title': g.number, 'g': g, 'lines': lines, 'weighments': g.weighments.select_related('captured_by'), 'weigh_next': weigh_next, 'variance_reason': saved.get('variance_reason', ''),
         'history': AuditEvent.objects.filter(reference=g.number).select_related('actor').order_by('-created_at')[:12],
         'can': {'weigh': u.has_perm('erp.weigh_dispatch'), 'post': u.has_perm('erp.post_goodsreceipt'), 'cancel': u.has_perm('erp.add_goodsreceipt'),
-                'release': u.has_perm('erp.release_goodsreceipt') and g.posted_by_id != u.pk}})
+                'release': can_approve(u, 'release_goodsreceipt', g.site, makers=(g.posted_by_id,)) and g.posted_by_id != u.pk}})
 
 
 @login_required

@@ -11,6 +11,7 @@ Controls enforced here (screens and the future API both call these functions):
   user other than the GRN poster releases it;
 - the PO moves to Part received / Completed automatically.
 """
+from accounts.delegation import authorize, can_approve
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -246,10 +247,10 @@ def refresh_order(order):
 @transaction.atomic
 def release(user, line_pk, accept, reject, note):
     """Quality decision on held quantity. Accepted part enters stock; rejected part goes back to the supplier (debit note)."""
-    _need(user, 'release_goodsreceipt')
     l = GRNLine.objects.select_for_update().select_related('grn__site', 'grn__supplier', 'product', 'po_line').get(pk=line_pk)
     require_site(user, l.grn.site)
     g = l.grn
+    authorize(user, 'release_goodsreceipt', g.site, makers=(g.posted_by_id,), reference=g.number)
     note = (note or '').strip()
     accept, reject = Decimal(accept or 0), Decimal(reject or 0)
     if g.status != 'posted' or not l.hold:

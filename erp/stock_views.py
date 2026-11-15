@@ -135,10 +135,10 @@ def transfer_detail(request, pk):
     return render(request, 'erp/transfer_detail.html', {
         'title': t.number, 't': t, 'lines': lines, 'loss': ST.transit_loss(t) if t.status in ('discrepancy', 'received') else None,
         'history': AuditEvent.objects.filter(reference=t.number).select_related('actor').order_by('-created_at')[:12],
-        'can': {'decide': t.status == 'requested' and u.has_perm('erp.approve_stocktransfer') and t.created_by_id != u.pk and (u.is_superuser or t.from_site_id in mine),
+        'can': {'decide': t.status == 'requested' and can_approve(u, 'approve_stocktransfer', t.from_site, makers=(t.created_by_id,)) and t.created_by_id != u.pk and (u.is_superuser or t.from_site_id in mine),
                 'dispatch': t.status == 'approved' and u.has_perm('erp.dispatch_stocktransfer') and (u.is_superuser or t.from_site_id in mine),
                 'receive': t.status == 'in_transit' and u.has_perm('erp.receive_stocktransfer') and t.dispatched_by_id != u.pk and (u.is_superuser or t.to_site_id in mine),
-                'resolve': t.status == 'discrepancy' and u.has_perm('erp.approve_stocktransfer') and u.pk not in (t.received_by_id, t.dispatched_by_id) and (u.is_superuser or t.to_site_id in mine),
+                'resolve': t.status == 'discrepancy' and can_approve(u, 'approve_stocktransfer', t.to_site, makers=(t.created_by_id, t.received_by_id, t.dispatched_by_id)) and u.pk not in (t.created_by_id, t.received_by_id, t.dispatched_by_id) and (u.is_superuser or t.to_site_id in mine),
                 'cancel': t.status in ('requested', 'approved') and u.has_perm('erp.add_stocktransfer') and (u.is_superuser or t.from_site_id in mine)}})
 
 

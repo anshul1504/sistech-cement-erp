@@ -1,4 +1,5 @@
 """Customer returns (RMA) screens."""
+from accounts.delegation import can_approve
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
@@ -80,11 +81,11 @@ def return_detail(request, pk):
     return render(request, 'erp/return_detail.html', {
         'title': r.number, 'r': r, 'lines': lines, 'credit_value': sum((l.value for l in lines), Decimal('0')),
         'history': AuditEvent.objects.filter(reference=r.number).select_related('actor').order_by('-created_at')[:12],
-        'can': {'decide': r.status == 'requested' and u.has_perm('erp.approve_returnrequest') and r.created_by_id != u.pk,
+        'can': {'decide': r.status == 'requested' and can_approve(u, 'approve_returnrequest', r.site, makers=(r.created_by_id,)) and r.created_by_id != u.pk,
                 'pickup': r.status == 'approved' and u.has_perm('erp.inspect_returnrequest'),
                 'inspect': r.status in ('approved', 'transit') and u.has_perm('erp.inspect_returnrequest'),
                 'credit': r.status == 'inspected' and u.has_perm('erp.add_creditnote') and u.has_perm('erp.access_company_finance') and u.pk not in [r.created_by_id, r.inspected_by_id],
-                'cancel': r.status in ('requested', 'approved') and ((u.pk == r.created_by_id and u.has_perm('erp.add_returnrequest')) or u.has_perm('erp.approve_returnrequest'))}})
+                'cancel': r.status in ('requested', 'approved') and ((u.pk == r.created_by_id and u.has_perm('erp.add_returnrequest')) or can_approve(u, 'approve_returnrequest', r.site, makers=(r.created_by_id,)))}})
 
 
 @login_required

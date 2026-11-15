@@ -1,4 +1,5 @@
 """Site-scoped customer returns; physical custody remains separate from financial credit."""
+from accounts.delegation import authorize, can_approve
 import hashlib
 import json
 from decimal import Decimal
@@ -105,8 +106,8 @@ def request_return(user, invoice, reason, description, quantities, complaint=Non
 
 @transaction.atomic
 def decide(user, pk, approve, note=''):
-    permitted(user, 'approve_returnrequest')
     r = _lock(user, pk)
+    authorize(user, 'approve_returnrequest', r.site, makers=(r.created_by_id,), reference=r.number)
     if r.status != 'requested': raise ValidationError('Only a waiting return can be decided.')
     if r.created_by_id == user.pk: raise ValidationError('A different user must approve the return (maker-checker).')
     if not (note or '').strip(): raise ValidationError('Record the review finding for this decision.')
@@ -192,7 +193,8 @@ def credit(user,pk,notes=''):
 @transaction.atomic
 def cancel(user,pk,reason):
     r=_lock(user,pk)
-    if not (user.has_perm('erp.approve_returnrequest') or (r.created_by_id==user.pk and user.has_perm('erp.add_returnrequest'))): raise PermissionDenied
+    if not (r.created_by_id==user.pk and user.has_perm('erp.add_returnrequest')):
+        authorize(user, 'approve_returnrequest', r.site, makers=(r.created_by_id,), reference=r.number)
     if r.status not in ('requested','approved'): raise ValidationError('Picked-up or inspected goods cannot disappear through cancellation. Finish inspection and credit/disposition.')
     if not (reason or '').strip(): raise ValidationError('Record the cancellation reason.')
     r.status='cancelled';r.save();_log(user,r,'Return cancelled',reason)

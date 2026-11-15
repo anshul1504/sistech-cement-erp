@@ -320,3 +320,175 @@ class DelegationTests(TestCase):
         with self.assertRaisesMessage(ValidationError, 'maker-checker'):
             RW.decide_payout(self.deputy, payout.pk, True)
         self.assertFalse(ApprovalDelegationUse.objects.exists())
+
+    def test_purchase_request_rfq_award_retains_proxy_maker_for_po_approval(self):
+        from erp import procurement as P
+        pr = P.save_request(self.maker, self.site, self.today+timedelta(days=2), 'manual', 'normal',
+                            'Verification material', [(self.bag,D(10),D(350),'')])
+        P.request_action(self.maker, pr.pk, 'submit')
+        self.grant('approve_purchaserequest')
+        P.request_action(self.deputy, pr.pk, 'approve')
+        pr.refresh_from_db()
+        self.assertEqual(pr.decided_by_id, self.deputy.pk)
+        line = pr.lines.get()
+        rfq = P.create_rfq(self.maker, pr, [self.supplier], self.today+timedelta(days=1), '', {line:D(10)})
+        quote = P.save_quote(self.maker, rfq, self.supplier, dict(reference='DEL-Q',quote_date=self.today,
+            valid_until=self.today+timedelta(days=3),lead_time_days=1,payment_terms_days=30,freight=D(0),notes=''),
+            {rfq.lines.get():(D(350),D(18))})
+        award_grant = self.grant('award_rfq')
+        po = P.award(self.deputy, rfq.pk, quote.pk)
+        DA.revoke(self.admin, award_grant.pk, 'Cover ended; source maker evidence remains')
+        transition_order(self.deputy, po.pk, 'submit')
+        self.assertEqual(set(DA.order_makers(po)), {self.deputy.pk,self.checker.pk})
+        self.assertFalse(DA.approvable(Order.objects.filter(pk=po.pk),self.checker,'approve_purchase_order').exists())
+        with self.assertRaisesMessage(ValidationError,'maker-checker'):
+            transition_order(self.checker,po.pk,'approve')
+        transition_order(self.maker,po.pk,'approve')
+        po.refresh_from_db()
+        self.assertEqual(po.approved_by_id,self.maker.pk)
+
+    def inbound_receipt(self, hold=0):
+        from erp import inbound as IB
+        po = self.order(kind='Purchase',qty=10)
+        transition_order(self.checker,po.pk,'approve')
+        g = IB.gate_in(self.maker,po,dict(vehicle_number='MP04GA1234',challan_number='DEL-IN'),{po.lines.get():D(10)})
+        line = g.lines.get()
+        IB.post(self.maker,g.pk,{line:dict(received=D(10),accepted=D(10)-D(hold),rejected=D(0),
+                                         damaged=D(0),hold=D(hold),reason='Lab review' if hold else '')})
+        line.refresh_from_db()
+        return line
+
+    def test_inbound_quality_release_is_delegated_once_and_principal_maker_is_denied(self):
+        from erp import inbound as IB
+        line = self.inbound_receipt(hold=2)
+        grant = self.grant('release_goodsreceipt')
+        IB.release(self.deputy,line.pk,D(2),D(0),'Independent lab report')
+        line.refresh_from_db()
+        self.assertEqual(line.qc_by_id,self.deputy.pk)
+        self.assertEqual(grant.uses.count(),1)
+        with self.assertRaises(ValidationError):
+            IB.release(self.deputy,line.pk,D(2),D(0),'Retry')
+        self.assertEqual(grant.uses.count(),1)
+
+    def test_production_quality_release_preserves_material_and_output_values(self):
+        from erp import production as PR, quality as QC
+        from erp.models import QualityTest
+        move_stock(self.maker,self.site,self.raw,D(10),'delegate-production-input','Opening',unit_cost=D(100))
+        recipe = PR.save_recipe(self.maker,self.bulk,[(self.raw,D(1),D(0))])
+        PR.approve_recipe(self.checker,recipe.pk)
+        batch = PR.create_order(self.maker,self.site,self.bulk,D(5),'A')
+        PR.issue(self.maker,batch.pk,self.raw,D(5))
+        PR.complete(self.maker,batch.pk,D(5))
+        QualityTest.objects.create(site=self.site,production=batch,test_name='Verification',result='Pass',
+                                   disposition='Pass',created_by=self.maker)
+        grant = self.grant('release_production')
+        QC.release(self.deputy,batch.pk)
+        batch.refresh_from_db()
+        self.assertEqual((batch.status,batch.released_by_id),('Released',self.deputy.pk))
+        self.assertEqual(StockMovement.objects.get(source=f'production:{batch.pk}').value,D(500))
+        self.assertEqual(grant.uses.count(),1)
+
+    def test_return_and_rule_review_use_dated_site_authority(self):
+        from erp import returns as R
+        from erp.test_schemes import draft_scheme
+        invoice = invoice_fixture(self,[(self.bag,D(350))])
+        request = R.request_return(self.maker,invoice,'damaged','Verification damaged bag',{invoice.lines.get():D(1)})
+        self.grant('approve_returnrequest')
+        R.decide(self.deputy,request.pk,True,'Invoice quantity verified')
+        request.refresh_from_db()
+        self.assertEqual(request.decided_by_id,self.deputy.pk)
+        version = draft_scheme(self)
+        schemes.submit(self.maker,version.pk,'Independent review required')
+        self.grant('approve_schemeversion')
+        schemes.decide(self.deputy,version.pk,True,'Independent policy review')
+        version.refresh_from_db()
+        self.assertEqual(version.decided_by_id,self.deputy.pk)
+
+    def test_beat_review_checks_all_contributors_and_existing_team_access(self):
+        from erp import beats
+        self.root=beats.create_territory(self.maker,dict(site=self.site,code='DEL-MP',name='MP',kind='state',parent='',state='23'))
+        self.district=beats.create_territory(self.maker,dict(site=self.site,code='DEL-BPL',name='Bhopal',kind='district',parent=self.root,state=''))
+        self.area=beats.create_territory(self.maker,dict(site=self.site,code='DEL-AREA',name='Area',kind='area',parent=self.district,state=''))
+        self.assignment=beats.assign(self.maker,dict(territory=self.area,partner=self.customer,owner=self.maker,
+            starts_on=self.today,ends_on=None,note='Verification ownership'))
+        plan=beats.save_plan(self.maker,dict(site=self.site,owner=self.maker,on=self.today,title='Delegated route'))
+        beats.add_stop(self.maker,plan.pk,dict(assignment=self.assignment,sequence=1,purpose='visit',instructions='Verification'))
+        beats.submit_plan(self.maker,plan.pk,'Route checked')
+        self.grant('approve_beatplan')
+        plan.contributors.add(self.checker)
+        with self.assertRaisesMessage(ValidationError,'maker-checker'):
+            beats.decide_plan(self.deputy,plan.pk,True,'Cannot proxy a contributor')
+        plan.contributors.remove(self.checker)
+        beats.decide_plan(self.deputy,plan.pk,True,'Independent route review')
+        plan.refresh_from_db()
+        self.assertEqual(plan.approved_by_id,self.deputy.pk)
+        self.deputy.user_permissions.remove(Permission.objects.get(codename='view_team_beats'))
+        self.assertFalse(DA.can_approve(self.deputy,'approve_beatplan',self.site))
+
+    def test_supplier_invoice_exception_review_retains_delegated_approver(self):
+        from erp import payables as AP
+        line = self.inbound_receipt()
+        inv = AP.create_invoice(self.maker,self.supplier,dict(invoice_number='DEL-INV-1',invoice_date=self.today,
+            supplier_gstin=self.supplier.gstin,billed_taxable=D(3600),billed_tax=D(648),billed_total=D(4248)),
+            {line:(D(10),D(360),D(18))})
+        self.assertEqual(inv.status,'exception')
+        self.grant('approve_supplierinvoice')
+        AP.decide(self.deputy,inv.pk,'billed','Independent rate revision confirmed')
+        inv.refresh_from_db()
+        self.assertEqual(inv.decided_by_id,self.deputy.pk)
+
+    def test_transfer_approval_and_destination_discrepancy_use_distinct_site_grants(self):
+        SiteAccess.objects.create(user=self.maker,site=self.other)
+        SiteAccess.objects.create(user=self.checker,site=self.other)
+        SiteAccess.objects.create(user=self.deputy,site=self.other)
+        move_stock(self.maker,self.site,self.bag,D(10),'delegated-transfer-opening','Opening',unit_cost=100)
+        transfer=ST.request_transfer(self.maker,self.site,self.other,'Verification transfer',[(self.bag,D(5))])
+        self.grant('approve_stocktransfer')
+        ST.decide_transfer(self.deputy,transfer.pk,True,'Independent dispatch review')
+        line=transfer.lines.get()
+        ST.dispatch_transfer(self.maker,transfer.pk,{line.pk:D(5)},'MP04GA1234')
+        ST.receive_transfer(self.outsider,transfer.pk,{line.pk:D(4)},{line.pk:D(0)})
+        with self.assertRaises(PermissionDenied):
+            ST.resolve_transfer(self.deputy,transfer.pk,'Investigated shortage')
+        self.grant('approve_stocktransfer',site=self.other)
+        ST.resolve_transfer(self.deputy,transfer.pk,'Investigated shortage')
+        transfer.refresh_from_db()
+        self.assertEqual(transfer.resolved_by_id,self.deputy.pk)
+
+    def test_manufacturing_contract_writes_and_reports_are_site_scoped(self):
+        from erp import sourcing as SC
+        self.supplier.manufacturing_partner=True
+        self.supplier.save()
+        self.site.operated_by=self.supplier
+        self.site.save()
+        self.other.operated_by=self.supplier
+        self.other.save()
+        contract=SC.save_contract(self.maker,self.supplier,self.site,self.bag,D(300),self.today)
+        with self.assertRaises(PermissionDenied):
+            SC.save_contract(self.outsider,self.supplier,self.site,self.bulk,D(300),self.today)
+        with self.assertRaises(PermissionDenied):
+            SC.decide_contract(self.outsider,contract.pk,True)
+        self.grant('approve_supplycontract')
+        SC.decide_contract(self.deputy,contract.pk,True)
+        self.assertEqual(SC.scorecard(self.supplier,site_ids=[self.other.pk])['rows'][0]['contracts'],[])
+        self.assertEqual(SC.options(self.bag,1,'Bhopal',site_ids=[self.other.pk]),[])
+        force_login_recent(self.client,self.outsider)
+        response=self.client.get(reverse('mfg_partners'))
+        self.assertNotContains(response,self.site.name)
+        self.assertEqual(self.client.post(reverse('contract_decide',args=[contract.pk,'approve'])).status_code,404)
+
+    def test_transfer_creator_cannot_resolve_own_shortage_directly_or_by_proxy(self):
+        SiteAccess.objects.create(user=self.checker,site=self.other)
+        SiteAccess.objects.create(user=self.deputy,site=self.other)
+        move_stock(self.maker,self.site,self.bag,D(10),'creator-transfer-opening','Opening',unit_cost=100)
+        transfer=ST.request_transfer(self.checker,self.site,self.other,'Verification shortage',[(self.bag,D(5))])
+        ST.decide_transfer(self.admin,transfer.pk,True,'Independent review')
+        line=transfer.lines.get()
+        ST.dispatch_transfer(self.maker,transfer.pk,{line.pk:D(5)},'MP04GA1234')
+        ST.receive_transfer(self.outsider,transfer.pk,{line.pk:D(4)},{line.pk:D(0)})
+        grant=self.grant('approve_stocktransfer',site=self.other)
+        with self.assertRaisesMessage(ValidationError,'maker-checker'):
+            ST.resolve_transfer(self.deputy,transfer.pk,'Cannot proxy creator')
+        with self.assertRaises(ValidationError):
+            ST.resolve_transfer(self.checker,transfer.pk,'Cannot decide own shortage')
+        self.assertFalse(grant.uses.exists())

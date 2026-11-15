@@ -7,6 +7,7 @@
   showing free stock and this month's capacity use; plants without a freight lane are listed last with a warning.
 - The scorecard shows each partner's commitment, receipts, quality acceptance, on-time delivery and rate discipline.
 """
+from accounts.delegation import authorize, can_approve
 from datetime import timedelta
 from decimal import Decimal
 
@@ -15,6 +16,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 
+from .services import require_site
 from .gst import qtxt, inr
 from .models import SupplyContract, Site, Product, FreightRate, GRNLine, OrderLine, AuditEvent, StockBalance, clean_place
 
@@ -35,6 +37,7 @@ def current(site, product, on=None):
 @transaction.atomic
 def save_contract(user, partner, site, product, rate, valid_from, valid_to=None, monthly_quantity=0, reference='', notes=''):
     _need(user, 'add_supplycontract')
+    require_site(user, site)
     problems = []
     if not partner.manufacturing_partner:
         problems.append(f'{partner.name} is not marked as a manufacturing partner.')
@@ -56,8 +59,9 @@ def save_contract(user, partner, site, product, rate, valid_from, valid_to=None,
 
 @transaction.atomic
 def decide_contract(user, pk, approve, note=''):
-    _need(user, 'approve_supplycontract')
     c = SupplyContract.objects.select_for_update().select_related('site', 'product', 'partner').get(pk=pk)
+    require_site(user, c.site)
+    authorize(user, 'approve_supplycontract', c.site, makers=(c.created_by_id,), reference=f'contract:{c.pk}')
     if c.status != 'draft':
         raise ValidationError('Only rates waiting for approval can be decided.')
     if c.created_by_id == user.pk:
@@ -116,13 +120,15 @@ def month_receipts(site, product=None, on=None):
     return qs.aggregate(a=Sum('accepted'), h=Sum('hold'))
 
 
-def options(product, qty, district, on=None):
+def options(product, qty, district, on=None, site_ids=None):
     """Plants that can supply this product to this district, cheapest landed cost first."""
     on = on or timezone.localdate()
     district = clean_place(district)
     qty = Decimal(qty or 0) or Decimal('1')
     out = []
     sites = Site.objects.filter(active=True, kind='Plant').select_related('operated_by')
+    if site_ids is not None:
+        sites = sites.filter(pk__in=site_ids)
     for site in sites:
         c = current(site, product, on)
         stock = StockBalance.objects.filter(site=site, product=product, status='available').values_list('quantity', flat=True).first() or ZERO
@@ -146,11 +152,14 @@ def options(product, qty, district, on=None):
 
 # ---------- Scorecard ----------
 
-def scorecard(partner, months=3):
+def scorecard(partner, months=3, site_ids=None):
     on = timezone.localdate()
     since = (on.replace(day=1) - timedelta(days=31 * (months - 1))).replace(day=1)
     rows = []
-    for site in partner.operated_sites.filter(active=True):
+    sites = partner.operated_sites.filter(active=True)
+    if site_ids is not None:
+        sites = sites.filter(pk__in=site_ids)
+    for site in sites:
         lines = GRNLine.objects.filter(grn__site=site, grn__status='posted', grn__posted_at__date__gte=since).select_related('grn__order', 'po_line')
         received = sum((l.received for l in lines), ZERO)
         accepted = sum((l.accepted + l.qc_accepted for l in lines), ZERO)

@@ -1,4 +1,5 @@
 """Procurement screens: purchase requests, reorder suggestions, RFQ + quote comparison + award, direct (single-source) PO."""
+from accounts.delegation import can_approve
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -101,7 +102,7 @@ def pr_detail(request, pk):
         'history': AuditEvent.objects.filter(reference=pr.number).select_related('actor').order_by('-created_at')[:10],
         'can_edit': pr.status == 'draft' and u.has_perm('erp.change_purchaserequest'),
         'can_submit': pr.status == 'draft' and u.has_perm('erp.add_purchaserequest'),
-        'can_decide': pr.status == 'submitted' and u.has_perm('erp.approve_purchaserequest') and pr.created_by_id != u.pk,
+        'can_decide': pr.status == 'submitted' and can_approve(u, 'approve_purchaserequest', pr.site, makers=(pr.created_by_id,)) and pr.created_by_id != u.pk,
         'can_cancel': pr.status in ('draft', 'submitted', 'approved') and u.has_perm('erp.add_purchaserequest'),
         'can_rfq': pr.status == 'approved' and pending and u.has_perm('erp.add_rfq') and not pr.rfqs.filter(status='open').exists(),
         'can_direct': pr.status == 'approved' and pending and u.has_perm('erp.create_purchase_order'),
@@ -247,7 +248,7 @@ def rfq_detail(request, pk):
         'title': rfq.number, 'rfq': rfq, 'cmp': cmp, 'waiting': waiting, 'orders': orders,
         'history': AuditEvent.objects.filter(reference=rfq.number).select_related('actor').order_by('-created_at')[:10],
         'can_quote': rfq.status == 'open' and u.has_perm('erp.add_rfq'),
-        'can_award': rfq.status == 'open' and u.has_perm('erp.award_rfq') and any(q.valid for q in cmp['quotes']),
+        'can_award': rfq.status == 'open' and can_approve(u, 'award_rfq', rfq.site, makers=(rfq.created_by_id, rfq.request.created_by_id)) and any(q.valid for q in cmp['quotes']),
         'can_cancel': rfq.status == 'open' and u.has_perm('erp.add_rfq')})
 
 

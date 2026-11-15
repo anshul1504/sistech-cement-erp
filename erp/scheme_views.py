@@ -1,4 +1,5 @@
 """Permissioned scheme rules and non-posting calculation evidence."""
+from accounts.delegation import can_approve
 import csv
 import json
 from uuid import uuid4
@@ -72,7 +73,7 @@ def detail(request, pk):
     version = _version(request, pk)
     today = timezone.localdate()
     form = EvaluationForm(initial=dict(starts_on=version.starts_on, ends_on=min(version.ends_on, today), submission_key=uuid4()))
-    can_decide = request.user.has_perm('erp.approve_schemeversion') and version.status == 'submitted' and request.user.pk not in [version.created_by_id, version.updated_by_id, version.submitted_by_id] and not version.contributors.filter(pk=request.user.pk).exists()
+    can_decide = can_approve(request.user, 'approve_schemeversion', version.scheme.site, makers=[version.created_by_id, version.updated_by_id, version.submitted_by_id, *version.contributors.values_list('pk', flat=True)]) and version.status == 'submitted' and request.user.pk not in [version.created_by_id, version.updated_by_id, version.submitted_by_id] and not version.contributors.filter(pk=request.user.pk).exists()
     return render(request, 'erp/scheme_detail.html', dict(title=str(version), version=version, form=form, rules=schemes.rule_snapshot(version),
         versions=version.scheme.versions.all(), can_decide=can_decide,
         can_revise=request.user.has_perm('erp.add_incentivescheme') and not version.scheme.versions.filter(status__in=['draft','submitted']).exists(),

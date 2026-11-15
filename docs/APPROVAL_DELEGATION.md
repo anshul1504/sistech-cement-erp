@@ -38,8 +38,22 @@ Regression coverage includes exact date boundaries, overlapping windows, unautho
 
 ## Remaining acceptance / scope
 
-Other approval types (for example supplier-invoice exceptions, GRN/QC release, CRM onboarding, RFQ/PR, transfers, RMA and beat planning) remain direct-role actions until explicitly integrated and verified with this policy. Arbitrary permissions, financial read scope, payment-file export, master edits and login authority cannot be delegated through this feature.
+The original milestone covered the fifteen risk actions above; the subsequent site integrations are described below. CRM onboarding, freight, recognition and complaint/CAPA approvals remain direct-role actions pending their resource-specific integrations. Arbitrary permissions, financial read scope, payment-file export, master edits and login authority cannot be delegated through this feature.
 
 Reassignment/escalation of pending work when people become unavailable remains separate work. A disabled principal cannot lend authority; an administrator must arrange independent direct authority or an eligible active principal. Broader dimensional access, API/mobile enforcement, PostgreSQL concurrency/load validation and company security/business UAT remain pending. Do not use SQLite sequential tests as evidence of production races.
 
 Verification on 15 November 2026: final full suite 443 tests (435 passed; eight optional browser checks skipped). All eight browser checks passed explicitly; after the final button/authority refinements the three affected authentication/finance/scheme browser checks also passed. System and migration application/drift checks passed. The 19 delegation regressions are included in the full suite.
+
+## Additional site workflows
+
+The configured inventory now includes 25 action types. Added site-based actions are purchase request review, RFQ award, inbound quality release, production quality release, customer-return approval, beat-plan approval, manufacturing supply-rate approval, incentive-rule approval, supplier-invoice exception review and stock-transfer approval/discrepancy resolution.
+
+Each integration retains its own independence/evidence checks. Scheme and beat contributors cannot lend authority to their own reviewer. Beat delegation additionally requires existing team-beat visibility for both principal and deputy; it does not grant team access. Transfer dispatch approval uses the source site; discrepancy resolution uses the destination site, so one site's grant does not cover both.
+
+RFQ award creates a new PO rather than merely deciding an existing document. The retained award use identifies its principal as a maker of that PO. Both direct and delegated PO approval, its detail button and its approval queue exclude that principal. Revoking or expiring the award grant does not erase this historical maker relationship. This prevents delegated creation from disguising a maker as an independent checker.
+
+Manufacturing-partner supply-rate writes now enforce site access in the service. Candidate plants, pending contracts, scorecards and sourcing-advisor rows are also scoped to assigned sites; an inaccessible contract action returns 404 on the web. Trusted internal read helpers retain optional site filters, which every current sourcing web entry point supplies.
+
+The remaining direct-role approval integrations include CRM onboarding, freight, recognition and complaint/CAPA workflows. Unavailable-staff work reassignment remains separate. These outstanding items must not be inferred complete from the expanded configured list.
+
+The transfer's original creator is also excluded from shortage resolution, alongside dispatch/receipt participants, both directly and through a deputy. Final verification for this extension: full suite 452 tests (444 passed; eight opt-in browser checks skipped), all eight browser checks passed explicitly during the extension, and 61 affected workflow/queue/maker regressions passed after the last stock-loss rule. The suite includes 28 delegation tests. Django and migration application/drift checks pass; this extension needs no new schema migration or role changes.

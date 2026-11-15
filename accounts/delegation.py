@@ -27,6 +27,16 @@ POLICIES = {
     'approve_journalentry': ('Manual journal approval', False, True),
     'close_period': ('Month close / reopening', False, True),
     'approve_yearclose': ('Year close / reopening', False, True),
+    'approve_purchaserequest': ('Purchase request review', True, False),
+    'award_rfq': ('RFQ award', True, False),
+    'release_goodsreceipt': ('Inbound quality release', True, False),
+    'release_production': ('Production quality release', True, False),
+    'approve_returnrequest': ('Customer return approval', True, False),
+    'approve_beatplan': ('Beat plan approval', True, False),
+    'approve_supplycontract': ('Manufacturing supply-rate approval', True, False),
+    'approve_schemeversion': ('Incentive rule approval', True, False),
+    'approve_supplierinvoice': ('Supplier invoice exception approval', True, False),
+    'approve_stocktransfer': ('Stock transfer approval / discrepancy', True, False),
 }
 
 
@@ -42,6 +52,8 @@ def _qualified(user, permission, site):
     if permission not in POLICIES or not access_allowed(user):
         return False
     _, scoped, finance = POLICIES[permission]
+    if permission == 'approve_beatplan' and not user.has_perm('erp.view_team_beats'):
+        return False
     return ((not scoped or _site_allowed(user, site))
             and (not finance or user.has_perm('erp.access_company_finance')))
 
@@ -159,6 +171,7 @@ def approvable(queryset, user, permission, site_field='site', maker_fields=('cre
         return queryset.none()
     for field in maker_fields:
         queryset = queryset.exclude(**{field: actor.pk})
+    queryset = _without_proxy_maker(queryset, permission, actor.pk)
     if actor.has_perm('erp.' + permission):
         return queryset
     if permission not in POLICIES:
@@ -174,5 +187,29 @@ def approvable(queryset, user, permission, site_field='site', maker_fields=('cre
         condition = Q(**{site_field: grant.site}) if POLICIES[permission][1] else Q()
         for field in maker_fields:
             condition &= ~Q(**{field: grant.principal_id})
+        candidate = _without_proxy_maker(queryset.filter(condition), permission, grant.principal_id)
+        condition = Q(pk__in=candidate.values('pk'))
         allowed = condition if allowed is None else allowed | condition
     return queryset.none() if allowed is None else queryset.filter(allowed).distinct()
+
+
+def order_makers(order):
+    """An RFQ award creates a PO: delegated creation must not hide its principal as a maker."""
+    makers = {order.created_by_id}
+    if order.kind == 'Purchase' and order.quote_id:
+        uses = ApprovalDelegationUse.objects.filter(
+            reference=order.quote.rfq.number, actor_id=order.created_by_id,
+            delegation__permission='award_rfq')
+        makers.update(uses.values_list('delegation__principal_id', flat=True))
+    return tuple(makers)
+
+
+def _without_proxy_maker(queryset, permission, person_id):
+    from django.db.models import Exists, OuterRef
+    from erp.models import Order
+    if permission not in {'approve_purchase_order', 'approve_high_value_purchase'} or queryset.model is not Order:
+        return queryset
+    uses = ApprovalDelegationUse.objects.filter(reference=OuterRef('quote__rfq__number'),
+        actor_id=OuterRef('created_by_id'), delegation__permission='award_rfq', delegation__principal_id=person_id)
+    alias = '_approval_proxy_maker_' + str(person_id).replace('-', '')
+    return queryset.alias(**{alias: Exists(uses)}).filter(**{alias: False})

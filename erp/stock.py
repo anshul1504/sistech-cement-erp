@@ -131,9 +131,9 @@ def request_transfer(user, from_site, to_site, reason, lines, needed_by=None):
 
 @transaction.atomic
 def decide_transfer(user, pk, approve, note=''):
-    _need(user, 'approve_stocktransfer')
     t = _lock(pk)
     require_site(user, t.from_site)
+    authorize(user, 'approve_stocktransfer', t.from_site, makers=(t.created_by_id,), reference=t.number)
     _state(t, 'requested')
     if t.created_by_id == user.pk:
         raise ValidationError('The person who requested the transfer cannot approve it (maker-checker).')
@@ -223,11 +223,11 @@ def receive_transfer(user, pk, received, damaged):
 @transaction.atomic
 def resolve_transfer(user, pk, note):
     """Close the discrepancy case: the shortage stays written off as transit loss (stock already left the source) with an explanation."""
-    _need(user, 'approve_stocktransfer')
     t = _lock(pk)
     require_site(user, t.to_site)
+    authorize(user, 'approve_stocktransfer', t.to_site, makers=(t.created_by_id, t.received_by_id, t.dispatched_by_id), reference=t.number)
     _state(t, 'discrepancy')
-    if user.pk in (t.received_by_id, t.dispatched_by_id):
+    if user.pk in (t.created_by_id, t.received_by_id, t.dispatched_by_id):
         raise ValidationError('Someone not involved in dispatch or receipt must resolve the discrepancy.')
     note = (note or '').strip()
     if not note:

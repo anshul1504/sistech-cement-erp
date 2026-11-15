@@ -1,4 +1,5 @@
 """Approved immutable scheme versions and retained, non-posting incentive previews."""
+from accounts.delegation import authorize, can_approve
 import hashlib
 import json
 from datetime import timedelta
@@ -167,8 +168,9 @@ def submit(user, pk, note):
 
 @transaction.atomic
 def decide(user, pk, approve, note):
-    permitted(user, 'approve_schemeversion')
     version = _version(user, pk)
+    authorize(user, 'approve_schemeversion', version.scheme.site,
+              makers=[version.created_by_id, version.updated_by_id, version.submitted_by_id, *version.contributors.values_list('pk', flat=True)], reference=f'scheme:{version.scheme_id}:v{version.pk}')
     if version.status != 'submitted':
         raise ValidationError('Only a submitted version can be reviewed.')
     if user.pk in [version.created_by_id, version.updated_by_id, version.submitted_by_id] or version.contributors.filter(pk=user.pk).exists():

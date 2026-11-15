@@ -581,22 +581,23 @@ def my_queue(user, sites=None):
         add('Sales orders to approve', approvable(Order.objects.filter(kind='Sale', status='Submitted', site__in=sites).exclude(created_by=user), user, 'approve_sales_order'), reverse('sales') + '?status=Submitted', 'Credit and price checked on approval')
     if has('view_purchase_order'):
         add('Purchase orders to approve', approvable(Order.objects.filter(kind='Purchase', status='Submitted', site__in=sites).exclude(created_by=user), user, 'approve_purchase_order'), reverse('purchases') + '?status=Submitted', 'Contract rate and budget')
-    if has('approve_purchaserequest'):
-        add('Purchase requests to approve', PurchaseRequest.objects.filter(status='submitted', site__in=sites).exclude(created_by=user), reverse('purchase_requests'), 'Plant needs')
+    if has('view_purchaserequest'):
+        add('Purchase requests to approve', approvable(PurchaseRequest.objects.filter(status='submitted', site__in=sites).exclude(created_by=user), user, 'approve_purchaserequest'), reverse('purchase_requests'), 'Plant needs')
     if has('view_quotation'):
         add('Quotation discounts to approve', approvable(Quotation.objects.filter(status='approval', site__in=sites).exclude(created_by=user), user, 'approve_quotation'), reverse('quotations') + '?status=approval', 'Below list price')
-    if has('approve_supplycontract'):
-        add('Partner rate contracts to approve', SupplyContract.objects.filter(status='draft', site__in=sites).exclude(created_by=user), reverse('mfg_partners'), 'Manufacturing partner rates')
-    if has('approve_stocktransfer'):
-        add('Stock transfers to approve', StockTransfer.objects.filter(status='requested', from_site__in=sites).exclude(created_by=user), reverse('transfers'), 'Between plants and depots')
+    if has('view_supplycontract'):
+        add('Partner rate contracts to approve', approvable(SupplyContract.objects.filter(status='draft', site__in=sites).exclude(created_by=user), user, 'approve_supplycontract'), reverse('mfg_partners'), 'Manufacturing partner rates')
+    if has('view_stocktransfer'):
+        add('Stock transfers to approve', approvable(StockTransfer.objects.filter(status='requested', from_site__in=sites).exclude(created_by=user), user, 'approve_stocktransfer', site_field='from_site'), reverse('transfers'), 'Between plants and depots')
+        add('Transfer discrepancies to resolve', approvable(StockTransfer.objects.filter(status='discrepancy', to_site__in=sites), user, 'approve_stocktransfer', site_field='to_site', maker_fields=('created_by_id','received_by_id','dispatched_by_id')), reverse('transfers') + '?status=discrepancy', 'Independent shortage review')
     if has('view_damagereport'):
         add('Damaged stock to decide', approvable(DamageReport.objects.filter(status='reported', site__in=sites).exclude(created_by=user), user, 'decide_damagereport'), reverse('damages'), 'Recover or scrap')
     if has('view_stockcount'):
         add('Stock counts to approve', approvable(StockCount.objects.filter(status='submitted', site__in=sites).exclude(created_by=user), user, 'approve_stockcount', maker_fields=('submitted_by_id',)), reverse('counts'), 'Variance posting')
-    if has('release_production'):
-        add('Batches on quality hold', Production.objects.filter(status='Quality hold', site__in=sites), reverse('production'), 'Release or reject')
-    if has('release_goodsreceipt'):
-        add('Received material on hold', GRNLine.objects.filter(grn__status='posted', hold__gt=0, qc_at__isnull=True, grn__site__in=sites), reverse('inbound'), 'Quality release of GRN')
+    if has('view_production'):
+        add('Batches on quality hold', approvable(Production.objects.filter(status='Quality hold', site__in=sites), user, 'release_production', maker_fields=('created_by_id','completed_by_id')), reverse('production'), 'Release or reject')
+    if has('view_goodsreceipt'):
+        add('Received material on hold', approvable(GRNLine.objects.filter(grn__status='posted', hold__gt=0, qc_at__isnull=True, grn__site__in=sites), user, 'release_goodsreceipt', site_field='grn__site', maker_fields=('grn__posted_by_id',)), reverse('inbound'), 'Quality release of GRN')
     if has('approve_weight_exception'):
         add('Truck weight exceptions', Dispatch.objects.filter(site__in=sites).exclude(exception='').filter(exception_approved_by=None).exclude(status__in=['delivered', 'cancelled']), reverse('dispatch_board'), 'Overload or variance', 'danger')
     if has('pod_dispatch'):
@@ -608,15 +609,15 @@ def my_queue(user, sites=None):
         from .projects import scope as project_scope
         add('Project follow-ups due',project_scope(SalesProject.objects.filter(next_action_on__lte=today).exclude(stage__in=['won','lost']),user),reverse('projects')+'?due=due','Current and overdue project next actions')
     if has('view_beatplan'):
-        if has('approve_beatplan') and has('view_team_beats'):
-            add('Beat plans to approve',BeatPlan.objects.filter(site__in=sites,status='submitted').exclude(owner=user).exclude(created_by=user).exclude(submitted_by=user).exclude(contributors=user),reverse('beat_plans')+'?status=submitted','Independent route review')
+        if has('view_team_beats'):
+            add('Beat plans to approve',approvable(BeatPlan.objects.filter(site__in=sites,status='submitted'),user,'approve_beatplan',maker_fields=('owner_id','created_by_id','submitted_by_id','contributors__pk')),reverse('beat_plans')+'?status=submitted','Independent route review')
         if has('record_beatstop'):
             add('Daily routes with visits due',BeatPlan.objects.filter(site__in=sites,owner=user,status='approved',on__lte=today,stops__status='planned').distinct(),reverse('beat_plans')+'?status=due','Record each planned stop')
             add('Field follow-ups due',BeatStop.objects.filter(plan__site__in=sites,plan__owner=user,status='completed',next_action_on__lte=today,followed_at__isnull=True),reverse('beat_report'),'Retain the next-action result')
         if fin and has('publish_beatpromise') and has('add_receipt') and has('view_team_beats'):
             add('Field promises to review',BeatStop.objects.filter(plan__site__in=sites,status='completed',outcome='promise',collection_followup__isnull=True).exclude(plan__owner=user).exclude(recorded_by=user),reverse('beat_report'),'Accept into collections; no receipt')
-    if has('view_returnrequest') and has('approve_returnrequest'):
-        add('Customer returns to approve', ReturnRequest.objects.filter(status='requested', site__in=sites).exclude(created_by=user), reverse('returns') + '?status=requested', 'Before pickup')
+    if has('view_returnrequest'):
+        add('Customer returns to approve', approvable(ReturnRequest.objects.filter(status='requested', site__in=sites), user, 'approve_returnrequest'), reverse('returns') + '?status=requested', 'Before pickup')
     if has('view_returnrequest') and has('inspect_returnrequest'):
         add('Returned goods to inspect', ReturnRequest.objects.filter(status__in=['approved', 'transit'], site__in=sites), reverse('returns') + '?status=arrival', 'Good / damaged / not accepted')
     if fin and has('view_returnrequest') and has('add_creditnote'):
@@ -630,8 +631,8 @@ def my_queue(user, sites=None):
     add('CAPA actions you own', CM.capa_scope(CapaAction.objects.filter(owner=user, status__in=['open', 'reopened']), user), reverse('complaints'), 'Corrective action due')
     if has('verify_influencerusage'):
         add('Mason / engineer purchases to verify', InfluencerUsage.objects.filter(status='pending').exclude(created_by=user), reverse('influencer_usage'), 'Star programme points')
-    if has('approve_schemeversion'):
-        add('Scheme rules to approve', SchemeVersion.objects.filter(status='submitted', scheme__site__in=sites).exclude(created_by=user), reverse('schemes'), 'Incentive versions')
+    if has('view_incentivescheme'):
+        add('Scheme rules to approve', approvable(SchemeVersion.objects.filter(status='submitted', scheme__site__in=sites).exclude(created_by=user), user, 'approve_schemeversion', site_field='scheme__site', maker_fields=('created_by_id','updated_by_id','submitted_by_id','contributors__pk')), reverse('schemes'), 'Incentive versions')
     if fin and has('view_schemeentitlementbatch'):
         add('Scheme entitlements to approve', approvable(SchemeEntitlementBatch.objects.filter(status='submitted', version__scheme__site__in=sites).exclude(created_by=user), user, 'approve_schemeentitlementbatch', site_field='version__scheme__site', maker_fields=('created_by_id','evaluation__created_by_id')), reverse('scheme_payouts'), 'Accrual')
     if fin and has('view_schemesettlement'):
@@ -651,8 +652,8 @@ def my_queue(user, sites=None):
         from .models import CollectionFollowUp
         add('Payment promises due today', CollectionFollowUp.objects.filter(owner=user, kind='promise', promised_date=today), reverse('collections') + '?mine=1', 'Check if the money came')
         add('Collection follow-ups due', CollectionFollowUp.objects.filter(owner=user, next_action_on__lte=today).exclude(kind='promise'), reverse('collections') + '?mine=1', 'Call or visit the customer')
-    if fin and has('approve_supplierinvoice'):
-        add('Supplier invoice exceptions', SupplierInvoice.objects.filter(status='exception'), reverse('supplier_invoices'), 'Three-way match differences', 'danger')
+    if fin and has('view_supplierinvoice'):
+        add('Supplier invoice exceptions', approvable(SupplierInvoice.objects.filter(status='exception'), user, 'approve_supplierinvoice'), reverse('supplier_invoices'), 'Three-way match differences', 'danger')
     if fin and has('view_supplierpayment'):
         add('Payments to approve', approvable(SupplierPayment.objects.filter(status='proposed').exclude(created_by=user), user, 'approve_supplierpayment'), reverse('payments'), 'Supplier and transporter')
     if fin and has('view_supplierpayment'):

@@ -1,4 +1,5 @@
 """Dated territory ownership, independently approved visit plans and immutable outcomes."""
+from accounts.delegation import authorize, can_approve
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -222,8 +223,9 @@ def submit_plan(user,pk,note):
 
 @transaction.atomic
 def decide_plan(user,pk,approve,note):
-    permitted(user,'approve_beatplan')
     plan=_plan(user,pk)
+    authorize(user, 'approve_beatplan', plan.site,
+              makers=[plan.created_by_id, plan.owner_id, plan.submitted_by_id, *plan.contributors.values_list('pk', flat=True)], reference=plan.number)
     if plan.status!='submitted':raise ValidationError('Only a submitted plan can be reviewed.')
     if user.pk in [plan.created_by_id,plan.owner_id,plan.submitted_by_id] or plan.contributors.filter(pk=user.pk).exists():raise ValidationError('A contributor or route owner cannot approve their own plan.')
     if not (note or '').strip():raise ValidationError('Record the review finding.')

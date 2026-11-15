@@ -1,5 +1,5 @@
 """Sales & purchase orders: create / edit draft with price-list lookup and GST, detail with tax breakup, live price API."""
-from accounts.delegation import can_approve
+from accounts.delegation import can_approve, order_makers
 import json
 from datetime import timedelta
 from .gst import inr
@@ -139,7 +139,7 @@ def order_detail(request, pk):
         l.sent = l.dispatched_quantity() if order.kind == 'Sale' and order.status in ('Part dispatched', 'Completed') else None
         l.got = l.received_quantity() if order.kind == 'Purchase' and order.status in ('Part received', 'Completed') else None
     tax = summarise(lines, order.is_interstate)
-    actions = {f'can_{a}': order_permission(request.user, order.kind, a, order.site, makers=(order.created_by_id,)) for a in ['create', 'submit', 'approve', 'post', 'cancel']}
+    actions = {f'can_{a}': order_permission(request.user, order.kind, a, order.site, makers=order_makers(order)) for a in ['create', 'submit', 'approve', 'post', 'cancel']}
     checks = []
     if order.kind == 'Sale' and order.status in ('Submitted', 'Approved', 'Draft'):
         below = [l for l in lines if l.below_list]

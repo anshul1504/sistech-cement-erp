@@ -8,6 +8,7 @@ Controls enforced here (screens and the future API both call these functions):
 - PO quantities can never exceed what the request approved (checked again at submit and approval);
 - POs above the organisation's approval limit need the senior "high-value purchase" permission (see services.transition_order).
 """
+from accounts.delegation import authorize, can_approve
 from .gst import inr
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -131,7 +132,7 @@ def request_action(user, pk, action, note=''):
         if not pr.lines.exists(): raise ValidationError('Add at least one item.')
         pr.status = 'submitted'
     elif action in ('approve', 'reject'):
-        _need(user, 'approve_purchaserequest')
+        authorize(user, 'approve_purchaserequest', pr.site, makers=(pr.created_by_id,), reference=pr.number)
         if pr.status != 'submitted': raise ValidationError('Only requests waiting for approval can be decided.')
         if pr.created_by_id == user.pk: raise ValidationError('The person who raised the request cannot approve or reject it (maker-checker).')
         if action == 'reject' and not note: raise ValidationError('Give the reason for rejecting.')
@@ -299,9 +300,9 @@ def _po_lines_from(quote):
 
 @transaction.atomic
 def award(user, rfq_pk, quote_pk, reason='', tolerance=ZERO, delivery_terms=''):
-    _need(user, 'award_rfq')
     rfq = RFQ.objects.select_for_update().select_related('request', 'site').get(pk=rfq_pk)
     require_site(user, rfq.site)
+    authorize(user, 'award_rfq', rfq.site, makers=(rfq.created_by_id, rfq.request.created_by_id), reference=rfq.number)
     if rfq.status != 'open':
         raise ValidationError('This RFQ has already been awarded or cancelled.')
     quote = rfq.quotes.select_related('supplier').get(pk=quote_pk)

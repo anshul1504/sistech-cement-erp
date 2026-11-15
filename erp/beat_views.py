@@ -1,4 +1,5 @@
 """Territory ownership, daily plans, field outcomes and coverage reports."""
+from accounts.delegation import can_approve
 import csv
 from datetime import timedelta
 from django import forms
@@ -122,7 +123,7 @@ def plan_form(request,pk=None):
 def detail(request,pk):
     permitted(request.user,'view_beatplan');plan=_plan(request,pk);u=request.user
     editor=plan.owner_id==u.pk or u.has_perm('erp.manage_salesterritory')
-    can_decide=u.has_perm('erp.approve_beatplan') and plan.status=='submitted' and u.pk not in [plan.owner_id,plan.created_by_id,plan.submitted_by_id] and not plan.contributors.filter(pk=u.pk).exists()
+    can_decide=can_approve(u, 'approve_beatplan', plan.site, makers=[plan.owner_id, plan.created_by_id, plan.submitted_by_id, *plan.contributors.values_list('pk', flat=True)]) and plan.status=='submitted' and u.pk not in [plan.owner_id,plan.created_by_id,plan.submitted_by_id] and not plan.contributors.filter(pk=u.pk).exists()
     stops=list(plan.stops.select_related('assignment__partner','assignment__territory__parent__parent','assignment__site','assignment__owner','recorded_by','followed_by','collection_followup'))
     for stop in stops:
         stop.customer=stop.snapshot or beats._stop_snapshot(stop)

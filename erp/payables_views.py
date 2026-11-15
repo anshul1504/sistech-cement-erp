@@ -1,4 +1,5 @@
 """Supplier invoice entry and three-way match, exception decisions, debit notes / supplier returns and supplier balances."""
+from accounts.delegation import can_approve
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -110,7 +111,7 @@ def sinv_detail(request, pk):
     return render(request, 'erp/sinv_detail.html', {
         'title': f'Supplier invoice {inv.invoice_number}', 'inv': inv, 'lines': lines, 'debits': inv.debit_notes.all(),
         'history': AuditEvent.objects.filter(reference=inv.number).select_related('actor').order_by('-created_at')[:10],
-        'can_decide': inv.status == 'exception' and request.user.has_perm('erp.approve_supplierinvoice') and inv.created_by_id != request.user.pk,
+        'can_decide': inv.status == 'exception' and can_approve(request.user, 'approve_supplierinvoice', inv.site, makers=(inv.created_by_id,)) and inv.created_by_id != request.user.pk,
         'matched_total': inv.matched_taxable + inv.matched_tax})
 
 

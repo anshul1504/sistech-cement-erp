@@ -44,4 +44,6 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 - Sensitive web reauthentication: implemented; see [controls and verification](SENSITIVE_AUTHENTICATION.md). Dated delegation for configured risk actions is now implemented; remaining approval integrations and unavailable-staff reassignment remain in the access workstream.
 
-- Dated approval delegation: 15 configured action types, retained actual approver/use history, expiry/revocation, maker-checker and queue controls; see [scope and evidence](APPROVAL_DELEGATION.md).
+- Dated approval delegation: 25 configured action types, retained actual approver/use history, expiry/revocation, maker-checker and queue controls; see [scope and evidence](APPROVAL_DELEGATION.md).
+
+- Extended site approvals include PR/RFQ, inbound/production QC, RMA, beats, supply contracts, incentive rules, AP exceptions and transfers. RFQ proxy makers remain excluded from later PO approval. Sourcing write/read site boundaries are enforced. CRM/freight/service/recognition approvals and unavailable-staff handoff remain pending.
