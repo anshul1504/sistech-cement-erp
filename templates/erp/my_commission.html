@@ -1,0 +1,11 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">MY ACCOUNT</div><h1>My commission</h1><p>Commission earned on the orders you created, run by run. A negative amount is a recovery after returns or credit notes.</p></div></div>
+  <div class="inf-kpis is-three" role="list"><div role="listitem" class="inf-kpi is-good"><span>Approved commission</span><strong>{{ earned|inr_short }}</strong><small>all runs</small></div><div role="listitem" class="inf-kpi"><span>TDS deducted</span><strong>{{ tds|inr_short }}</strong><small>if applicable</small></div><div role="listitem" class="inf-kpi"><span>Runs</span><strong>{{ rows|length }}</strong><small>including pending</small></div></div>
+  <section class="org-card ins-card">{% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Period</th><th>Plan</th><th class="n">Amount</th><th>Status</th></tr></thead><tbody>
+    {% for l in rows %}<tr><td>{{ l.run.start|date:'d M' }} – {{ l.run.end|date:'d M Y' }}</td><td>{{ l.run.plan.name }}</td><td class="n">{{ l.amount|rupees:2 }}</td><td><span class="ins-pill{% if l.run.status == 'approved' %} is-good{% elif l.run.status == 'draft' %} is-warn{% else %} is-danger{% endif %}">{{ l.run.get_status_display }}</span></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<p class="ins-empty">No commission yet.</p>{% endif %}</section>
+</div>
+{% endblock %}

@@ -8,6 +8,7 @@ from erp import support_views as spv
 from erp import collect_views as cv
 from erp import return_views as rtv
 from erp import budget_views as bdv
+from erp import commission_views as cmv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -119,6 +120,14 @@ urlpatterns += [
     path('invoices/<int:pk>/credit-note/', fv.credit_note_new, name='credit_note_new'),
     path('outstanding/', fv.outstanding, name='outstanding'),
     path('collections/', cv.collections, name='collections'),
+    path('commission/', cmv.plans, name='commission_plans'),
+    path('commission/new/', cmv.plan_form, name='commission_plan_new'),
+    path('commission/mine/', cmv.my_commission, name='my_commission'),
+    path('commission/<int:pk>/', cmv.plan_detail, name='commission_plan'),
+    path('commission/<int:pk>/edit/', cmv.plan_form, name='commission_plan_edit'),
+    path('commission/<int:pk>/<slug:action>/', cmv.plan_action, name='commission_plan_action'),
+    path('commission/runs/<int:pk>/', cmv.run_detail, name='commission_run'),
+    path('commission/runs/<int:pk>/<slug:action>/', cmv.run_action, name='commission_run_action'),
     path('returns/', rtv.returns_list, name='returns'),
     path('returns/new/', rtv.return_new, name='return_new'),
     path('returns/<int:pk>/', rtv.return_detail, name='return_detail'),

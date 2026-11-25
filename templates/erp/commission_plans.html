@@ -1,0 +1,16 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · INCENTIVES</div><h1>Sales commission</h1><p>Commission for sales staff on the orders they created — on net sales, collections or tonnage. Plans and runs are approved by a different user; each run pays only what is newly earned, so returns after a payout are recovered in the next run.</p></div>
+    {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'commission_plan_new' %}"><svg><use href="#ic-plus"/></svg>New plan</a></div>{% endif %}</div>
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Plans</h2></div>
+    {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Plan</th><th>Basis</th><th class="n">Rate</th><th class="is-optional">People</th><th class="is-optional">Valid</th><th>Status</th></tr></thead><tbody>
+      {% for p in rows %}<tr><td><a href="{% url 'commission_plan' p.pk %}">{{ p.name }}</a>{% if p.site %}<br><small class="acc-muted">{{ p.site.code }}</small>{% endif %}</td><td>{{ p.get_basis_display }}</td><td class="n">{% if p.basis == 'mt' %}₹{{ p.rate|qty }}/MT{% else %}{{ p.rate|qty }}%{% endif %}</td><td class="is-optional">{{ p.beneficiaries.all|length }}</td><td class="is-optional">{{ p.valid_from|date:'d M Y' }} – {{ p.valid_to|date:'d M Y'|default:'open' }}</td><td><span class="ins-pill{% if p.status == 'approved' %} is-good{% elif p.status == 'submitted' %} is-warn{% elif p.status == 'rejected' %} is-danger{% endif %}">{{ p.get_status_display }}</span></td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No commission plans yet.</p>{% endif %}</section>
+  {% if perms.erp.view_commissionrun and perms.erp.access_company_finance %}<section class="org-card ins-card"><div class="ins-card-head"><h2>Recent runs</h2></div>
+    {% if runs %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Run</th><th>Plan</th><th class="is-optional">Period</th><th class="n">Commission</th><th>Status</th></tr></thead><tbody>
+      {% for r in runs %}<tr><td><a href="{% url 'commission_run' r.pk %}">{{ r.number }}</a></td><td>{{ r.plan.name }}</td><td class="is-optional">{{ r.start|date:'d M' }} – {{ r.end|date:'d M Y' }}</td><td class="n">{{ r.total|rupees }}</td><td><span class="ins-pill{% if r.status == 'approved' %} is-good{% elif r.status == 'draft' %} is-warn{% else %} is-danger{% endif %}">{{ r.get_status_display }}</span></td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No runs yet.</p>{% endif %}</section>{% endif %}
+</div>
+{% endblock %}

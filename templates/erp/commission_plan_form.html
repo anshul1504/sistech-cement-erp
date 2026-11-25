@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'commission_plans' %}">← Sales commission</a></div><h1>{{ title }}</h1><p>Choose who is covered, what commission is calculated on and the rate. TDS: fill only if your tax advisor confirms it applies (e.g. commission agents); salaried staff are taxed through payroll.</p></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" class="org-card" style="padding:20px">{% csrf_token %}
+    <div class="org-grid">
+      <div class="org-field is-wide"><label class="form-label" for="p-n">Plan name</label><input id="p-n" class="form-control" name="name" required maxlength="100" value="{{ v.name }}" placeholder="e.g. Field sales 2026-27"></div>
+      <div class="org-field"><label class="form-label" for="p-b">Calculated on</label><select id="p-b" class="form-select" name="basis">{% for k, l in bases %}<option value="{{ k }}"{% if v.basis == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="p-r">Rate (% or ₹ per MT)</label><input id="p-r" class="form-control" name="rate" type="number" step="0.001" min="0" required value="{{ v.rate }}"></div>
+      <div class="org-field"><label class="form-label" for="p-s">Plant</label><select id="p-s" class="form-select" name="site"><option value="">All plants</option>{% for s in sites %}<option value="{{ s.pk }}"{% if v.site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="p-t">TDS %</label><input id="p-t" class="form-control" name="tds_rate" type="number" step="0.01" min="0" max="30" value="{{ v.tds_rate }}"></div>
+      <div class="org-field"><label class="form-label" for="p-f">Valid from</label><input id="p-f" class="form-control" name="valid_from" type="date" required value="{{ v.valid_from }}"></div>
+      <div class="org-field"><label class="form-label" for="p-to">Valid to (optional)</label><input id="p-to" class="form-control" name="valid_to" type="date" value="{{ v.valid_to }}"></div>
+      <div class="org-field is-wide"><span class="form-label">Sales people covered</span><div class="cm-people">{% for u in people %}<label class="ord-checkline"><input type="checkbox" name="people" value="{{ u.pk }}"{% if u.pk|stringformat:'s' in chosen %} checked{% endif %}> {{ u|who }}</label>{% endfor %}</div></div>
+    </div>
+    <div style="margin-top:16px"><button class="org-btn is-primary" type="submit">Save plan</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -3404,3 +3404,65 @@ class BudgetLine(models.Model):
         ordering = ['account__code', 'month']
         constraints = [models.UniqueConstraint(fields=['budget', 'account', 'cost_centre', 'month'], name='unique_budget_cell'),
                        models.UniqueConstraint(fields=['budget', 'account', 'month'], condition=models.Q(cost_centre__isnull=True), name='unique_budget_cell_no_cc')]
+
+
+# ---------- Sales commission (FR-INC-004 / FR-INC-008) ----------
+
+COMMISSION_BASES = [('sales', 'Net sales value (excl. GST)'), ('collected', 'Collected against own invoices'), ('mt', 'Net MT sold (₹ per MT)')]
+
+
+class CommissionPlan(models.Model):
+    """Commission rule for sales staff. Earned on the orders a person created (same attribution as CRM performance)."""
+    name = models.CharField(max_length=100)
+    basis = models.CharField(max_length=9, choices=COMMISSION_BASES, default='sales')
+    rate = models.DecimalField('Rate (% or ₹ per MT)', max_digits=10, decimal_places=3, validators=POSITIVE)
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, related_name='commission_plans', help_text='Empty = every plant.')
+    beneficiaries = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='commission_plans', help_text='Sales staff covered by this plan.')
+    tds_rate = models.DecimalField('TDS %', max_digits=5, decimal_places=2, default=0, validators=MONEY,
+                                   help_text='Only if your tax advisor confirms TDS applies (e.g. agents). Salaried staff: 0 (handled in payroll).')
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=9, default='draft', choices=[('draft', 'Draft'), ('submitted', 'Waiting approval'), ('approved', 'Approved'), ('rejected', 'Sent back'), ('ended', 'Ended')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decision_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-valid_from', 'name']
+        permissions = [('approve_commissionplan', 'Approve commission plans')]
+
+    def __str__(self): return self.name
+
+
+class CommissionRun(models.Model):
+    """One calculation of a plan for a period. Earn-once: each run pays cumulative commission since the plan start minus what
+    earlier approved runs already gave, so returns and credit notes after a payout are recovered automatically."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    plan = models.ForeignKey(CommissionPlan, on_delete=models.PROTECT, related_name='runs')
+    start = models.DateField()
+    end = models.DateField()
+    status = models.CharField(max_length=9, default='draft', choices=[('draft', 'Calculated'), ('approved', 'Approved & posted'), ('rejected', 'Rejected')])
+    total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    tds = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-end', '-pk']
+        permissions = [('approve_commissionrun', 'Approve and post commission runs')]
+
+    def __str__(self): return self.number
+
+
+class CommissionLine(models.Model):
+    run = models.ForeignKey(CommissionRun, on_delete=models.CASCADE, related_name='lines')
+    person = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    basis_amount = models.DecimalField(max_digits=16, decimal_places=3, help_text='Cumulative basis since the plan start (₹ or MT).')
+    cumulative = models.DecimalField(max_digits=16, decimal_places=2)
+    prior = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='This run: cumulative − prior. Negative = recovery.')
+    tds = models.DecimalField(max_digits=16, decimal_places=2, default=0)

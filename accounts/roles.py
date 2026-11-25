@@ -42,6 +42,8 @@ MODULES = [
     ('financials', 'Financial statements', {'view': 'view_financials', 'post': 'close_period'}),
     ('period_review', 'Month-end review', {'create': 'prepare_periodclose', 'approve': 'close_period'}),
     ('year_close', 'Year-end carry-forward', {'view': 'view_financialyearclose', 'create': 'prepare_yearclose', 'approve': 'approve_yearclose'}),
+    ('commission', 'Sales commission', {'view': 'view_commissionplan', 'create': 'add_commissionplan', 'edit': 'change_commissionplan', 'approve': 'approve_commissionplan'}),
+    ('commission_runs', 'Commission runs', {'view': 'view_commissionrun', 'create': 'add_commissionrun', 'approve': 'approve_commissionrun'}),
     ('cost_centres', 'Cost centres', {'view': 'view_costcentre', 'create': 'add_costcentre', 'edit': 'change_costcentre'}),
     ('budgets', 'Budgets', {'view': 'view_budget', 'create': 'add_budget', 'edit': 'change_budget', 'approve': 'approve_budget'}),
     ('chart', 'Chart of accounts', {'view': 'view_account', 'create': 'add_account'}),
@@ -141,6 +143,10 @@ PRESETS['Support desk'] = {'handle_supportticket'}
 # Budgets & cost centres (FR-FIN-001/015): accountant prepares, finance controller approves.
 PRESETS['Accountant'] |= {'view_costcentre', 'add_costcentre', 'change_costcentre', 'view_budget', 'add_budget', 'change_budget'}
 PRESETS['Finance controller'] |= {'view_costcentre', 'view_budget', 'approve_budget'}
+# Sales commission: sales manager drafts plans; accountant calculates runs; finance controller approves plans and posts runs.
+PRESETS['Sales manager'] |= {'view_commissionplan', 'add_commissionplan', 'change_commissionplan'}
+PRESETS['Accountant'] |= {'view_commissionplan', 'view_commissionrun', 'add_commissionrun'}
+PRESETS['Finance controller'] |= {'view_commissionplan', 'view_commissionrun', 'approve_commissionplan', 'approve_commissionrun'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():

@@ -165,3 +165,4 @@
 .bud-months input.form-control { height: 34px; padding: 4px 6px; font-size: 12.5px; text-align: right; min-width: 0; }
 @media (max-width: 1199.98px) { .bud-months { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 575.98px) { .bud-months { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.cm-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 6px 14px; }

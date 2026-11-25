@@ -13,7 +13,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 | Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
 | CRM (§5.1) | Leads, onboarding, routed/delegated KYC/credit/activation reviews, targets, territories/beats, reviewed dated ownership transfer, audited prospect consolidation, project pipeline | Customer/master deduplication and broader identity matching, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
-| Schemes (§5.3) | Versioned rules, retained eligibility, accrual, payouts, recognition with routed/delegated reviews and retained delivery actor | Quantity/per-unit/margin and progressive rules, budgets/stacking, additional beneficiary/tax handling, full automatic reversal lifecycle |
+| Schemes (§5.3) | Versioned rules, retained eligibility, accrual, payouts, recognition with routed/delegated reviews and retained delivery actor | Per-unit/margin and progressive scheme rules, budgets/stacking, agent/distributor commission beneficiaries, full automatic reversal lifecycle |
 | Procurement (§5.4) | PR/RFQ/PO, inbound/GRN, matching, returns and AP | Demand/budget planning, deeper supplier verification, hardware/evidence acceptance |
 | Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Full warehouse/bin/lot balances, allocations/reservations, versioned conversions and recall coverage |
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Demand/capacity/MRP, complete cost allocation, rework/write-off, sampling schedules, automated quarantine/recall |
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- Sales commission: approved plans (net sales / collections / per MT, plant, optional TDS), sequential earn-once runs with automatic recovery after credit notes, independent approval excluding beneficiaries, GL posting to commission expense/payable/TDS payable, personal statement. Migration 0057 adds tables only. Agent/distributor beneficiaries with KYC/bank and payroll payout remain pending.
 
 - Cost centres and budgets: cost-centre dimension on journal lines (kept on reversals and year reopening), versioned maker-checker FY budgets by account × cost centre × month with CSV import/export, budget vs actual by cost centre/plant. Migration 0056 adds tables and a nullable column only; local row counts unchanged.
 

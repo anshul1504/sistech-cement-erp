@@ -1,0 +1,20 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'commission_plans' %}">← Sales commission</a></div><h1>{{ plan.name }}</h1>
+    <p>{{ plan.get_basis_display }} · {% if plan.basis == 'mt' %}₹{{ plan.rate|qty }} per MT{% else %}{{ plan.rate|qty }}%{% endif %} · {{ plan.site.code|default:'all plants' }} · {{ plan.valid_from|date:'d M Y' }} – {{ plan.valid_to|date:'d M Y'|default:'open' }}{% if plan.tds_rate %} · TDS {{ plan.tds_rate|qty }}%{% endif %} · <span class="ins-pill{% if plan.status == 'approved' %} is-good{% elif plan.status == 'submitted' %} is-warn{% elif plan.status == 'rejected' %} is-danger{% endif %}">{{ plan.get_status_display }}</span>{% if plan.decision_note %} · {{ plan.decision_note }}{% endif %}</p></div></div>
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Covered</h2><small>{{ plan.beneficiaries.all|length }} people</small></div><p>{% for u in plan.beneficiaries.all %}{{ u|who }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    <div class="sup-actions">
+      {% if can.edit %}<div class="ord-inline"><a class="org-btn is-light" href="{% url 'commission_plan_edit' plan.pk %}">Edit</a><form method="post" action="{% url 'commission_plan_action' plan.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary">Submit for approval</button></form></div>{% endif %}
+      {% if can.decide %}<form method="post" action="{% url 'commission_plan_action' plan.pk 'approve' %}" class="ord-inline">{% csrf_token %}<input class="form-control" name="note" maxlength="200" placeholder="Note (required to send back)" aria-label="Note"><button class="org-btn is-primary">Approve</button><button class="org-btn is-light is-danger" formaction="{% url 'commission_plan_action' plan.pk 'reject' %}">Send back</button></form>{% endif %}
+      {% if can.run and perms.erp.access_company_finance %}<form method="post" action="{% url 'commission_plan_action' plan.pk 'calculate' %}" class="ord-inline">{% csrf_token %}<label class="ord-checkline">Calculate up to <input class="form-control" type="date" name="end" value="{{ today }}" max="{{ today }}" required></label><button class="org-btn is-primary">Calculate run</button></form>{% endif %}
+      {% if can.end %}<form method="post" action="{% url 'commission_plan_action' plan.pk 'end' %}" class="ord-inline" data-confirm="End this plan? No commission will be earned after the date.">{% csrf_token %}<label class="ord-checkline">End on <input class="form-control" type="date" name="on" value="{{ today }}" required></label><button class="org-btn is-light is-danger">End plan</button></form>{% endif %}
+    </div></section>
+  {% if perms.erp.view_commissionrun and perms.erp.access_company_finance %}<section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Runs</h2></div>
+    {% if runs %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Run</th><th>Period</th><th class="n">Commission</th><th class="n is-optional">TDS</th><th>Status</th></tr></thead><tbody>
+      {% for r in runs %}<tr><td><a href="{% url 'commission_run' r.pk %}">{{ r.number }}</a></td><td>{{ r.start|date:'d M' }} – {{ r.end|date:'d M Y' }}</td><td class="n">{{ r.total|rupees }}</td><td class="n is-optional">{{ r.tds|rupees }}</td><td><span class="ins-pill{% if r.status == 'approved' %} is-good{% elif r.status == 'draft' %} is-warn{% else %} is-danger{% endif %}">{{ r.get_status_display }}</span></td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No runs yet.</p>{% endif %}</section>{% endif %}
+  {% if history %}<section class="org-card ins-card"><div class="ins-card-head"><h2>History</h2></div><ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor|who }}</small><small>{{ e.created_at|date:'d M Y, H:i' }}</small></li>{% endfor %}</ul></section>{% endif %}
+</div>
+{% endblock %}

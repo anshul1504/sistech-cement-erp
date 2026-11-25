@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.19.2'
+ASSET_VERSION = '0.19.3'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -36,6 +36,7 @@ NAV_GROUPS = [
         _item('returns', 'Customer returns', 'truck', 'view_returnrequest', match=('return_new', 'return_detail')),
         _item('complaints', 'Complaints & CAPA', 'shield', 'view_complaint', match=('complaint_new', 'complaint_detail')),
         _item('recognition', 'Star programmes', 'gift', 'view_recognitionprogram', match=('recognition_detail', 'recognition_action', 'influencer_usage')),
+        _item('commission_plans', 'Sales commission', 'chart', 'view_commissionplan', match=('commission_plan_new', 'commission_plan', 'commission_plan_edit', 'commission_run')),
         _item('schemes', 'Schemes & incentives', 'gift', 'view_incentivescheme', match=('scheme_new', 'scheme_edit', 'scheme_detail', 'scheme_evaluation', 'scheme_check_sources', 'scheme_payouts', 'scheme_batch', 'scheme_statement')),
     ]),
     ('Procurement', [

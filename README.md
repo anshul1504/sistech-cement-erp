@@ -259,6 +259,15 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Fulfilment** per line: ordered, truck planned, dispatched, invoiced, delivered, balance; stage Draft → Approval pending →
   Approved → Dispatch planned / Part dispatched → Dispatched → Invoiced → Delivered (or Closed).
 
+## Sales commission (FR-INC-004 / FR-INC-008)
+- **Sales → Sales commission**: plans for sales staff on net sales (excl. GST, after credit notes), collections against their
+  invoices, or ₹ per net MT; optional plant and TDS rate (only when the tax advisor confirms it applies). Attribution = the
+  person who created the sales order. Plans are approved by a different user.
+- **Runs** (company-finance scope) are sequential per plan and earn-once: cumulative commission since the plan start minus
+  what earlier runs gave, so returns after a payout are recovered automatically. Approval by someone other than the
+  calculator or a beneficiary posts Dr Sales commission / Cr Commission payable (and TDS payable).
+- **My commission** (account menu) shows each sales person only their own lines.
+
 ## Cost centres & budgets (FR-FIN-001 / FR-FIN-015)
 - **Accounts & ledgers → Cost centres**: departments, plants or projects; journal-voucher lines can carry one (reversals keep it).
 - **Budgets**: one approved version per financial year, by income/expense account × cost centre × month; grid entry or CSV

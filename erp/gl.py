@@ -61,6 +61,8 @@ CHART = [
     ('2220', 'Output IGST', 'liability', 'Duties and taxes', 'output_igst', True, False),
     ('2300', 'Customer advances', 'liability', 'Other current liabilities', 'customer_advance', False, False),
     ('2310', 'Scheme incentives payable', 'liability', 'Other current liabilities', 'scheme_payable', True, False),
+    ('2320', 'Sales commission payable', 'liability', 'Other current liabilities', 'commission_payable', False, False),
+    ('2330', 'TDS payable', 'liability', 'Duties and taxes', 'tds_payable', False, False),
     ('3100', 'Share capital', 'equity', 'Equity share capital', 'capital', False, False),
     ('3200', 'Opening balance equity', 'equity', 'Other equity', 'opening_equity', False, False),
     ('3300', 'Retained earnings', 'equity', 'Other equity', 'retained', False, False),
@@ -82,6 +84,7 @@ CHART = [
     ('5500', 'Repairs & maintenance', 'expense', 'Other expenses', 'repairs', False, False),
     ('5600', 'Bank charges', 'expense', 'Finance costs', 'bank_charges', False, False),
     ('5700', 'Depreciation', 'expense', 'Depreciation and amortisation', 'depreciation', False, False),
+    ('5800', 'Sales commission', 'expense', 'Other expenses', 'commission', False, False),
     ('5710', 'Loss on sale of assets', 'expense', 'Other expenses', 'asset_loss', False, False),
 ]
 GROUP_ORDER = ['Equity share capital', 'Other equity', 'Trade payables', 'Other current liabilities', 'Duties and taxes', 'Property, plant and equipment',
