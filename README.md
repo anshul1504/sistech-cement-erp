@@ -42,6 +42,19 @@ module they were opened from. A user with only one working module goes straight 
 home KPIs are the *Overview* dashboard (`/dashboards/overview/`). Module definitions: `erp/context.py`
 (`MODULES`). Shared spacing / filter-bar / tab rules: `static/erp/polish.css`.
 
+## Channel commission (C&F, promoters, handling agents, distributors)
+
+`/channel-commission/` (Sales & CRM → Channel commission). A **rate** is the agreed commission for one channel partner —
+₹ per MT or % of net sales — on its whole network below (People upline) or only the partners directly under it, with
+start/end dates. Sales drafts it; a different user approves (`approve_channelrate`); two approved rates of one partner
+cannot cover the same date. A **run** (company finance, `add_channelrun`) calculates, for every approved rate, the
+cumulative commission on posted invoices minus credit notes (before GST, all plants) of the counted partners from the
+rate's start, minus what earlier approved runs gave, so returns after a payout come back as a recovery line. Approval by
+a different user (`approve_channelrun`) posts Dr Channel commission (5810) / Cr Trade payable (partner) / Cr TDS payable,
+and records 194H TDS (when the partner's TDS section is 194H) for the challan. The net appears as an open item of that
+partner under **Payments** and is paid with the usual propose → approve → release flow; the payment voucher PDF names
+the run. The partner page's *Channel network* card shows the current rate, earned and due. Rules: `erp/channel_commission.py`.
+
 ## Sales team charts
 
 `/sales/team/` (Sales & CRM → Sales team, for sales managers and management) shows who sold how much in the

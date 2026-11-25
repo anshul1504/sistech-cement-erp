@@ -86,6 +86,7 @@ CHART = [
     ('5600', 'Bank charges', 'expense', 'Finance costs', 'bank_charges', False, False),
     ('5700', 'Depreciation', 'expense', 'Depreciation and amortisation', 'depreciation', False, False),
     ('5800', 'Sales commission', 'expense', 'Other expenses', 'commission', False, False),
+    ('5810', 'Channel commission (C&F / agents)', 'expense', 'Other expenses', 'channel_commission', False, False),
     ('5710', 'Loss on sale of assets', 'expense', 'Other expenses', 'asset_loss', False, False),
 ]
 GROUP_ORDER = ['Equity share capital', 'Other equity', 'Trade payables', 'Other current liabilities', 'Duties and taxes', 'Property, plant and equipment',

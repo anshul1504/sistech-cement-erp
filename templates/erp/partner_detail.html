@@ -102,14 +102,17 @@
           {% if channel.direct %}<ul class="mst-stock-list net-direct">{% for d in channel.direct %}<li><span><strong><a href="{% url 'partner_detail' d.pk %}">{{ d.name }}</a></strong><small>{{ d.get_kind_display }}{% if d.city %} · {{ d.city }}{% endif %}</small></span></li>{% endfor %}</ul>{% endif %}
           {% else %}<div class="acc-empty-mini"><strong>Nobody below yet</strong><span>Set this partner as the upline on a {% if partner.kind == 'CF' %}promoter, agent or dealer{% elif partner.is_customer %}retailer{% else %}dealer{% endif %} page.</span></div>{% endif %}
         </div>
-        {% if channel.sales %}
+        {% if channel.sales or channel.commission %}
         <div class="net-sales">
+          {% if channel.commission %}<p class="net-label">Commission <small><a href="{% url 'channel_commission' %}">rates &amp; runs</a></small></p>
+          <p class="net-comm">{% with r=channel.commission.rate %}{% if r %}{% if r.basis == 'mt' %}₹{{ r.rate|floatformat:'-2' }} per MT{% else %}{{ r.rate|floatformat:'-3' }}% of sales{% endif %} on the {{ r.get_scope_display|lower }}{% else %}No approved rate{% endif %}{% endwith %}{% if channel.commission.show_money %} · earned ₹{{ channel.commission.earned|indian }} · due ₹{{ channel.commission.due|indian }}{% endif %}</p>{% endif %}
+          {% if channel.sales %}
           <p class="net-label">Net sales since {{ channel.sales.since|date:'d M' }} <small>excl. GST</small></p>
           <dl>
             {% if partner.is_customer %}<div><dt>Own purchases</dt><dd>{{ channel.sales.own.value|inr_short }}<small>{{ channel.sales.own.mt|mt }}</small></dd></div>{% endif %}
             <div><dt>Network below</dt><dd>{{ channel.sales.network.value|inr_short }}<small>{{ channel.sales.network.mt|mt }}</small></dd></div>
             <div><dt>Total</dt><dd>{{ channel.sales.total_value|inr_short }}<small>{{ channel.sales.total_mt|mt }}</small></dd></div>
-          </dl>
+          </dl>{% endif %}
         </div>
         {% endif %}
       </div>

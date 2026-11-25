@@ -1,0 +1,47 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% load static %}<link href="{% static 'erp/network.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'channel_commission' %}">← Channel commission</a></div></div>
+  <section class="org-hero mst-hero">
+    <div class="org-hero-text">
+      <h1>{{ run.number }}</h1>
+      <p>{{ run.start|date:'d M Y' }} – {{ run.end|date:'d M Y' }} · calculated by {{ run.created_by|who }}</p>
+      <div class="org-chips"><span class="org-chip{% if run.status == 'approved' %} is-ok{% endif %}">{{ run.get_status_display }}</span>{% if run.decided_by %}<span class="org-chip">{{ run.decided_by|who }} · {{ run.decided_at|date:'d M Y' }}</span>{% endif %}</div>
+    </div>
+    <div class="org-hero-side"><small>Commission ₹{{ run.total|indian:2 }}<br>TDS ₹{{ run.tds|indian:2 }}</small></div>
+  </section>
+
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>Partners</h2><small>cumulative since each rate started, minus earlier approved runs</small></header>
+      <div class="ord-table" role="table">
+        <div class="ch-line ch-head" role="row"><span role="columnheader">Partner · rate</span><span role="columnheader">Network sales</span><span role="columnheader">Earned so far</span><span role="columnheader">This run</span><span role="columnheader">TDS</span><span role="columnheader">Payable</span></div>
+        {% for l in lines %}
+        <div class="ch-line" role="row">
+          <span role="cell"><a href="{% url 'partner_detail' l.partner.pk %}#network"><strong>{{ l.partner.name }}</strong></a><small>{% if l.rate.basis == 'mt' %}₹{{ l.rate.rate|floatformat:'-2' }}/MT{% else %}{{ l.rate.rate|floatformat:'-3' }}%{% endif %} · {{ l.rate.get_scope_display|lower }} · {{ l.partners }} partner{{ l.partners|pluralize }}</small></span>
+          <span role="cell" data-label="Network sales"><strong>{{ l.base_mt|mt }}</strong><small>₹{{ l.base_value|indian }}</small></span>
+          <span role="cell" data-label="Earned so far">₹{{ l.cumulative|indian:2 }}<small>earlier ₹{{ l.prior|indian:2 }}</small></span>
+          <span role="cell" data-label="This run"><strong class="{% if l.amount < 0 %}mst-missing{% endif %}">₹{{ l.amount|indian:2 }}</strong>{% if l.amount < 0 %}<small>recovery</small>{% endif %}</span>
+          <span role="cell" data-label="TDS">{% if l.tds %}₹{{ l.tds|indian:2 }}<small>{{ l.tds_section }}</small>{% else %}—{% endif %}</span>
+          <span role="cell" data-label="Payable"><strong>₹{{ l.net|indian:2 }}</strong></span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if can_decide %}
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>Decision</h2></header>
+      {% if run.created_by_id == user.pk %}<p class="acc-muted">You calculated this run — a different user must approve it.</p>
+      {% else %}
+      <form method="post" class="ch-decide">{% csrf_token %}
+        <input class="form-control" name="note" maxlength="200" placeholder="Note (required to reject)" aria-label="Note">
+        <button class="org-btn is-light" type="submit" name="decision" value="reject">Reject</button>
+        <button class="org-btn is-primary" type="submit" name="decision" value="approve" data-confirm="Approve and post ₹{{ run.total|indian:2 }} channel commission?">Approve &amp; post</button>
+      </form>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

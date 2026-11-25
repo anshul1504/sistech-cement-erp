@@ -24,7 +24,7 @@ from django.utils import timezone
 from .finance_access import require_company_finance
 from . import gl
 from .gst import next_number, inr, qtxt
-from .models import (SupplierPayment, PaymentAllocation, SupplierInvoice, FreightBill, DebitNote, BankStatementLine, JournalLine, Account, FixedAsset,
+from .models import (ChannelRunLine, SupplierPayment, PaymentAllocation, SupplierInvoice, FreightBill, DebitNote, BankStatementLine, JournalLine, Account, FixedAsset,
                      DepreciationEntry, Invoice, InvoiceLine, CreditNote, AuditEvent, Partner, PAYMENT_MODES, ASSET_CATEGORIES)
 
 ZERO = Decimal('0')
@@ -68,6 +68,10 @@ def open_items(payee):
         due = asset.cost - allocated('fixed_asset', asset)
         if due > 0:
             items.append({'kind': 'asset', 'obj': asset, 'ref': asset.code, 'date': asset.put_to_use, 'due_date': asset.put_to_use, 'amount': due})
+    for cl in ChannelRunLine.objects.filter(partner=payee, run__status='approved').select_related('run').order_by('run__end', 'pk'):
+        due = cl.net - allocated('channel_line', cl)     # negative = recovery to adjust against other dues
+        if due:
+            items.append({'kind': 'chc', 'obj': cl, 'ref': f'{cl.run.number} commission', 'date': cl.run.end, 'due_date': cl.run.end, 'amount': due})
     for dn in DebitNote.objects.filter(supplier=payee).exclude(supplier_invoice__decision='matched').order_by('date'):
         left = dn.total + allocated('debit_note', dn)  # allocations are negative
         if left > 0:
@@ -79,7 +83,8 @@ def payees():
     """Suppliers / transporters with something to pay."""
     ids = set(SupplierInvoice.objects.filter(status__in=['matched', 'approved']).values_list('supplier', flat=True)) | \
         set(FreightBill.objects.filter(status='approved').values_list('transporter', flat=True)) | \
-        set(FixedAsset.objects.filter(credit_purchase=True).values_list('supplier', flat=True)) | set(DebitNote.objects.values_list('supplier',flat=True))
+        set(FixedAsset.objects.filter(credit_purchase=True).values_list('supplier', flat=True)) | set(DebitNote.objects.values_list('supplier',flat=True)) | \
+        set(ChannelRunLine.objects.filter(run__status='approved').values_list('partner', flat=True))
     out = []
     today = timezone.localdate()
     for p in Partner.objects.filter(pk__in=ids).order_by('name'):
@@ -151,7 +156,7 @@ def propose(user, payee, bank, picks, mode='neft', on=None, note=''):
                                          note=(note or '')[:200], proposal_note=(note or '').strip()[:200], created_by=user, beneficiary_name=payee.name,
                                          beneficiary_account=payee.bank_account_number, beneficiary_ifsc=payee.bank_ifsc)
     for item, amt in allocs:
-        PaymentAllocation.objects.create(payment=pay, amount=amt, **{{'sinv': 'supplier_invoice', 'frb': 'freight_bill', 'dn': 'debit_note', 'asset': 'fixed_asset'}[item['kind']]: item['obj']})
+        PaymentAllocation.objects.create(payment=pay, amount=amt, **{{'sinv': 'supplier_invoice', 'frb': 'freight_bill', 'dn': 'debit_note', 'asset': 'fixed_asset', 'chc': 'channel_line'}[item['kind']]: item['obj']})
     if mode in ['offset','refund']:check_offset(pay)
     _log(user, 'Payment proposed', pay.number, f'{pay.date} · {payee.name} · ₹{inr(total, 2)} · {len(allocs)} item(s)')
     return pay

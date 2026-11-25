@@ -1,0 +1,59 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% load static %}<link href="{% static 'erp/network.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · CHANNEL</div><h1>Channel commission</h1><p>Commission for C&amp;F, sales promoters, handling agents and distributors on the sales of the partners below them in the People network. A different user approves each rate and each run; an approved run becomes a payable you pay under Payments, with TDS (194H) when the partner's TDS is set.</p></div></div>
+
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Rates</h2><small>{{ rates|length }} agreement{{ rates|length|pluralize }}</small></header>
+      {% if rates %}
+      <ul class="mst-order-list">
+        {% for r in rates %}
+        <li>
+          <a href="{% url 'partner_detail' r.partner.pk %}#network"><strong>{{ r.partner.name }}</strong><small>{{ r.partner.get_kind_display }} · {% if r.basis == 'mt' %}₹{{ r.rate|floatformat:'-2' }} per MT{% else %}{{ r.rate|floatformat:'-3' }}% of sales{% endif %} · {{ r.get_scope_display|lower }} · from {{ r.valid_from|date:'d M Y' }}{% if r.valid_to %} to {{ r.valid_to|date:'d M Y' }}{% endif %}</small></a>
+          <span class="doc-badge{% if r.status == 'approved' %} is-ok{% elif r.status == 'submitted' %} is-warning{% elif r.status == 'rejected' %} is-danger{% endif %}">{{ r.get_status_display }}</span>
+          <span class="mst-doc-actions">
+            {% if r.status == 'draft' or r.status == 'rejected' %}{% if can_add %}<form method="post" action="{% url 'channel_rate_action' r.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-light is-sm" type="submit">Send for approval</button></form>{% endif %}{% endif %}
+            {% if r.status == 'submitted' and can_approve and r.created_by_id != user.pk %}<form method="post" action="{% url 'channel_rate_action' r.pk 'approve' %}">{% csrf_token %}<button class="org-btn is-primary is-sm" type="submit">Approve</button></form><form method="post" action="{% url 'channel_rate_action' r.pk 'reject' %}" class="ch-inline">{% csrf_token %}<input class="form-control form-control-sm" name="note" placeholder="What must change" required aria-label="Reason"><button class="org-btn is-light is-sm" type="submit">Send back</button></form>{% endif %}
+            {% if r.status == 'approved' and can_approve %}<form method="post" action="{% url 'channel_rate_action' r.pk 'end' %}" class="ch-inline" data-confirm="End this rate? Sales after this date earn nothing under it.">{% csrf_token %}<input class="form-control form-control-sm" type="date" name="on" value="{{ today|date:'Y-m-d' }}" aria-label="End on"><button class="org-btn is-light is-sm" type="submit">End</button></form>{% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="acc-empty-mini"><strong>No rates yet</strong><span>Add the agreed commission for each C&amp;F or agent below.</span></div>{% endif %}
+    </section>
+
+    {% if can_add %}
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>New rate</h2></header>
+      {% if partners %}
+      <form method="post" class="org-form ch-form">{% csrf_token %}
+        <div class="org-field"><label class="form-label" for="ch-p">Partner</label><select class="form-select" id="ch-p" name="partner" required><option value="">Choose</option>{% regroup partners by get_kind_display as groups %}{% for g in groups %}<optgroup label="{{ g.grouper }}">{% for p in g.list %}<option value="{{ p.pk }}">{{ p.name }}{% if p.city %} · {{ p.city }}{% endif %}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+        <div class="ch-two">
+          <div class="org-field"><label class="form-label" for="ch-b">Basis</label><select class="form-select" id="ch-b" name="basis"><option value="mt">₹ per MT</option><option value="pct">% of net sales</option></select></div>
+          <div class="org-field"><label class="form-label" for="ch-r">Rate</label><input class="form-control" id="ch-r" name="rate" inputmode="decimal" required placeholder="e.g. 25"></div>
+        </div>
+        <div class="org-field"><label class="form-label" for="ch-s">On the sales of</label><select class="form-select" id="ch-s" name="scope"><option value="network">Whole network below</option><option value="direct">Only partners directly under</option></select></div>
+        <div class="ch-two">
+          <div class="org-field"><label class="form-label" for="ch-f">From</label><input class="form-control" type="date" id="ch-f" name="valid_from" required value="{{ today|date:'Y-m-d' }}"></div>
+          <div class="org-field"><label class="form-label" for="ch-t">To (optional)</label><input class="form-control" type="date" id="ch-t" name="valid_to"></div>
+        </div>
+        <div class="org-field"><label class="form-label" for="ch-n">Note</label><input class="form-control" id="ch-n" name="note" maxlength="200" placeholder="Agreement reference"></div>
+        <div class="ch-actions"><button class="org-btn is-light" type="submit">Save draft</button><button class="org-btn is-primary" type="submit" name="submit" value="1">Save &amp; send for approval</button></div>
+      </form>
+      {% else %}<div class="acc-empty-mini"><strong>No C&amp;F or agent yet</strong><span>Add one under People → Dealers &amp; suppliers first.</span></div>{% endif %}
+    </section>
+    {% endif %}
+
+    <section class="org-card org-view{% if not can_add %} acc-wide{% endif %}">
+      <header class="acc-card-head"><h2>Runs</h2>{% if next_start %}<small>next run starts {{ next_start|date:'d M Y' }}</small>{% endif %}</header>
+      {% if can_run %}
+      <form method="post" action="{% url 'channel_calculate' %}" class="ch-inline ch-calc">{% csrf_token %}<label class="form-label" for="ch-end">Calculate up to</label><input class="form-control" type="date" id="ch-end" name="end" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"><button class="org-btn is-primary" type="submit">Calculate</button></form>
+      {% endif %}
+      {% if runs %}<ul class="mst-order-list">{% for r in runs %}<li><a href="{% url 'channel_run' r.pk %}"><strong>{{ r.number }}</strong><small>{{ r.start|date:'d M' }} – {{ r.end|date:'d M Y' }}</small></a><span class="mst-qty">₹{{ r.total|indian:2 }}</span><span class="doc-badge{% if r.status == 'approved' %} is-ok{% elif r.status == 'draft' %} is-warning{% elif r.status == 'rejected' %} is-danger{% endif %}">{{ r.get_status_display }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No runs yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -175,5 +175,12 @@ def network_card(user, partner, period=None):
         own = rows.get(partner.pk, {'value': ZERO, 'mt': ZERO})
         net = {'value': sum((rows[k]['value'] for k in below if k in rows), ZERO), 'mt': sum((rows[k]['mt'] for k in below if k in rows), ZERO)}
         sales = {'own': own, 'network': net, 'total_value': own['value'] + net['value'], 'total_mt': own['mt'] + net['mt'], 'since': start}
-    return {'chain': chain(partner), 'direct': direct, 'direct_total': partner.downline.filter(active=True).count(), 'below': len(below),
+    commission = None
+    from .models import CHANNEL_KINDS, ChannelRate
+    if partner.kind in CHANNEL_KINDS and user.has_perm('erp.view_channelrate'):
+        from .channel_commission import statement
+        rows = statement(partner) if user.has_perm('erp.view_channelrun') else []
+        commission = {'rate': ChannelRate.objects.filter(partner=partner, status='approved').order_by('-valid_from').first(),
+                      'earned': sum((r['line'].amount for r in rows), ZERO), 'due': sum((r['due'] for r in rows), ZERO), 'show_money': user.has_perm('erp.view_channelrun')}
+    return {'commission': commission, 'chain': chain(partner), 'direct': direct, 'direct_total': partner.downline.filter(active=True).count(), 'below': len(below),
             'counts': counts, 'masons': masons, 'sales': sales, 'allowed': allowed_parents(partner.kind)}

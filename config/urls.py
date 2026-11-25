@@ -4,6 +4,7 @@ from django.urls import path, include
 from erp import views as v
 from erp import order_views as ov
 from erp import team_views as tmv
+from erp import channel_views as chv
 from erp import insight_views as iv
 from erp import pdf_views as pdfv
 from erp import maintenance_views as mtv
@@ -41,6 +42,10 @@ urlpatterns = [
     path('sales/', ov.order_list, {'kind': 'Sale'}, name='sales'),
     path('sales/team/', tmv.sales_team, name='sales_team'),
     path('sales/team/<int:pk>/', tmv.sales_person, name='sales_person'),
+    path('channel-commission/', chv.channel_commission, name='channel_commission'),
+    path('channel-commission/rate/<int:pk>/<slug:action>/', chv.channel_rate_action, name='channel_rate_action'),
+    path('channel-commission/calculate/', chv.channel_calculate, name='channel_calculate'),
+    path('channel-commission/run/<int:pk>/', chv.channel_run, name='channel_run'),
     path('purchases/', ov.order_list, {'kind': 'Purchase'}, name='purchases'),
     path('orders/new/<str:kind>/', ov.order_new, name='order_new'),
     path('orders/price/', ov.price_lookup, name='order_price'),

@@ -81,7 +81,7 @@ def payment_detail(request, pk):
     pay = get_object_or_404(SupplierPayment.objects.select_related('payee', 'bank', 'created_by', 'approved_by', 'paid_by', 'returned_by'), pk=pk)
     u = request.user
     return render(request, 'erp/payment_detail.html', {'title': pay.number, 'pay': pay,'today':timezone.localdate().isoformat(),
-                                                       'allocs': pay.allocations.select_related('supplier_invoice', 'freight_bill', 'debit_note', 'fixed_asset'),
+                                                       'allocs': pay.allocations.select_related('supplier_invoice', 'freight_bill', 'debit_note', 'fixed_asset', 'channel_line__run'),
                                                        'history': AuditEvent.objects.filter(reference=pay.number).select_related('actor').order_by('-created_at')[:10],
                                                        'can': {'decide': pay.status == 'proposed' and can_approve(u, 'approve_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,
                                                                'cancel': pay.status == 'approved' and can_approve(u, 'approve_supplierpayment', makers=(pay.created_by_id,)) and pay.created_by_id != u.pk,

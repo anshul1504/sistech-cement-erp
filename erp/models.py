@@ -2156,15 +2156,17 @@ class PaymentAllocation(models.Model):
     freight_bill = models.ForeignKey('FreightBill', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
     fixed_asset = models.ForeignKey('FixedAsset', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
     debit_note = models.ForeignKey('DebitNote', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
-    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='Negative for a debit note or approved freight recovery credit adjusted in the payment.')
+    channel_line = models.ForeignKey('ChannelRunLine', null=True, blank=True, on_delete=models.PROTECT, related_name='allocations')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='Negative for a debit note, freight recovery or channel commission recovery adjusted in the payment.')
 
     class Meta:
         constraints = [models.CheckConstraint(
             condition=(
-                models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=True, amount__gt=0)
-                | (models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False, debit_note__isnull=True, fixed_asset__isnull=True) & ~models.Q(amount=0))
-                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=False, amount__gt=0)
-                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=False, fixed_asset__isnull=True, amount__lt=0)
+                models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=True, channel_line__isnull=True, amount__gt=0)
+                | (models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False, debit_note__isnull=True, fixed_asset__isnull=True, channel_line__isnull=True) & ~models.Q(amount=0))
+                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=False, channel_line__isnull=True, amount__gt=0)
+                | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=False, fixed_asset__isnull=True, channel_line__isnull=True, amount__lt=0)
+                | (models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, debit_note__isnull=True, fixed_asset__isnull=True, channel_line__isnull=False) & ~models.Q(amount=0))
             ), name='payment_allocation_one_source')]
 
 
@@ -3668,6 +3670,7 @@ class TdsDeduction(models.Model):
     payee = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='tds_deductions')
     supplier_invoice = models.ForeignKey('SupplierInvoice', null=True, blank=True, on_delete=models.PROTECT, related_name='tds_deductions')
     freight_bill = models.ForeignKey('FreightBill', null=True, blank=True, on_delete=models.PROTECT, related_name='tds_deductions')
+    channel_line = models.ForeignKey('ChannelRunLine', null=True, blank=True, on_delete=models.PROTECT, related_name='tds_deductions')
     section = models.CharField(max_length=5)
     rate = models.DecimalField(max_digits=5, decimal_places=3)
     base = models.DecimalField('Amount TDS is calculated on', max_digits=16, decimal_places=2)
@@ -3682,7 +3685,9 @@ class TdsDeduction(models.Model):
 
     class Meta:
         ordering = ['-date', '-pk']
-        constraints = [models.CheckConstraint(condition=models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True) | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False),
+        constraints = [models.CheckConstraint(condition=models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True, channel_line__isnull=True)
+                                              | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False, channel_line__isnull=True)
+                                              | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=True, channel_line__isnull=False),
                                               name='tds_one_bill')]
 
     def __str__(self): return self.number
@@ -3739,3 +3744,75 @@ class DealerLedgerAccess(models.Model):
 
     def __str__(self):
         return f'{self.user} → {self.partner}'
+
+
+# ---------- Channel commission: C&F, sales promoter, handling agent and distributor on their network's sales ----------
+
+CHANNEL_KINDS = ['CF', 'SalesPromoter', 'HandlingAgent', 'Distributor']
+
+
+class ChannelRate(models.Model):
+    """Commission agreement for one channel partner, approved by a different user (erp.channel_commission)."""
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='channel_rates', limit_choices_to={'kind__in': CHANNEL_KINDS})
+    basis = models.CharField(max_length=4, choices=[('mt', '₹ per MT sold'), ('pct', '% of net sales value')])
+    rate = models.DecimalField(max_digits=10, decimal_places=3, validators=POSITIVE)
+    scope = models.CharField(max_length=8, default='network', choices=[('network', 'Whole network below'), ('direct', 'Only partners directly under')])
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=9, default='draft', choices=[('draft', 'Draft'), ('submitted', 'Waiting approval'), ('approved', 'Approved'), ('rejected', 'Sent back'), ('ended', 'Ended')])
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decision_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['partner__name', '-valid_from']
+        permissions = [('approve_channelrate', 'Approve channel commission rates')]
+
+    def __str__(self):
+        return f'{self.partner} · {self.rate} {"₹/MT" if self.basis == "mt" else "%"}'
+
+
+class ChannelRun(models.Model):
+    """One commission calculation for a period across all approved channel rates; approval posts the payable."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    start = models.DateField()
+    end = models.DateField()
+    status = models.CharField(max_length=8, default='draft', choices=[('draft', 'Calculated'), ('approved', 'Approved & posted'), ('rejected', 'Rejected')])
+    total = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    tds = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-end', '-pk']
+        permissions = [('approve_channelrun', 'Approve and post channel commission runs')]
+
+    def __str__(self): return self.number
+
+
+class ChannelRunLine(models.Model):
+    run = models.ForeignKey(ChannelRun, on_delete=models.CASCADE, related_name='lines')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='channel_lines')
+    rate = models.ForeignKey(ChannelRate, on_delete=models.PROTECT, related_name='lines')
+    base_mt = models.DecimalField('Network MT (cumulative)', max_digits=14, decimal_places=3, default=0)
+    base_value = models.DecimalField('Network net sales ₹ (cumulative)', max_digits=16, decimal_places=2, default=0)
+    partners = models.PositiveIntegerField('Partners counted', default=0)
+    cumulative = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    prior = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=16, decimal_places=2, default=0, help_text='Negative = recovery after returns.')
+    tds = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    tds_section = models.CharField(max_length=5, blank=True)
+
+    class Meta:
+        ordering = ['partner__name']
+
+    @property
+    def net(self):
+        return self.amount - self.tds
+
+    def __str__(self): return f'{self.run} · {self.partner}'

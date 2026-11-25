@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.24.2'
+ASSET_VERSION = '0.25.0'
 
 def _area(area, label):
     """A module's dashboard (erp.insight_views.AREAS); visible when the dashboard's own check passes."""
@@ -48,6 +48,7 @@ MODULES = [
         ]),
         ('Incentives', [
             _item('commission_plans', 'Sales commission', 'chart', 'view_commissionplan', match=('commission_plan_new', 'commission_plan', 'commission_plan_edit', 'commission_run')),
+            _item('channel_commission', 'Channel commission', 'handshake', 'view_channelrate', match=('channel_run', 'channel_rate_action', 'channel_calculate')),
             _item('schemes', 'Schemes & incentives', 'gift', 'view_incentivescheme', match=('scheme_new', 'scheme_edit', 'scheme_detail', 'scheme_evaluation', 'scheme_check_sources', 'scheme_payouts', 'scheme_batch', 'scheme_statement')),
             _item('recognition', 'Star programmes', 'gift', 'view_recognitionprogram', match=('recognition_detail', 'recognition_action', 'influencer_usage')),
         ]),

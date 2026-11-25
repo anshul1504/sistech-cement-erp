@@ -219,8 +219,8 @@ def payment(user, pk):
     _finance(user, 'view_supplierpayment')
     p = get_object_or_404(SupplierPayment.objects.select_related('payee', 'bank', 'created_by', 'approved_by', 'paid_by'), pk=pk)
     rows = []
-    for a in p.allocations.select_related('supplier_invoice', 'freight_bill', 'debit_note', 'fixed_asset'):
-        doc = a.supplier_invoice or a.freight_bill or a.debit_note or a.fixed_asset
+    for a in p.allocations.select_related('supplier_invoice', 'freight_bill', 'debit_note', 'fixed_asset', 'channel_line__run'):
+        doc = a.supplier_invoice or a.freight_bill or a.debit_note or a.fixed_asset or (f'Channel commission {a.channel_line.run.number}' if a.channel_line_id else '')
         rows.append([str(doc), money(a.amount)])
     spec = {'title': 'Payment voucher', 'number': p.number, 'date': d(p.date), 'status': p.get_status_display(),
             'meta': [('Mode', p.get_mode_display()), ('From bank', str(p.bank)), ('UTR / cheque', p.reference), ('Beneficiary A/c', p.beneficiary_account), ('IFSC', p.beneficiary_ifsc),

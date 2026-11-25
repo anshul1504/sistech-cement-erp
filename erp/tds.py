@@ -85,6 +85,8 @@ def reverse(user, pk, reason):
         raise ValidationError('Already reversed.')
     if d.challan_id:
         raise ValidationError('This TDS is already deposited by challan — it cannot be reversed here.')
+    if d.channel_line_id:
+        raise ValidationError('TDS on channel commission comes from the approved run — correct it through the next run.')
     if not (reason or '').strip():
         raise ValidationError('Give the reason.')
     bill = d.supplier_invoice or d.freight_bill
