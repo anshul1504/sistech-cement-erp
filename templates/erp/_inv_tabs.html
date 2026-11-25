@@ -1,7 +1,1 @@
-<nav class="org-tabs mst-cat-tabs" aria-label="Inventory">
-  <a class="org-tab{% if tab == 'stock' %} is-active{% endif %}" href="{% url 'inventory' %}">Stock position</a>
-  {% if perms.erp.view_stocktransfer %}<a class="org-tab{% if tab == 'transfers' %} is-active{% endif %}" href="{% url 'transfers' %}">Transfers</a>{% endif %}
-  {% if perms.erp.view_damagereport %}<a class="org-tab{% if tab == 'damage' %} is-active{% endif %}" href="{% url 'damages' %}">Damaged stock</a>{% endif %}
-  {% if perms.erp.view_stockcount %}<a class="org-tab{% if tab == 'counts' %} is-active{% endif %}" href="{% url 'counts' %}">Stock counts</a>{% endif %}
-  {% if perms.erp.view_stockmovement %}<a class="org-tab{% if tab == 'analysis' %} is-active{% endif %}" href="{% url 'stock_analysis' %}">Ageing &amp; slow-moving</a>{% endif %}
-</nav>
+{# Module sidebar now lists these pages; kept empty so existing includes stay harmless. #}

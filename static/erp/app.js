@@ -208,7 +208,7 @@ document.querySelectorAll('.cell-value[data-status]').forEach(el => { if (status
 
 // Card grids: when the last card ends a row early, let it take the rest of that row (no half-empty rows on any page).
 (() => {
-  const fill = () => document.querySelectorAll('main .acc-grid, main .ins-grid').forEach(g => {
+  const fill = () => document.querySelectorAll('main .acc-grid, main .ins-grid, main .crm-stage-strip, main .project-stages, main .inf-kpis, main .ins-queue').forEach(g => {
     const kids = [...g.children].filter(k => k.offsetParent !== null);
     kids.forEach(k => { if (k.dataset.autoSpan) { k.style.gridColumn = ''; delete k.dataset.autoSpan; } });
     const st = getComputedStyle(g), tracks = st.gridTemplateColumns.split(' ').map(parseFloat).filter(n => !isNaN(n));
@@ -223,4 +223,23 @@ document.querySelectorAll('.cell-value[data-status]').forEach(el => { if (status
   });
   fill();
   let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(fill, 120); });
+})();
+
+// Page intros stay to one line; a "More" button shows the full explanation (keeps every screen calm and scannable).
+(() => {
+  const intros = document.querySelectorAll('.org-head > div > p, .ins-hello > div > p');
+  const setup = () => intros.forEach(p => {
+    if (p.dataset.introReady) return;
+    p.classList.add('page-intro');
+    if (p.scrollHeight <= p.clientHeight + 2) { p.classList.remove('page-intro'); return; }
+    p.dataset.introReady = '1';
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'page-intro-more'; b.textContent = 'More'; b.setAttribute('aria-expanded', 'false');
+    b.addEventListener('click', () => {
+      const open = p.classList.toggle('is-open');
+      b.textContent = open ? 'Less' : 'More'; b.setAttribute('aria-expanded', String(open));
+    });
+    p.after(b);
+  });
+  setup();
 })();

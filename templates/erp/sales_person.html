@@ -1,0 +1,39 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}<link href="{% static 'erp/team.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page ins-page tm-page">
+  <div class="org-head ins-head"><div><div class="eyebrow">{% if can_team %}<a href="{% url 'sales_team' %}?{{ period.query }}{{ site_q }}">← Sales team</a>{% else %}MY SALES{% endif %}</div>
+    <h1>{{ name }}</h1><p>Sales on orders {{ name }} created — net of returns, before GST · {{ period.label|lower }}.</p></div>
+    {% include 'erp/_insight_filter.html' %}</div>
+
+  <div class="inf-kpis ins-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Net sales</span><strong>{{ data.value|inr_short }}</strong><small>{{ data.mt|mt }}{% if data.per_mt %} · ₹{{ data.per_mt|indian }}/MT{% endif %}</small></div>
+    <div role="listitem" class="inf-kpi{% if data.pct is not None and data.pct < 60 %} is-warn{% endif %}"><span>Target achievement</span><strong>{% if data.pct is not None %}{{ data.pct }}%{% else %}—{% endif %}</strong><small>{% if data.target %}target {{ data.target|inr_short }}{% else %}no target set{% endif %}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Collected</span><strong>{{ data.collected|inr_short }}</strong><small>against own invoices</small></div>
+    <div role="listitem" class="inf-kpi"><span>Invoices · customers</span><strong>{{ data.invoices }} · {{ data.buyers }}</strong><small>{{ data.open_orders }} open order{{ data.open_orders|pluralize }}</small></div>
+  </div>
+
+  <section class="org-card ins-card ins-block">
+    <div class="ins-card-head"><h2>Last 12 months</h2><small>net sales ₹ · the dash is the month's target</small></div>
+    <div class="tm-bars" role="img" aria-label="Monthly net sales and targets">
+      {% for b in data.bars %}<div class="tm-col" title="{{ b.label }} {{ b.year }}: {{ b.value|inr_short }} · {{ b.mt|mt }}{% if b.target %} · target {{ b.target|inr_short }}{% endif %}">
+        <b>{% if b.value %}{{ b.value|inr_short }}{% endif %}</b>
+        <div class="tm-col-track"><i class="{% if b.hit %}is-hit{% endif %}" style="height:{{ b.h|stringformat:'s' }}%"></i>{% if b.t is not None %}<em style="bottom:{{ b.t|stringformat:'s' }}%"></em>{% endif %}</div>
+        <span>{{ b.label }}</span></div>{% endfor %}
+    </div>
+    <div class="tm-legend"><span><i style="background:#1d5fbf"></i>Net sales</span><span><i style="background:#1f7a5a"></i>Target met</span><span><i class="is-dash"></i>Target</span></div>
+    <div class="visually-hidden"><table><caption>Monthly sales</caption><tr><th>Month</th><th>Sales</th><th>MT</th><th>Target</th></tr>{% for b in data.bars %}<tr><td>{{ b.label }} {{ b.year }}</td><td>{{ b.value|inr_short }}</td><td>{{ b.mt|mt }}</td><td>{{ b.target|inr_short }}</td></tr>{% endfor %}</table></div>
+  </section>
+
+  <div class="tm-grid">
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>What they sold</h2><small>by product</small></div>
+      {% if data.products %}{% include 'erp/_insight_bars.html' with rows=data.products %}{% else %}<p class="ins-empty">No sales in this period.</p>{% endif %}</section>
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>Top customers</h2><small>net sales ₹</small></div>
+      {% if data.customers %}{% include 'erp/_insight_bars.html' with rows=data.customers %}{% else %}<p class="ins-empty">No sales in this period.</p>{% endif %}</section>
+  </div>
+
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>Recent invoices</h2><small>{{ period.label|lower }}</small></div>
+    {% if data.recent %}<ul class="tm-recent">{% for i in data.recent %}<li>{% if perms.erp.view_invoice %}<a href="{% url 'invoice_detail' i.pk %}">{{ i.number }}</a>{% else %}<span>{{ i.number }}</span>{% endif %}<small>{{ i.date|date:'d M' }} · {{ i.partner.name }}</small><strong>₹{{ i.taxable|indian }}</strong></li>{% endfor %}</ul>
+    {% else %}<p class="ins-empty">No invoices in this period.</p>{% endif %}</section>
+</div>
+{% endblock %}

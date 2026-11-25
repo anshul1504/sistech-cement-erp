@@ -1,0 +1,62 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}<link href="{% static 'erp/team.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page ins-page tm-page">
+  <div class="org-head ins-head"><div><div class="eyebrow">SALES · TEAM</div><h1>Sales team</h1><p>Who sold how much, for orders each person created — net of returns, before GST, for the plants you can see.</p></div>
+    {% include 'erp/_insight_filter.html' %}</div>
+  {% include 'erp/_insight_tabs.html' %}
+
+  <div class="inf-kpis ins-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Team net sales</span><strong>{{ team.total|inr_short }}</strong><small>{{ team.mt|mt }} · {{ period.label|lower }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Collected</span><strong>{{ team.collected|inr_short }}</strong><small>against the team's invoices</small></div>
+    <div role="listitem" class="inf-kpi"><span>Target</span><strong>{% if team.target %}{{ team.target|inr_short }}{% else %}—{% endif %}</strong><small>{% if team.target %}{% widthratio team.total team.target 100 %}% achieved{% else %}no targets set for this period{% endif %}</small></div>
+    <div role="listitem" class="inf-kpi"><span>People selling</span><strong>{{ team.rows|length }}</strong><small>with sales or a target</small></div>
+  </div>
+
+  {% if team.rows %}
+  <div class="tm-grid">
+    <section class="org-card ins-card">
+      <div class="ins-card-head"><h2>Who sold how much</h2><small>net sales ₹ · {{ period.label|lower }}</small></div>
+      <ol class="tm-board">
+        {% for r in team.rows %}
+        <li>
+          <a class="tm-name" href="{% url 'sales_person' r.user.pk %}?{{ period.query }}{{ site_q }}"><span class="tm-rank" style="background:{{ r.color }}">{{ r.rank }}</span><strong>{{ r.name }}</strong></a>
+          <div class="tm-bar"><i style="width:{{ r.bar|stringformat:'s' }}%;background:{{ r.color }}"></i></div>
+          <span class="tm-val"><strong>{{ r.value|inr_short }}</strong><small>{{ r.mt|mt }}{% if r.pct is not None %} · {{ r.pct }}% of target{% endif %}</small></span>
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    {% if team.chart %}
+    <section class="org-card ins-card">
+      <div class="ins-card-head"><h2>Monthly trend</h2><small>top {{ team.chart.series|length }} · net sales ₹ by month</small></div>
+      {% include 'erp/_team_line.html' with chart=team.chart %}
+    </section>
+    {% endif %}
+  </div>
+
+  <section class="org-card ins-card tm-table-card">
+    <div class="ins-card-head"><h2>Team table</h2><small>click a name for that person's charts</small></div>
+    <div class="tm-table" role="table">
+      <div class="tm-tr tm-th" role="row"><span role="columnheader">Sales person</span><span role="columnheader">Net sales</span><span role="columnheader">Volume</span><span role="columnheader">₹ / MT</span><span role="columnheader">Invoices</span><span role="columnheader">Customers</span><span role="columnheader">Collected</span><span role="columnheader">Target</span><span role="columnheader">Open orders</span></div>
+      {% for r in team.rows %}
+      <a class="tm-tr" role="row" href="{% url 'sales_person' r.user.pk %}?{{ period.query }}{{ site_q }}">
+        <span role="cell" class="tm-who"><i style="background:{{ r.color }}"></i>{{ r.name }}</span>
+        <span role="cell" data-label="Net sales"><strong>{{ r.value|inr_short }}</strong>{% if r.share is not None %}<small>{{ r.share }}% of team</small>{% endif %}</span>
+        <span role="cell" data-label="Volume">{{ r.mt|mt }}</span>
+        <span role="cell" data-label="₹ / MT">{% if r.per_mt %}₹{{ r.per_mt|indian }}{% else %}—{% endif %}</span>
+        <span role="cell" data-label="Invoices">{{ r.invoices }}</span>
+        <span role="cell" data-label="Customers">{{ r.buyers }}</span>
+        <span role="cell" data-label="Collected">{{ r.collected|inr_short }}</span>
+        <span role="cell" data-label="Target">{% if r.target %}{{ r.target|inr_short }}<small class="{% if r.pct >= 100 %}is-good{% elif r.pct < 60 %}is-bad{% endif %}">{{ r.pct }}%</small>{% else %}—{% endif %}</span>
+        <span role="cell" data-label="Open orders">{{ r.open_orders }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <section class="org-card ins-card"><div class="doc-empty"><svg><use href="#ic-chart"/></svg><strong>No sales in this period</strong><span>Choose a longer period, or set monthly targets under Dealer CRM → Targets &amp; performance.</span></div></section>
+  {% endif %}
+</div>
+{% endblock %}

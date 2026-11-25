@@ -50,7 +50,8 @@ def _ctx(request, title, area=None):
     from .context import AREA_MODULE
     scope = AREA_MODULE.get(area, 'insights') if area else 'insights'
     areas = [a for a in areas_for(request.user) if scope == 'insights' or AREA_MODULE.get(a['key']) == scope]
-    return period, sites, {'tab_scope': scope, 'title': title, 'period': period, 'periods': I.PERIODS, 'all_sites': all_sites, 'site': chosen, 'area': area,
+    from .team_views import can_see_team
+    return period, sites, {'tab_scope': scope, 'can_team_tab': can_see_team(request.user), 'title': title, 'period': period, 'periods': I.PERIODS, 'all_sites': all_sites, 'site': chosen, 'area': area,
                            'areas': areas if scope == 'insights' or len(areas) > 1 else [], 'fin': I.company_finance(request.user),
                            'site_q': f'&site={chosen.pk}' if chosen else '', 'generated': timezone.localtime()}
 

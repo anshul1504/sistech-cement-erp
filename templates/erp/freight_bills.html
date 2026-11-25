@@ -5,7 +5,7 @@
   <div class="org-head"><div><div class="eyebrow">LOGISTICS</div><h1>Freight bills</h1><p>Transporter bills checked trip by trip against the contracted freight. Claims above contract are not paid; shortage and damage are recovered. A different user approves.</p></div>
     <div class="doc-head-actions"><a class="org-btn is-light" href="{% url 'freight_rates' %}">Freight rates</a></div></div>
   <div class="inf-kpis is-three" role="list">
-    <a role="listitem" class="inf-kpi{% if waiting %} is-warn{% endif %}" href="?status=submitted"><span>Waiting for check</span><strong>{{ waiting }}</strong><small>Maker-checker</small></a>
+    <a role="listitem" class="inf-kpi{% if waiting %} is-warn{% endif %}" href="?status=submitted"><span>Waiting for check</span><strong>{{ waiting }}</strong><small>Needs a second person to approve</small></a>
     <div role="listitem" class="inf-kpi"><span>Approved payable</span><strong>₹{{ totals.p|default:0|indian }}</strong><small>Paid through Finance (Step 7)</small></div>
     <div role="listitem" class="inf-kpi"><span>Transporters with unbilled trips</span><strong>{{ unbilled|length }}</strong><small>Trips Sistech pays for</small></div>
   </div>

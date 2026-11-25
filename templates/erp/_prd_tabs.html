@@ -1,7 +1,1 @@
-<nav class="org-tabs mst-cat-tabs" aria-label="Production">
-  <a class="org-tab{% if tab == 'orders' %} is-active{% endif %}" href="{% url 'production' %}">Process orders</a>
-  {% if perms.erp.view_recipe %}<a class="org-tab{% if tab == 'recipes' %} is-active{% endif %}" href="{% url 'recipes' %}">Recipes &amp; BOM</a>{% endif %}
-  {% if perms.erp.view_shiftlog %}<a class="org-tab{% if tab == 'shifts' %} is-active{% endif %}" href="{% url 'shift_logs' %}">Shift log</a>{% endif %}
-  {% if perms.erp.view_packingrun %}<a class="org-tab{% if tab == 'packing' %} is-active{% endif %}" href="{% url 'packing' %}">Packing</a>{% endif %}
-  {% if perms.erp.view_qualitytest %}<a class="org-tab{% if tab == 'quality' %} is-active{% endif %}" href="{% url 'quality' %}">Quality lab</a>{% endif %}
-</nav>
+{# Module sidebar now lists these pages; kept empty so existing includes stay harmless. #}

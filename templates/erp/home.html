@@ -23,7 +23,7 @@
       {% if queue|length > 8 %}<p class="ins-empty"><a href="{% url 'my_work' %}">{{ queue|length|add:'-8' }} more…</a></p>{% endif %}
       {% else %}<div class="ins-done"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><use href="#ic-shield"/></svg>All clear — no approvals, deliveries or follow-ups are waiting for you.</div>{% endif %}</section>
 
-    {% if mine %}<section class="org-card ins-card"><div class="ins-card-head"><h2>My sales</h2><small>Orders I created</small></div>
+    {% if mine %}<section class="org-card ins-card"><div class="ins-card-head"><h2>My sales</h2><a href="{% url 'sales_person' user.pk %}">My charts</a></div>
       <dl class="ins-facts"><dt>Net sales · {{ period.label|lower }}</dt><dd>{{ mine.value|inr_short }} · {{ mine.mt|mt }}</dd>
         {% if mine.target %}<dt>Target {{ period.end|date:'F' }}</dt><dd>{{ mine.target|inr_short }}</dd><dt>Achieved this month</dt><dd class="{% if mine.target_pct >= 100 %}is-good{% endif %}">{{ mine.month|inr_short }} · {{ mine.target_pct }}%</dd>{% endif %}
         <dt>My open orders</dt><dd>{% if perms.erp.view_sales_order %}<a href="{% url 'sales' %}">{{ mine.orders }}</a>{% else %}{{ mine.orders }}{% endif %}</dd>

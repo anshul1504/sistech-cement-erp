@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth
 from django.urls import path, include
 from erp import views as v
 from erp import order_views as ov
+from erp import team_views as tmv
 from erp import insight_views as iv
 from erp import pdf_views as pdfv
 from erp import maintenance_views as mtv
@@ -38,6 +39,8 @@ urlpatterns = [
     path('support/<int:pk>/', spv.ticket_detail, name='ticket_detail'),
     path('support/<int:pk>/<slug:action>/', spv.ticket_action, name='ticket_action'),
     path('sales/', ov.order_list, {'kind': 'Sale'}, name='sales'),
+    path('sales/team/', tmv.sales_team, name='sales_team'),
+    path('sales/team/<int:pk>/', tmv.sales_person, name='sales_person'),
     path('purchases/', ov.order_list, {'kind': 'Purchase'}, name='purchases'),
     path('orders/new/<str:kind>/', ov.order_new, name='order_new'),
     path('orders/price/', ov.price_lookup, name='order_price'),

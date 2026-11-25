@@ -6,7 +6,7 @@
     {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'transfer_new' %}"><svg><use href="#ic-plus"/></svg>New transfer</a></div>{% endif %}</div>
   {% include 'erp/_inv_tabs.html' with tab='transfers' %}
   <div class="inf-kpis" role="list">
-    <a role="listitem" class="inf-kpi{% if counts.requested %} is-warn{% endif %}" href="?status=requested"><span>Waiting approval</span><strong>{{ counts.requested }}</strong><small>Maker-checker</small></a>
+    <a role="listitem" class="inf-kpi{% if counts.requested %} is-warn{% endif %}" href="?status=requested"><span>Waiting approval</span><strong>{{ counts.requested }}</strong><small>Needs a second person to approve</small></a>
     <a role="listitem" class="inf-kpi" href="?status=approved"><span>To dispatch</span><strong>{{ counts.approved }}</strong><small>Approved</small></a>
     <a role="listitem" class="inf-kpi" href="?status=in_transit"><span>In transit</span><strong>{{ counts.in_transit }}</strong><small>Waiting receipt</small></a>
     <a role="listitem" class="inf-kpi{% if counts.discrepancy %} is-danger{% endif %}" href="?status=discrepancy"><span>Discrepancy</span><strong>{{ counts.discrepancy }}</strong><small>Short / damaged on arrival</small></a>

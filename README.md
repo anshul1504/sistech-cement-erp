@@ -42,6 +42,19 @@ module they were opened from. A user with only one working module goes straight 
 home KPIs are the *Overview* dashboard (`/dashboards/overview/`). Module definitions: `erp/context.py`
 (`MODULES`). Shared spacing / filter-bar / tab rules: `static/erp/polish.css`.
 
+## Sales team charts
+
+`/sales/team/` (Sales & CRM → Sales team, for sales managers and management) shows who sold how much in the
+chosen period: a ranked bar chart, a monthly trend line for the top people, and a table with net sales, MT,
+₹/MT, invoices, customers, collections, target and achievement %, open orders. Each name opens
+`/sales/team/<user>/`: the person's KPIs, a 12-month bar chart with the monthly target marked (green when
+met), product mix, top customers and recent invoices. A sales executive can open only their own page
+(*My charts* on the Overview). Sales belong to the person who created the order, net of credit notes,
+before GST, for the plants the viewer can access. Charts are server-built SVG/CSS (`erp/team.py`).
+
+The interface is kept calm: one-line page intros with *More*, no repeated tab bars where the module
+sidebar already lists the pages, plain-language labels, and a single spacing / filter pattern.
+
 ## Authentication and access control
 
 - Poppins fonts are hosted locally with their SIL Open Font License. Authentication pages share a responsive interface, keyboard focus states, field errors and password visibility toggles.

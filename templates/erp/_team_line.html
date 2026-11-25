@@ -1,0 +1,10 @@
+{% load erp_format %}<figure class="tm-line">
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="Monthly net sales by sales person">
+    {% for g in chart.grid %}<line x1="{{ chart.left }}" x2="{{ chart.right }}" y1="{{ g.y }}" y2="{{ g.y }}" class="tm-grid-line"/><text x="{{ chart.left|add:'-6' }}" y="{{ g.y }}" class="tm-y" text-anchor="end" dominant-baseline="middle">{{ g.v|inr_short }}</text>{% endfor %}
+    {% for x in chart.x %}<text x="{{ x.x }}" y="{{ chart.height|add:'-6' }}" class="tm-x" text-anchor="middle">{{ x.label }}</text>{% endfor %}
+    {% for s in chart.series %}<polyline points="{{ s.points }}" fill="none" stroke="{{ s.color }}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      {% for d in s.dots %}<circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.5" fill="#fff" stroke="{{ s.color }}" stroke-width="2"><title>{{ s.label }} · {{ d.m }}: {{ d.v|inr_short }}</title></circle>{% endfor %}{% endfor %}
+  </svg>
+  <figcaption class="tm-legend">{% for s in chart.series %}<span><i style="background:{{ s.color }}"></i>{{ s.label }}</span>{% endfor %}</figcaption>
+  <div class="visually-hidden"><table><caption>Monthly net sales by person</caption><tr><th>Person</th>{% for x in chart.x %}<th>{{ x.label }}</th>{% endfor %}</tr>{% for s in chart.series %}<tr><td>{{ s.label }}</td>{% for d in s.dots %}<td>{{ d.v|inr_short }}</td>{% endfor %}</tr>{% endfor %}</table></div>
+</figure>

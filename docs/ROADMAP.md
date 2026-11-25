@@ -200,4 +200,4 @@ health/forecast/handoff improvements. Their advanced extensions and production a
 - ✅ Module launcher home; module-scoped sidebar and dashboard tabs; top-bar module switcher.
 - ✅ UI consistency layer (filter bars, list headers, stage strips, view switches, accounts tabs); 93 pages × 6 widths audited clean.
 - Next: C&F / agent commission contracts on network sales, dealer order requests from the dealer login, retailer secondary sales.
-
+- ✅ Sales team charts (leaderboard, monthly trend, per-person 12-month chart with targets); simpler UI (one-line intros, no duplicate tabs, plain labels).

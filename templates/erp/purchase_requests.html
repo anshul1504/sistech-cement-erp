@@ -6,7 +6,7 @@
     {% if can_add %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'pr_new' %}"><svg><use href="#ic-plus"/></svg>New request</a></div>{% endif %}</div>
   {% include 'erp/_proc_tabs.html' with tab='pr' %}
   <div class="inf-kpis" role="list">
-    <a role="listitem" class="inf-kpi{% if waiting %} is-warn{% endif %}" href="?status=submitted"><span>Waiting approval</span><strong>{{ waiting }}</strong><small>Maker-checker</small></a>
+    <a role="listitem" class="inf-kpi{% if waiting %} is-warn{% endif %}" href="?status=submitted"><span>Waiting approval</span><strong>{{ waiting }}</strong><small>Needs a second person to approve</small></a>
     <a role="listitem" class="inf-kpi" href="?status=approved"><span>Approved, to buy</span><strong>{{ to_buy }}</strong><small>Send RFQ or order</small></a>
     <div role="listitem" class="inf-kpi{% if urgent %} is-danger{% endif %}"><span>Urgent open</span><strong>{{ urgent }}</strong><small>Waiting or to buy</small></div>
     <a role="listitem" class="inf-kpi{% if reorder_count %} is-warn{% endif %}" href="{% url 'reorder' %}"><span>Below reorder level</span><strong>{{ reorder_count }}</strong><small>Not yet requested</small></a>

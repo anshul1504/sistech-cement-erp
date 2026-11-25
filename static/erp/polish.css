@@ -57,3 +57,28 @@
   .pipeline-forecast .table { table-layout: fixed; width: 100%; }
   .pipeline-forecast .table th, .pipeline-forecast .table td { white-space: normal; overflow-wrap: anywhere; padding: 8px 6px; font-size: 12px; }
 }
+
+/* ---------- Calm page intros: one line, "More" for the full explanation ---------- */
+.page-intro { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; }
+.page-intro.is-open { display: block; -webkit-line-clamp: unset; }
+.page-intro-more { margin: 2px 0 0; padding: 0; border: 0; background: none; color: var(--o-brand, #073777); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.page-intro-more:hover { text-decoration: underline; }
+
+/* ---------- Readability: nothing smaller than ~12px for labels people must read ---------- */
+.inf-kpi > span, .inf-kpi small, .crm-filters label, .doc-list-head p, .mst-cell small, .acc-card-head small { font-size: max(12px, 1em); }
+.inf-kpi > span { font-size: 12.5px; }
+.inf-kpi small { font-size: 12px; }
+
+/* ---------- Phones: primary page actions full width, section tabs in an even two-column grid ---------- */
+@media (max-width: 767.98px) {
+  .org-head > .org-btn { width: 100%; justify-content: center; }
+  .crm-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crm-tabs .org-btn { justify-content: center; text-align: center; }
+  .crm-tabs > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* ---------- Phones: plain data tables wrap their cells instead of scrolling sideways ---------- */
+@media (max-width: 575.98px) {
+  .adm-page .table-responsive > .table { table-layout: fixed; width: 100%; }
+  .adm-page .table-responsive > .table th, .adm-page .table-responsive > .table td { white-space: normal; overflow-wrap: anywhere; padding: 8px 6px; font-size: 12px; }
+}

@@ -1,7 +1,1 @@
-<nav class="org-tabs mst-cat-tabs" aria-label="Procurement">
-  {% if perms.erp.view_purchaserequest %}<a class="org-tab{% if tab == 'pr' %} is-active{% endif %}" href="{% url 'purchase_requests' %}">Requests</a>
-  <a class="org-tab{% if tab == 'reorder' %} is-active{% endif %}" href="{% url 'reorder' %}">Reorder suggestions</a>{% endif %}
-  {% if perms.erp.view_rfq %}<a class="org-tab{% if tab == 'rfq' %} is-active{% endif %}" href="{% url 'rfqs' %}">RFQs &amp; quotes</a>{% endif %}
-  {% if perms.erp.view_purchase_order %}<a class="org-tab" href="{% url 'purchases' %}">Purchase orders</a>{% endif %}
-  {% if perms.erp.view_goodsreceipt %}<a class="org-tab{% if tab == 'grn' %} is-active{% endif %}" href="{% url 'inbound' %}">Goods receipt</a>{% endif %}
-</nav>
+{# Module sidebar now lists these pages; kept empty so existing includes stay harmless. #}

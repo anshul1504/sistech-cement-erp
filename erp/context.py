@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.22.3'
+ASSET_VERSION = '0.24.1'
 
 def _area(area, label):
     """A module's dashboard (erp.insight_views.AREAS); visible when the dashboard's own check passes."""
@@ -33,6 +33,7 @@ MODULES = [
         ('Overview', [
             _area('sales', 'Sales dashboard'),
             _area('dealers', 'Dealer network'),
+            _item('sales_team', 'Sales team', 'chart', match=('sales_person',)),
         ]),
         ('Selling', [
             _item('sales', 'Sales orders', 'sales', 'view_sales_order'),
@@ -66,7 +67,8 @@ MODULES = [
         ]),
         ('Buying', [
             _item('supply_plan', 'Supply plan', 'chart', 'view_purchaserequest'),
-            _item('purchase_requests', 'Purchase requests', 'clipboard', 'view_purchaserequest', match=('pr_new', 'pr_detail', 'pr_edit', 'pr_direct', 'reorder')),
+            _item('purchase_requests', 'Purchase requests', 'clipboard', 'view_purchaserequest', match=('pr_new', 'pr_detail', 'pr_edit', 'pr_direct')),
+            _item('reorder', 'Reorder suggestions', 'chart', 'view_purchaserequest'),
             _item('rfqs', 'RFQs & quotes', 'quote', 'view_rfq', match=('rfq_new', 'rfq_detail', 'quote_form')),
             _item('purchases', 'Purchase orders', 'purchase', 'view_purchase_order'),
             _item('inbound', 'Goods receipt (GRN)', 'boxes', 'view_goodsreceipt', match=('grn_new', 'grn_detail', 'grn_print')),
@@ -97,7 +99,8 @@ MODULES = [
             _area('stock', 'Stock dashboard'),
         ]),
         ('Warehouse', [
-            _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening', 'stock_card', 'stock_analysis')),
+            _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening', 'stock_card')),
+            _item('stock_analysis', 'Ageing & slow-moving', 'history', 'view_stockmovement'),
             _item('bins', 'Bins & locations', 'boxes', 'view_storagebin'),
             _item('counts', 'Stock counts', 'clipboard', 'view_stockcount', match=('count_detail',)),
             _item('transfers', 'Stock transfers', 'truck', 'view_stocktransfer', match=('transfer_new', 'transfer_detail')),
@@ -162,6 +165,8 @@ MODULES = [
                   match=('member_new', 'member_detail', 'member_edit', 'member_set_password', 'dealer_access')),
             _item('roles', 'Roles & permissions', 'shield', superuser=True,
                   match=('role_new', 'role_detail', 'role_edit', 'role_duplicate')),
+            _item('delegations', 'Approval delegations', 'key', superuser=True),
+            _item('approval_board', 'Approval routing', 'clipboard', superuser=True),
             _item('system_settings', 'System settings', 'sliders', superuser=True),
         ]),
         ('Help & account', [
@@ -187,6 +192,9 @@ ROUTE_MODULE.update({'report_packs': 'insights', 'insight_definitions': 'insight
 
 
 def _can_see(user, item):
+    if item['route'] == 'sales_team':
+        from .team_views import can_see_team
+        return can_see_team(user)
     if item.get('area'):
         from .insight_views import AREA_MAP
         return AREA_MAP[item['area']][3](user)
