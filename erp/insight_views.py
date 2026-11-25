@@ -319,10 +319,11 @@ def report_packs(request):
         from django.http import HttpResponse
         from .models import AuditEvent
         period = I.parse_period(request.GET)
-        name, data = RP.build(u, request.GET['download'], period)
-        AuditEvent.objects.create(actor=u, action='Report pack downloaded', reference=request.GET['download'], detail=f'{period.start} – {period.end}')
-        resp = HttpResponse(data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        resp['Content-Disposition'] = f'attachment; filename="{name}"'
+        fmt = 'pdf' if request.GET.get('format') == 'pdf' else 'xlsx'
+        name, data = RP.build(u, request.GET['download'], period, fmt)
+        AuditEvent.objects.create(actor=u, action='Report pack downloaded', reference=request.GET['download'], detail=f'{fmt} · {period.start} – {period.end}')
+        resp = HttpResponse(data, content_type='application/pdf' if fmt == 'pdf' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp['Content-Disposition'] = f'{"inline" if fmt == "pdf" else "attachment"}; filename="{name}"'
         return resp
     subs = {s.pack: s for s in ReportSubscription.objects.filter(user=u)}
     return render(request, 'erp/report_packs.html', {'title': 'Report packs', 'packs': [(k, l, subs.get(k)) for k, l in packs], 'frequencies': REPORT_FREQUENCIES,

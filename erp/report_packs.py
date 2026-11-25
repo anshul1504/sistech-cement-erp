@@ -37,10 +37,11 @@ def period_for(frequency, today=None):
 
 class _Book:
     def __init__(self, title, period, sites):
-        self.wb, self.first = Workbook(), True
+        self.wb, self.first, self.sections = Workbook(), True, []
         self.title, self.period, self.scope = title, period, ', '.join(s.code for s in sites) or 'none'
 
     def sheet(self, name, headers, rows, widths=None):
+        self.sections.append((name, headers, rows))
         ws = self.wb.active if self.first else self.wb.create_sheet()
         self.first = False
         ws.title = name[:31]
@@ -101,8 +102,8 @@ def _stock_sheets(book, st, d):
         ['Deliveries with shortage/damage', d['claims']], ['Weight exceptions open', d['exceptions']]], {1: 34, 2: 18})
 
 
-def build(user, pack, period):
-    """Returns (filename, bytes) or None when the user may not see this pack."""
+def build(user, pack, period, fmt='xlsx'):
+    """Returns (filename, bytes) or None when the user may not see this pack. fmt: 'xlsx' or 'pdf' (same numbers)."""
     if not allowed(user, pack):
         return None
     sites = list(I.visible_sites(user))
@@ -128,8 +129,30 @@ def build(user, pack, period):
         _credit_sheets(book, I.receivables(period))
     if pack in ('stock', 'management') and user.has_perm('erp.view_stockbalance'):
         _stock_sheets(book, I.stock_summary(sites), I.dispatch_summary(sites, period))
-    name = f'sistech-{pack}-{period.start:%Y%m%d}-{period.end:%Y%m%d}.xlsx'
-    return name, book.bytes()
+    name = f'sistech-{pack}-{period.start:%Y%m%d}-{period.end:%Y%m%d}'
+    if fmt == 'pdf':
+        return name + '.pdf', _pdf(book, title, period)
+    return name + '.xlsx', book.bytes()
+
+
+def _cell(v):
+    from .pdf import money
+    if v is None:
+        return ''
+    if hasattr(v, 'quantize') or isinstance(v, float):
+        return money(v)
+    return str(v)
+
+
+def _pdf(book, title, period):
+    from .pdf import render
+    sections = []
+    for name, headers, rows in book.sections:
+        numeric = {i for i in range(1, len(headers))}
+        sections.append({'title': name, 'headers': headers, 'rows': [[_cell(v) for v in r] for r in rows], 'numeric': numeric,
+                         'widths': [0.7, 0.3] if len(headers) == 2 else [0.34] + [0.66 / (len(headers) - 1)] * (len(headers) - 1)})
+    return render({'title': title, 'number': period.label, 'date': f'{period.start:%d-%m-%Y} to {period.end:%d-%m-%Y}', 'landscape': any(len(h) > 6 for _, h, _ in book.sections),
+                   'meta': [('Plants', book.scope), ('Basis', 'Posted documents only')], 'sections': sections})
 
 
 def due(sub, today=None):

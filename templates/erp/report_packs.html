@@ -7,7 +7,7 @@
   <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Download now</h2></div>
     <form method="get" class="ins-filter"><select class="form-select" name="download" aria-label="Pack">{% for k, l, s in packs %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
       <select class="form-select" name="p" aria-label="Period">{% for k, l in periods %}{% if k != 'custom' %}<option value="{{ k }}"{% if period.key == k %} selected{% endif %}>{{ l }}</option>{% endif %}{% endfor %}</select>
-      <button class="org-btn is-primary is-sm"><svg width="16" height="16"><use href="#ic-download"/></svg> Download Excel</button></form></section>
+      <button class="org-btn is-primary is-sm" name="format" value="xlsx"><svg width="16" height="16"><use href="#ic-download"/></svg> Excel</button><button class="org-btn is-light is-sm" name="format" value="pdf" formtarget="_blank"><svg width="16" height="16"><use href="#ic-receipt"/></svg> PDF</button></form></section>
   <section class="org-card ins-card"><div class="ins-card-head"><h2>Email me</h2><small>sent to {{ user.email|default:'— add your email in My account' }}</small></div>
     <ul class="ins-work">{% for k, l, s in packs %}<li><form method="post" class="rp-row">{% csrf_token %}<input type="hidden" name="pack" value="{{ k }}">
       <span><strong>{{ l }}</strong><small>{% if s %}Subscribed · {{ s.get_frequency_display }}{% if s.last_sent_at %} · last sent {{ s.last_sent_at|date:'d M, H:i' }}{% endif %}{% else %}Not subscribed{% endif %}</small></span>
