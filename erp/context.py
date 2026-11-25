@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.25.0'
+ASSET_VERSION = '0.25.1'
 
 def _area(area, label):
     """A module's dashboard (erp.insight_views.AREAS); visible when the dashboard's own check passes."""
@@ -37,6 +37,7 @@ MODULES = [
         ]),
         ('Selling', [
             _item('sales', 'Sales orders', 'sales', 'view_sales_order'),
+            _item('dealer_requests', 'Dealer requests', 'handshake', match=('dealer_request',)),
             _item('quotations', 'Quotations', 'quote', 'view_quotation', match=('quotation_new', 'quotation_detail', 'quotation_edit')),
             _item('prices', 'Price list', 'receipt', 'view_pricerule', match=('prices_new', 'prices_edit', 'price_revise')),
             _item('returns', 'Customer returns', 'truck', 'view_returnrequest', match=('return_new', 'return_detail')),
@@ -178,6 +179,7 @@ MODULES = [
     {'key': 'dealer', 'label': 'My dealer account', 'icon': 'handshake', 'blurb': 'Your orders, invoices and ledger', 'sections': [
         ('My account', [
             _item('dealer_dashboard', 'My dealer account', 'handshake', match=('dealer_invoices',)),
+            _item('dealer_orders', 'Order requests', 'sales'),
             _item('my_ledger', 'My ledger', 'book'),
         ]),
     ]},
@@ -193,6 +195,8 @@ ROUTE_MODULE.update({'report_packs': 'insights', 'insight_definitions': 'insight
 
 
 def _can_see(user, item):
+    if item['route'] == 'dealer_requests':
+        return order_permission(user, 'Sale', 'create')
     if item['route'] == 'sales_team':
         from .team_views import can_see_team
         return can_see_team(user)
@@ -201,7 +205,7 @@ def _can_see(user, item):
         return AREA_MAP[item['area']][3](user)
     if item['route'] == 'people':
         return user.has_perm('erp.view_partner') or user.has_perm('erp.view_influencer')
-    if item['route'] in {'my_ledger', 'dealer_dashboard'}:
+    if item['route'] in {'my_ledger', 'dealer_dashboard', 'dealer_orders'}:
         from .models import DealerLedgerAccess
         return DealerLedgerAccess.objects.filter(user=user, active=True, partner__active=True, partner__kind='Dealer').exists()
     if item['route'] in ('journals', 'payments', 'receipts', 'outstanding', 'collections', 'deposits', 'tds') and not user.has_perm('erp.access_company_finance'):

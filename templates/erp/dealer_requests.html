@@ -1,0 +1,26 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}<link href="{% static 'erp/dealer.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow">SALES</div><h1>Dealer requests</h1><p>Orders dealers asked for from their own login. Turn one into a draft sales order at your plant or depot, or decline it with a reason the dealer can see.</p></div></div>
+  <nav class="org-tabs mst-cat-tabs" aria-label="Request status">
+    <a class="org-tab{% if status == 'submitted' %} is-active{% endif %}" href="?status=submitted">Waiting<span class="org-tab-count">{{ counts.submitted }}</span></a>
+    <a class="org-tab{% if status == 'accepted' %} is-active{% endif %}" href="?status=accepted">Order created<span class="org-tab-count">{{ counts.accepted }}</span></a>
+    <a class="org-tab{% if status == 'rejected' %} is-active{% endif %}" href="?status=rejected">Declined<span class="org-tab-count">{{ counts.rejected }}</span></a>
+    <a class="org-tab{% if status == 'cancelled' %} is-active{% endif %}" href="?status=cancelled">Cancelled by dealer<span class="org-tab-count">{{ counts.cancelled }}</span></a>
+  </nav>
+  <section class="org-card doc-list-card">
+    {% if requests %}
+    <ul class="mst-order-list">
+      {% for r in requests %}
+      <li>
+        <a href="{% url 'dealer_request' r.pk %}"><strong>{{ r.number }} · {{ r.partner.name }}</strong><small>{{ r.created_at|date:'d M Y, H:i' }} · needed by {{ r.required_by|date:'d M' }} · {% for l in r.lines.all %}{{ l.product.name }} × {{ l.quantity|floatformat:'-3' }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></a>
+        <span class="mst-qty">₹{{ r.estimate|indian }}</span>
+        <span class="doc-badge{% if r.status == 'accepted' %} is-ok{% elif r.status == 'submitted' %} is-warning{% elif r.status == 'rejected' %} is-danger{% endif %}">{{ r.get_status_display }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="doc-empty"><svg><use href="#ic-handshake"/></svg><strong>Nothing here</strong><span>Requests from dealer logins appear here.</span></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

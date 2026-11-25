@@ -1,0 +1,57 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}<link href="{% static 'erp/dealer.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'dealer_requests' %}">← Dealer requests</a></div></div>
+  <section class="org-hero mst-hero">
+    <span class="mst-icon is-xl is-dealer">{{ req.partner.name|first|upper }}</span>
+    <div class="org-hero-text">
+      <h1>{{ req.number }}</h1>
+      <p><a href="{% url 'partner_detail' req.partner.pk %}">{{ req.partner.name }}</a> · asked {{ req.created_at|date:'d M Y, H:i' }} by {{ req.requested_by|who }}</p>
+      <div class="org-chips"><span class="org-chip{% if req.status == 'accepted' %} is-ok{% endif %}">{{ req.get_status_display }}</span><span class="org-chip">Needed by {{ req.required_by|date:'d M Y' }}</span></div>
+    </div>
+    <div class="org-hero-side"><small>Estimate incl. GST<br><strong>₹{{ req.estimate|indian }}</strong></small></div>
+  </section>
+
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Products</h2><small>list rates the dealer saw</small></header>
+      <div class="drq-lines">{% for x in lines %}<div class="drq-line"><span><strong>{{ x.line.product.name }}</strong><small>{{ x.line.product.code }}</small></span><span><small>Quantity</small>{{ x.line.quantity|floatformat:'-3' }} {{ x.line.product.unit }}</span><span><small>List rate</small>{% if x.line.indicative_rate %}₹{{ x.line.indicative_rate|indian:2 }}{% else %}—{% endif %}</span><span><small>Value before GST</small>{% if x.value %}₹{{ x.value|indian }}{% else %}—{% endif %}</span></div>{% endfor %}</div>
+      {% if req.ship_to or req.note %}<dl>{% if req.ship_to %}<div class="is-wide"><dt>Deliver to</dt><dd>{{ req.ship_to|linebreaksbr }}</dd></div>{% endif %}{% if req.note %}<div class="is-wide"><dt>Dealer's note</dt><dd>{{ req.note }}</dd></div>{% endif %}</dl>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Credit position</h2><a href="{% url 'partner_detail' req.partner.pk %}">Dealer</a></header>
+      <dl>
+        <div><dt>Limit</dt><dd>{% if credit.limit %}₹{{ credit.limit|indian }}{% else %}Advance only{% endif %}</dd></div>
+        <div><dt>Available</dt><dd>₹{{ credit.available|indian }}</dd></div>
+        <div><dt>Used now</dt><dd>₹{{ credit.exposure|indian }}</dd></div>
+        <div><dt>Overdue</dt><dd>{% if credit.overdue %}<span class="mst-missing">₹{{ credit.overdue|indian }}</span>{% else %}—{% endif %}</dd></div>
+      </dl>
+      {% if req.estimate > credit.available %}<p class="acc-note">This request is above the available credit — approval will need an advance or a credit override.</p>{% endif %}
+    </section>
+
+    {% if req.status == 'submitted' %}
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>Decision</h2></header>
+      <div class="drq-decide">
+        <form method="post">{% csrf_token %}<input type="hidden" name="decision" value="accept">
+          <label class="form-label" for="drq-site">Supply from</label>
+          <select class="form-select" id="drq-site" name="site" required><option value="">Choose plant or depot</option>{% for s in sites %}<option value="{{ s.pk }}">{{ s.code }} · {{ s.name }}</option>{% endfor %}</select>
+          <button class="org-btn is-primary" type="submit">Create draft sales order</button>
+          <small class="acc-muted">You then check the draft and submit it; a different user approves it with the usual credit, price and stock checks.</small>
+        </form>
+        <form method="post" data-confirm="Decline {{ req.number }}? The dealer sees your reason.">{% csrf_token %}<input type="hidden" name="decision" value="reject">
+          <label class="form-label" for="drq-reason">Decline with reason</label>
+          <input class="form-control" id="drq-reason" name="reason" maxlength="200" required placeholder="e.g. Clear overdue first / product not available">
+          <button class="org-btn is-light" type="submit">Decline</button>
+        </form>
+      </div>
+    </section>
+    {% elif req.order %}
+    <section class="org-card org-view acc-wide net-full"><header class="acc-card-head"><h2>Sales order</h2></header><p><a class="org-btn is-light" href="{% url 'order_detail' req.order.pk %}">{{ req.order.number }} · {{ req.order.status }}</a> created by {{ req.decided_by|who }} on {{ req.decided_at|date:'d M Y' }}</p></section>
+    {% elif req.reason %}
+    <section class="org-card org-view acc-wide net-full"><header class="acc-card-head"><h2>Declined</h2></header><p>{{ req.reason }} — {{ req.decided_by|who }}, {{ req.decided_at|date:'d M Y' }}</p></section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

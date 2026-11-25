@@ -202,3 +202,4 @@ health/forecast/handoff improvements. Their advanced extensions and production a
 - Next: C&F / agent commission contracts on network sales, dealer order requests from the dealer login, retailer secondary sales.
 - ✅ Sales team charts (leaderboard, monthly trend, per-person 12-month chart with targets); simpler UI (one-line intros, no duplicate tabs, plain labels).
 - ✅ Channel commission for C&F / promoters / handling agents / distributors on network sales: maker-checker rates and runs, GL + 194H TDS, payable through Payments, recovery after returns.
+- ✅ Dealer order requests from the dealer login (indicative price + credit room) → sales team creates a draft sales order or declines with a reason.

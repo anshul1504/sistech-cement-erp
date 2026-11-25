@@ -583,6 +583,9 @@ def my_queue(user, sites=None):
     from accounts.work_handoff import assigned_pending
     assigned = assigned_pending(user)
     add('Approvals assigned to you', len(assigned), reverse('approval_inbox'), 'Current eligible assignments; normal review checks apply')
+    if has('create_sales_order'):
+        from .models import DealerOrderRequest
+        add('Dealer order requests to review', DealerOrderRequest.objects.filter(status='submitted'), reverse('dealer_requests'), 'Turn into a draft sales order or decline')
     if has('view_sales_order'):
         add('Sales orders to approve', approvable(Order.objects.filter(kind='Sale', status='Submitted', site__in=sites).exclude(created_by=user), user, 'approve_sales_order'), reverse('sales') + '?status=Submitted', 'Credit and price checked on approval')
     if has('view_purchase_order'):

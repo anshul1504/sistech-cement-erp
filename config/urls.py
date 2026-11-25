@@ -5,6 +5,7 @@ from erp import views as v
 from erp import order_views as ov
 from erp import team_views as tmv
 from erp import channel_views as chv
+from erp import dealer_request_views as drv
 from erp import insight_views as iv
 from erp import pdf_views as pdfv
 from erp import maintenance_views as mtv
@@ -160,6 +161,10 @@ urlpatterns += [
     path('people/', ptv.people, name='people'),
     path('dealer/', dlv.dashboard, name='dealer_dashboard'),
     path('dealer/invoices/', dlv.invoices, name='dealer_invoices'),
+    path('dealer/orders/', dlv.order_requests, name='dealer_orders'),
+    path('dealer/orders/<int:pk>/cancel/', dlv.order_request_cancel, name='dealer_order_cancel'),
+    path('sales/dealer-requests/', drv.dealer_requests, name='dealer_requests'),
+    path('sales/dealer-requests/<int:pk>/', drv.dealer_request, name='dealer_request'),
     path('my-ledger/', fv.my_ledger, name='my_ledger'),
     path('partners/<int:pk>/ledger/', fv.partner_ledger, name='partner_ledger'),
 ]

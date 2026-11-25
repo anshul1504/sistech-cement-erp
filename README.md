@@ -42,6 +42,18 @@ module they were opened from. A user with only one working module goes straight 
 home KPIs are the *Overview* dashboard (`/dashboards/overview/`). Module definitions: `erp/context.py`
 (`MODULES`). Shared spacing / filter-bar / tab rules: `static/erp/polish.css`.
 
+## Dealer order requests
+
+A linked dealer login (*My dealer account → Request an order*, `/dealer/orders/`) asks for up to 10 cement/TMT products
+with quantities, a needed-by date, delivery address and a note. The page shows today's list rate per product, the
+estimated value incl. GST, the credit limit, available credit and overdue, and warns when the request is above the
+available credit. The dealer sees every request's status, the decline reason or the sales order it became, and can
+cancel while it waits. The sales team (anyone who may create sales orders) reviews them at *Sales & CRM → Dealer
+requests* (also counted in *My work*): **Create draft sales order** at one of their own plants/depots — priced from the
+price list for that plant, with the request number as customer reference — or **Decline** with a reason the dealer sees.
+The draft then follows the normal submit → independent approval with credit, price and stock checks. Rules:
+`erp/dealer_orders.py`.
+
 ## Channel commission (C&F, promoters, handling agents, distributors)
 
 `/channel-commission/` (Sales & CRM → Channel commission). A **rate** is the agreed commission for one channel partner —

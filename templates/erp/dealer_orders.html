@@ -1,0 +1,75 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% load static %}<link href="{% static 'erp/influencers.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'erp/dealer.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'dealer_dashboard' %}">← My dealer account</a></div><h1>Order requests</h1><p>Ask Sistech for material. Rates shown are today's list rates before GST; Sistech confirms the final order, plant and price.</p></div></div>
+
+  <div class="inf-kpis" role="list">
+    <div class="inf-kpi" role="listitem"><span>Credit limit</span><strong>{% if credit.limit %}₹{{ credit.limit|indian }}{% else %}Advance{% endif %}</strong><small>{% if credit.limit %}approved by Sistech{% else %}pay before dispatch{% endif %}</small></div>
+    <div class="inf-kpi{% if credit.limit and not credit.available %} is-warn{% endif %}" role="listitem"><span>Available now</span><strong>₹{{ credit.available|indian }}</strong><small>after open invoices and confirmed orders</small></div>
+    <div class="inf-kpi{% if credit.overdue %} is-danger{% endif %}" role="listitem"><span>Overdue</span><strong>₹{{ credit.overdue|indian }}</strong><small>{% if credit.overdue %}clear this to avoid holds{% else %}nothing overdue{% endif %}</small></div>
+  </div>
+
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>New request</h2></header>
+      {% if rows %}
+      <form method="post" class="dor-form" data-dor-form>{% csrf_token %}
+        {% for i in slots %}
+        <div class="dor-row">
+          <div class="org-field"><label class="form-label" for="p{{ i }}">Product</label>
+            <select class="form-select" id="p{{ i }}" name="product_{{ i }}" data-dor-product><option value="">{% if forloop.first %}Choose{% else %}—{% endif %}</option>{% for r in rows %}<option value="{{ r.product.pk }}" data-rate="{{ r.rate|default:'' }}" data-gst="{{ r.product.gst_rate|default:0 }}" data-unit="{{ r.product.unit }}">{{ r.product.name }}{% if r.rate %} · ₹{{ r.rate|indian:2 }}/{{ r.product.unit }}{% endif %}</option>{% endfor %}</select></div>
+          <div class="org-field"><label class="form-label" for="q{{ i }}">Quantity <small data-dor-unit></small></label><input class="form-control" id="q{{ i }}" name="qty_{{ i }}" inputmode="decimal" placeholder="e.g. 200" data-dor-qty></div>
+          <div class="dor-amount" data-dor-amount>—</div>
+        </div>
+        {% endfor %}
+        <div class="dor-bottom">
+          <div class="org-field"><label class="form-label" for="req-by">Needed by</label><input class="form-control" type="date" id="req-by" name="required_by" min="{{ min_date|date:'Y-m-d' }}" required></div>
+          <div class="org-field dor-wide"><label class="form-label" for="ship">Deliver to</label><input class="form-control" id="ship" name="ship_to" value="{{ default_ship }}" maxlength="500"></div>
+          <div class="org-field dor-wide"><label class="form-label" for="note">Note for Sistech</label><input class="form-control" id="note" name="note" maxlength="300" placeholder="Site contact, unloading, urgency…"></div>
+        </div>
+        <div class="dor-total"><span>Estimated value incl. GST <strong data-dor-total>₹0</strong></span><span class="dor-warn" data-dor-warn data-available="{{ credit.available }}" data-limit="{{ credit.limit }}" hidden>More than your available credit — Sistech may ask for an advance.</span><button class="org-btn is-primary" type="submit">Send request</button></div>
+      </form>
+      {% else %}<div class="acc-empty-mini"><strong>No products open for ordering</strong><span>Please contact your Sistech sales person.</span></div>{% endif %}
+    </section>
+
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>My requests</h2></header>
+      {% if requests %}
+      <ul class="mst-order-list">
+        {% for r in requests %}
+        <li>
+          <span><strong>{{ r.number }}</strong><small>{{ r.created_at|date:'d M Y' }} · needed by {{ r.required_by|date:'d M' }} · {% for l in r.lines.all %}{{ l.product.name }} × {{ l.quantity|floatformat:'-3' }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>{% if r.status == 'rejected' and r.reason %}<small class="mst-missing">Reason: {{ r.reason }}</small>{% endif %}{% if r.order %}<small>Sales order {{ r.order.number }} · {{ r.order.status }}</small>{% endif %}</span>
+          <span class="mst-qty">₹{{ r.estimate|indian }}</span>
+          <span class="doc-badge{% if r.status == 'accepted' %} is-ok{% elif r.status == 'submitted' %} is-warning{% elif r.status == 'rejected' %} is-danger{% endif %}">{{ r.get_status_display }}</span>
+          {% if r.status == 'submitted' %}<form method="post" action="{% url 'dealer_order_cancel' r.pk %}" data-confirm="Cancel request {{ r.number }}?">{% csrf_token %}<button class="org-btn is-light is-sm" type="submit">Cancel</button></form>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="acc-muted">No requests yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  const form = document.querySelector('[data-dor-form]'); if (!form) return;
+  const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  const calc = () => {
+    let total = 0;
+    form.querySelectorAll('.dor-row').forEach(row => {
+      const opt = row.querySelector('[data-dor-product]').selectedOptions[0];
+      const q = parseFloat((row.querySelector('[data-dor-qty]').value || '').replace(/,/g, '')) || 0;
+      row.querySelector('[data-dor-unit]').textContent = opt && opt.dataset.unit ? `(${opt.dataset.unit})` : '';
+      const rate = opt ? parseFloat(opt.dataset.rate) : NaN, gst = opt ? parseFloat(opt.dataset.gst) || 0 : 0;
+      const amt = !isNaN(rate) && q ? rate * q * (1 + gst / 100) : 0;
+      row.querySelector('[data-dor-amount]').textContent = amt ? fmt(amt) : (opt && opt.value && q && isNaN(rate) ? 'rate on confirmation' : '—');
+      total += amt;
+    });
+    form.querySelector('[data-dor-total]').textContent = fmt(total);
+    const w = form.querySelector('[data-dor-warn]');
+    w.hidden = !(total > parseFloat(w.dataset.available || 0));
+  };
+  form.addEventListener('input', calc); form.addEventListener('change', calc); calc();
+})();
+</script>
+{% endblock %}

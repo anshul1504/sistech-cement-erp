@@ -3816,3 +3816,38 @@ class ChannelRunLine(models.Model):
         return self.amount - self.tds
 
     def __str__(self): return f'{self.run} · {self.partner}'
+
+
+# ---------- Dealer order requests (dealer self-service → sales order) ----------
+
+class DealerOrderRequest(models.Model):
+    """A linked dealer asks for material; the sales team turns it into a draft sales order (normal approval follows)."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='order_requests')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    required_by = models.DateField('Needed by')
+    ship_to = models.TextField('Deliver to', blank=True)
+    note = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=10, default='submitted', choices=[('submitted', 'Waiting for Sistech'), ('accepted', 'Order created'),
+                                                                          ('rejected', 'Not accepted'), ('cancelled', 'Cancelled by dealer')])
+    estimate = models.DecimalField('Estimated value incl. GST', max_digits=16, decimal_places=2, default=0)
+    order = models.OneToOneField(Order, null=True, blank=True, on_delete=models.PROTECT, related_name='dealer_request')
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+
+    def __str__(self): return self.number
+
+
+class DealerOrderRequestLine(models.Model):
+    request = models.ForeignKey(DealerOrderRequest, on_delete=models.CASCADE, related_name='lines')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    indicative_rate = models.DecimalField('List rate shown (before GST)', max_digits=14, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        ordering = ['pk']
