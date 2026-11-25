@@ -1,0 +1,34 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE · TAX</div><h1>TDS</h1><p>Tax deducted on supplier and transporter bills, only for parties whose TDS section and rate your tax advisor has set on the partner. A deduction reduces the bill's payable; the challan deposits the month's tax.</p></div></div>
+  <div class="inf-kpis is-three" role="list">
+    <div role="listitem" class="inf-kpi"><span>Deducted in {{ month|date:'M Y' }}</span><strong>{{ month_total|inr_short }}</strong><small>{{ rows|length }} entr{{ rows|length|pluralize:'y,ies' }}</small></div>
+    <div role="listitem" class="inf-kpi{% if pending %} is-warn{% endif %}"><span>Not yet deposited</span><strong>{% for p in pending %}{{ p.section }} {{ p.t|inr_short }}{% if not forloop.last %} · {% endif %}{% empty %}—{% endfor %}</strong><small>deposit by the 7th of next month</small></div>
+    <div role="listitem" class="inf-kpi{% if suggestions %} is-warn{% endif %}"><span>Bills to deduct</span><strong>{{ suggestions|length }}</strong><small>TDS parties with open bills</small></div>
+  </div>
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Bills to deduct</h2><small>amount = base × partner's rate, capped at what is due</small></div>
+    {% if suggestions %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Party</th><th>Bill</th><th class="n is-optional">Base ₹</th><th class="n">TDS ₹</th><th></th></tr></thead><tbody>
+      {% for s in suggestions %}<tr><td>{{ s.payee.name }}<br><small class="acc-muted">{{ s.payee.tds_section }} @ {{ s.payee.tds_rate|qty }}%</small></td><td>{{ s.ref }}<br><small class="acc-muted">{{ s.date|date:'d M Y' }} · due {{ s.due|rupees }}</small></td><td class="n is-optional">{{ s.base|rupees }}</td><td class="n"><strong>{{ s.amount|rupees }}</strong></td>
+        <td>{% if can_add %}<form method="post" action="{% url 'tds_action' 'deduct' %}">{% csrf_token %}<input type="hidden" name="kind" value="{{ s.kind }}"><input type="hidden" name="bill" value="{{ s.bill.pk }}"><button class="org-btn is-primary is-sm">Deduct</button></form>{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">Nothing to deduct. Set a TDS section and rate on a supplier or transporter (Dealers &amp; suppliers → Bank &amp; TDS) after your tax advisor confirms.</p>{% endif %}</section>
+  <div class="ins-grid">
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>Register</h2><form method="get" class="ord-inline"><input class="form-control" type="month" name="month" value="{{ month|date:'Y-m' }}" onchange="this.form.submit()" aria-label="Month"></form></div>
+      {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Entry</th><th>Party · bill</th><th class="n">TDS ₹</th><th>Status</th></tr></thead><tbody>
+        {% for d in rows %}<tr><td>{{ d.number }}<br><small class="acc-muted">{{ d.date|date:'d M' }} · {{ d.section }} {{ d.rate|qty }}%</small></td><td>{{ d.payee.name }}<br><small class="acc-muted">{% if d.supplier_invoice_id %}{{ d.supplier_invoice.invoice_number }}{% else %}{{ d.freight_bill.bill_number }}{% endif %}</small></td><td class="n">{{ d.amount|rupees }}</td>
+          <td>{% if d.status == 'reversed' %}<span class="ins-pill">Reversed</span>{% elif d.challan %}<span class="ins-pill is-good">Deposited {{ d.challan.challan_number }}</span>{% else %}<span class="ins-pill is-warn">To deposit</span>{% if can_add %}<form method="post" action="{% url 'tds_action' 'reverse' %}" class="ord-inline" style="margin-top:4px">{% csrf_token %}<input type="hidden" name="deduction" value="{{ d.pk }}"><input class="form-control" name="reason" required maxlength="200" placeholder="Reason" aria-label="Reason"><button class="org-btn is-light is-sm">Reverse</button></form>{% endif %}{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<p class="ins-empty">No TDS in this month.</p>{% endif %}</section>
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>Deposit (challan)</h2></div>
+      {% if can_deposit %}<form method="post" action="{% url 'tds_action' 'deposit' %}" class="org-grid">{% csrf_token %}
+        <div class="org-field"><label class="form-label" for="t-s">Section</label><select id="t-s" class="form-select" name="section">{% for p in pending %}<option value="{{ p.section }}">{{ p.section }} · {{ p.t|rupees }}</option>{% empty %}<option value="">Nothing pending</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="t-m">Deduction month</label><input id="t-m" class="form-control" type="month" name="month" value="{{ month|date:'Y-m' }}" required></div>
+        <div class="org-field"><label class="form-label" for="t-b">Paid from</label><select id="t-b" class="form-select" name="bank">{% for b in banks %}<option value="{{ b.pk }}">{{ b.code }} · {{ b.name }}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="t-d">Paid on</label><input id="t-d" class="form-control" type="date" name="paid_on" required></div>
+        <div class="org-field"><label class="form-label" for="t-c">Challan / CIN</label><input id="t-c" class="form-control" name="challan" required maxlength="40"></div>
+        <div class="org-field"><label class="form-label" for="t-r">BSR code</label><input id="t-r" class="form-control" name="bsr" maxlength="10"></div>
+        <div class="org-field is-wide"><div><button class="org-btn is-primary">Record challan</button></div></div></form>{% endif %}
+      {% if challans %}<dl class="ins-facts" style="margin-top:14px">{% for c in challans %}<dt>{{ c.section }} · {{ c.month|date:'M Y' }}<br><small class="acc-muted">{{ c.challan_number }} · {{ c.paid_on|date:'d M Y' }}</small></dt><dd>{{ c.amount|rupees }}</dd>{% endfor %}</dl>{% endif %}</section>
+  </div>
+</div>
+{% endblock %}

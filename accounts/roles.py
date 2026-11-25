@@ -45,6 +45,7 @@ MODULES = [
     ('commission', 'Sales commission', {'view': 'view_commissionplan', 'create': 'add_commissionplan', 'edit': 'change_commissionplan', 'approve': 'approve_commissionplan'}),
     ('commission_runs', 'Commission runs', {'view': 'view_commissionrun', 'create': 'add_commissionrun', 'approve': 'approve_commissionrun'}),
     ('deposits', 'Dealer security deposits', {'view': 'view_depositentry', 'create': 'add_depositentry', 'approve': 'approve_depositentry'}),
+    ('tds', 'TDS', {'view': 'view_tdsdeduction', 'create': 'add_tdsdeduction', 'post': 'add_tdschallan'}),
     ('cost_centres', 'Cost centres', {'view': 'view_costcentre', 'create': 'add_costcentre', 'edit': 'change_costcentre'}),
     ('budgets', 'Budgets', {'view': 'view_budget', 'create': 'add_budget', 'edit': 'change_budget', 'approve': 'approve_budget'}),
     ('chart', 'Chart of accounts', {'view': 'view_account', 'create': 'add_account'}),
@@ -158,6 +159,8 @@ PRESETS['Logistics manager'] |= {'decide_dispatchincident', 'add_returnrequest',
 PRESETS['Production operator'] |= {'view_maintenancejob', 'add_maintenancejob', 'change_maintenancejob', 'view_equipment'}
 PRESETS['Production head'] |= {'view_maintenancejob', 'add_maintenancejob', 'change_maintenancejob', 'verify_maintenancejob', 'view_equipment', 'add_equipment', 'add_maintenanceplan'}
 PRESETS['Quality manager'] |= {'view_samplingplan', 'add_samplingplan', 'change_samplingplan'}
+PRESETS['Accountant'] |= {'view_tdsdeduction', 'add_tdsdeduction', 'add_tdschallan'}
+PRESETS['Finance controller'] |= {'view_tdsdeduction'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():

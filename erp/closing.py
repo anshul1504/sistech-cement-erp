@@ -44,7 +44,11 @@ def historical_checks(as_of):
           + _sum(FixedAsset.objects.filter(credit_purchase=True, put_to_use__lte=as_of), 'cost')
           - _sum(DebitNote.objects.filter(date__lte=as_of), 'total')
           - _sum(paid.filter(freight_bill__isnull=True), 'amount'))
-    freight = (_sum(FreightBill.objects.filter(status='approved', bill_date__lte=as_of), 'payable')
+    from .models import TdsDeduction
+    tds = TdsDeduction.objects.filter(date__lte=as_of).filter(Q(status='posted') | Q(status='reversed', reversed_on__gt=as_of))
+    ap -= _sum(tds.filter(supplier_invoice__isnull=False), 'amount')
+    freight = (- _sum(tds.filter(freight_bill__isnull=False), 'amount')
+               + _sum(FreightBill.objects.filter(status='approved', bill_date__lte=as_of), 'payable')
                - _sum(FreightRecoveryAdjustment.objects.filter(status='approved',on__lte=as_of), 'amount')
                - _sum(paid.filter(freight_bill__isnull=False), 'amount'))
     rows = []

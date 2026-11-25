@@ -188,13 +188,21 @@ class ProductForm(StyledForm):
         return data
 
 class PartnerForm(StyledForm):
+    def clean_tds_rate(self):
+        v = self.cleaned_data.get('tds_rate') or 0
+        if v and not self.cleaned_data.get('tds_section'):
+            raise forms.ValidationError('Choose the TDS section for this rate.')
+        if v > 30:
+            raise forms.ValidationError('TDS rate cannot exceed 30 %.')
+        return v
+
     """Dealers, distributors, retailers, institutional buyers, suppliers and transporters."""
     SECTIONS = [
         ('Basics', 'Who this partner is and where they operate.', ['kind', 'code', 'name', 'territory', 'manufacturing_partner', 'active']),
         ('Contact', 'The person and numbers to reach.', ['contact_person', 'phone', 'alt_phone', 'email']),
         ('Tax & address', 'GST registration and billing / delivery addresses.', ['gstin', 'pan', 'address', 'city', 'district', 'state', 'pincode', 'shipping_address']),
         ('Commercial terms', 'Credit and payment terms used when approving sales orders.', ['credit_limit', 'payment_terms_days', 'security_deposit']),
-        ('Bank details', 'Used to pay suppliers and transporters.', ['bank_name', 'bank_account_number', 'bank_ifsc']),
+        ('Bank & TDS', 'Used to pay suppliers and transporters. Set TDS only after your tax advisor confirms it applies.', ['bank_name', 'bank_account_number', 'bank_ifsc', 'tds_section', 'tds_rate']),
         ('Notes', 'Anything the team should know.', ['notes']),
     ]
     TEXT_FORMATS = {
@@ -209,11 +217,13 @@ class PartnerForm(StyledForm):
         model = Partner
         fields = ['kind', 'code', 'name', 'territory', 'manufacturing_partner', 'active', 'contact_person', 'phone', 'alt_phone', 'email', 'gstin', 'pan', 'address',
                   'city', 'district', 'state', 'pincode', 'shipping_address', 'credit_limit', 'payment_terms_days', 'security_deposit',
-                  'bank_name', 'bank_account_number', 'bank_ifsc', 'notes']
+                  'bank_name', 'bank_account_number', 'bank_ifsc', 'tds_section', 'tds_rate', 'notes']
         widgets = {'address': forms.Textarea(attrs={'rows': 2}), 'shipping_address': forms.Textarea(attrs={'rows': 2}), 'notes': forms.Textarea(attrs={'rows': 3})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'tds_rate' in self.fields:
+            self.fields['tds_rate'].required = False
         self.fields['kind'].choices = [('', 'Select type'), ('Customers', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Dealer', 'Distributor', 'Retailer', 'Institutional')]),
                                        ('Vendors', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Supplier', 'Transporter')])]
         self.fields['state'].choices = [('', 'Select state')] + list(self.fields['state'].choices)[1:]

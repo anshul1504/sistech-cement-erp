@@ -106,3 +106,39 @@ class PayablesTests(TestCase):
         self.assertRedirects(r, reverse('dn_detail', args=[dn.pk]))
         for url in [reverse('debit_notes'), reverse('dn_detail', args=[dn.pk]), reverse('grn_detail', args=[l1.grn_id])]:
             self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class TdsTests(PayablesTests):
+    """TDS on supplier bills: deduction reduces the payable, reconciles AP, blocks double use, challan clears TDS payable."""
+    def test_three_way_match_duplicates_and_exceptions(self): pass
+    def test_debit_note_returns_value_only_billed_quantity(self): pass
+    def test_screens(self): pass
+
+    def test_tds_deduct_reverse_deposit(self):
+        from . import tds as T, gl
+        from .treasury import open_items
+        l1 = self.receive('C-9', 50, 50)
+        inv = AP.create_invoice(self.ap, self.sup, self.header('INV/T1', 450000, 22500), {l1: (D(50), D(9000), D(5))})
+        with self.assertRaisesMessage(ValidationError, 'no TDS section'):
+            T.deduct(self.ap, 'sinv', inv.pk)
+        Partner.objects.filter(pk=self.sup.pk).update(tds_section='194Q', tds_rate=D('0.1'))
+        self.assertEqual(T.suggestions()[0]['amount'], D(450))
+        d = T.deduct(self.ap, 'sinv', inv.pk)
+        self.assertEqual(d.amount, D(450))
+        item = next(i for i in open_items(Partner.objects.get(pk=self.sup.pk)) if i['kind'] == 'sinv')
+        self.assertEqual(item['amount'], D('472050'))                       # 472,500 − 450
+        with self.assertRaisesMessage(ValidationError, 'already deducted'):
+            T.deduct(self.ap, 'sinv', inv.pk)
+        checks = {c['name']: c for c in gl.subledger_check()}
+        self.assertEqual(checks['Supplier payables']['diff'], 0)
+        from .closing import historical_checks
+        self.assertEqual({c['name']: c for c in historical_checks(TODAY())}['Supplier payables']['diff'], 0)
+        T.reverse(self.ap, d.pk, 'Wrong rate')
+        self.assertEqual({c['name']: c for c in gl.subledger_check()}['Supplier payables']['diff'], 0)
+        d2 = T.deduct(self.ap, 'sinv', inv.pk)
+        c = T.deposit(self.ap, '194Q', TODAY(), gl.acct('bank_main'), 'CIN123', TODAY())
+        self.assertEqual((c.amount, d2.__class__.objects.get(pk=d2.pk).challan_id), (D(450), c.pk))
+        with self.assertRaisesMessage(ValidationError, 'deposited by challan'):
+            T.reverse(self.ap, d2.pk, 'x')
+        self.client.force_login(self.fc)
+        self.assertEqual(self.client.get(reverse('tds')).status_code, 200)

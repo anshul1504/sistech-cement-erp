@@ -173,6 +173,10 @@ class Partner(models.Model):
     bank_name = models.CharField(max_length=100, blank=True)
     bank_account_number = models.CharField('Account number', max_length=18, blank=True)
     bank_ifsc = models.CharField('IFSC', max_length=11, blank=True)
+    tds_section = models.CharField('TDS section', max_length=5, blank=True, choices=[('', 'No TDS'), ('194C', '194C · contractor / transport'), ('194Q', '194Q · purchase of goods'),
+                                   ('194J', '194J · professional / technical'), ('194I', '194I · rent'), ('194H', '194H · commission')],
+                                   help_text='Set only after your tax advisor confirms TDS applies to this party.')
+    tds_rate = models.DecimalField('TDS rate %', max_digits=5, decimal_places=3, default=0, validators=MONEY)
     manufacturing_partner = models.BooleanField('Manufacturing partner', default=False,
                                                 help_text='Makes SISTECH-brand cement or TMT under a supply agreement (supplier type only).')
     notes = models.TextField(blank=True)
@@ -771,7 +775,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('MNT', 'Maintenance job'), ('DEP', 'Security deposit'), ('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('TDS', 'TDS deduction'), ('TCH', 'TDS challan'), ('MNT', 'Maintenance job'), ('DEP', 'Security deposit'), ('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -3631,3 +3635,50 @@ class SamplingPlan(models.Model):
         ordering = ['product__name', 'stage']
 
     def __str__(self): return f'{self.product} · {self.get_stage_display()} · {self.get_frequency_display()}'
+
+
+# ---------- TDS deducted on vendor bills and deposited by challan (FR-FIN-016) ----------
+
+class TdsChallan(models.Model):
+    """Tax deposited to the government for a month and section: Dr TDS payable / Cr bank."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    section = models.CharField(max_length=5)
+    month = models.DateField(help_text='First day of the deduction month.')
+    amount = models.DecimalField(max_digits=14, decimal_places=2, validators=POSITIVE)
+    bank = models.ForeignKey('Account', on_delete=models.PROTECT, related_name='+', limit_choices_to={'is_bank': True})
+    challan_number = models.CharField('Challan / CIN', max_length=40)
+    bsr_code = models.CharField('BSR code', max_length=10, blank=True)
+    paid_on = models.DateField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-month', 'section']
+
+    def __str__(self): return self.number
+
+
+class TdsDeduction(models.Model):
+    """TDS withheld on a supplier invoice or freight bill: Dr trade payable / Cr TDS payable. The bill's payable falls by the amount."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    payee = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='tds_deductions')
+    supplier_invoice = models.ForeignKey('SupplierInvoice', null=True, blank=True, on_delete=models.PROTECT, related_name='tds_deductions')
+    freight_bill = models.ForeignKey('FreightBill', null=True, blank=True, on_delete=models.PROTECT, related_name='tds_deductions')
+    section = models.CharField(max_length=5)
+    rate = models.DecimalField(max_digits=5, decimal_places=3)
+    base = models.DecimalField('Amount TDS is calculated on', max_digits=16, decimal_places=2)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, validators=POSITIVE)
+    date = models.DateField(default=timezone.localdate)
+    status = models.CharField(max_length=8, default='posted', choices=[('posted', 'Posted'), ('reversed', 'Reversed')])
+    challan = models.ForeignKey(TdsChallan, null=True, blank=True, on_delete=models.PROTECT, related_name='deductions')
+    reversed_on = models.DateField(null=True, blank=True, editable=False)
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-pk']
+        constraints = [models.CheckConstraint(condition=models.Q(supplier_invoice__isnull=False, freight_bill__isnull=True) | models.Q(supplier_invoice__isnull=True, freight_bill__isnull=False),
+                                              name='tds_one_bill')]
+
+    def __str__(self): return self.number

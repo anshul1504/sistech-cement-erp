@@ -303,4 +303,6 @@ def balance(supplier):
     from .models import FixedAsset, PaymentAllocation
     assets = FixedAsset.objects.filter(supplier=supplier, credit_purchase=True).aggregate(t=Sum('cost'))['t'] or ZERO
     paid = PaymentAllocation.objects.filter(payment__payee=supplier, payment__status='paid', freight_bill__isnull=True).aggregate(t=Sum('amount'))['t'] or ZERO
-    return {'invoices': inv, 'debits': dn, 'assets': assets, 'payments': paid, 'balance': inv + assets - dn - paid}
+    from .models import TdsDeduction
+    tds = TdsDeduction.objects.filter(payee=supplier, status='posted', supplier_invoice__isnull=False).aggregate(t=Sum('amount'))['t'] or ZERO
+    return {'invoices': inv, 'debits': dn, 'assets': assets, 'payments': paid, 'tds': tds, 'balance': inv + assets - dn - paid - tds}

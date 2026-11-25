@@ -314,6 +314,14 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   origin*; stock and receivable are corrected only through the RMA inspection and credit note. Returned trips remain
   eligible for freight bills.
 
+## TDS on vendor bills (FR-FIN-016)
+- Set **TDS section and rate** on a supplier or transporter (Dealers & suppliers → Bank & TDS) only after your tax advisor
+  confirms; parties without it are never touched.
+- **Finance → TDS** (one page): open bills to deduct (base = taxable value for supplier invoices, approved payable for
+  freight bills; rounded to the rupee, capped at what is due), monthly register, reversal before deposit, and challan entry
+  per month and section. A deduction posts Dr trade payable / Cr TDS payable and lowers what the payment run offers; the
+  challan posts Dr TDS payable / Cr bank. AP subledger checks (current and month-close) include TDS.
+
 ## Help & support tickets
 - Any user raises a ticket from **Help & support** in the sidebar or *Get help / report a problem* in the account menu (the
   screen they were on is attached). Priority sets the target time: urgent 4 h, high 1 day, normal 3 days, low 5 days.

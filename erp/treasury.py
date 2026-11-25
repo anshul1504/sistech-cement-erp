@@ -54,12 +54,14 @@ def open_items(payee):
     """Bills of this payee still to pay, oldest due first, plus unused standalone debit notes (to adjust)."""
     items = []
     for inv in SupplierInvoice.objects.filter(supplier=payee, status__in=['matched', 'approved']).order_by('due_date', 'pk'):
-        due = inv.payable - allocated('supplier_invoice', inv)
+        from .tds import deducted
+        due = inv.payable - allocated('supplier_invoice', inv) - deducted(inv)
         if due > 0:
             items.append({'kind': 'sinv', 'obj': inv, 'ref': inv.invoice_number, 'date': inv.invoice_date, 'due_date': inv.due_date, 'amount': due})
     for fb in FreightBill.objects.filter(transporter=payee, status='approved').order_by('bill_date', 'pk'):
         from .freight_recovery import effective_payable,clear_for_payment
-        due = effective_payable(fb) - allocated('freight_bill', fb)
+        from .tds import deducted
+        due = effective_payable(fb) - allocated('freight_bill', fb) - deducted(fb)
         if due and (due<0 or clear_for_payment(fb)):
             items.append({'kind': 'frb', 'obj': fb, 'ref': fb.bill_number, 'date': fb.bill_date, 'due_date': fb.bill_date, 'amount': due})
     for asset in FixedAsset.objects.filter(supplier=payee, credit_purchase=True).order_by('put_to_use', 'pk'):
