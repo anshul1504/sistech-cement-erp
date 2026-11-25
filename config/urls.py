@@ -231,6 +231,7 @@ urlpatterns += [
     path('production/new/', pdv.production_new, name='production_new'),
     path('production/<int:pk>/', pdv.production_detail, name='production_detail'),
     path('production/<int:pk>/coa/', pdv.coa, name='coa'),
+    path('quality/sampling/', pdv.sampling_save, name='sampling_save'),
     path('production/<int:pk>/trace/', pdv.trace, name='trace'),
     path('production/<int:pk>/<str:action>/', pdv.production_action, name='production_action'),
     path('production/recipes/', pdv.recipes, name='recipes'),

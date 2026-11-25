@@ -17,6 +17,8 @@ from . import quality as QC
 from .models import (Production, Recipe, Product, Site, ShiftLog, PackingRun, QualitySpec, LabEquipment, QualityResult, GoodsReceipt, AuditEvent,
                      Organization, DOWNTIME_REASONS, SHIFTS, StockBalance)
 from .services import permitted, scope
+from .models import SamplingPlan, SAMPLING_STAGES, SAMPLING_FREQUENCIES
+from .sampling import due as sampling_due
 
 MAKE = ['Cement', 'TMT', 'Raw material']
 
@@ -295,7 +297,37 @@ def quality(request):
         'pending': [(p, r['spec']) for p in scope(Production.objects.filter(status='Released', released_at__date__gte=today - timedelta(days=35)).select_related('product'), request.user)
                     for r in QC.evidence(p)['rows'] if not r['result'] and r['due'] and r['due'] <= today],
         'spec_groups': _spec_groups(),
+        'samples_due': sampling_due(list(_sites(request.user))),
+        'sampling_plans': SamplingPlan.objects.select_related('product', 'site').prefetch_related('parameters'),
+        'plan_products': Product.objects.filter(active=True).exclude(category__in=['Spares']).order_by('category', 'name'),
+        'stages': SAMPLING_STAGES, 'frequencies': SAMPLING_FREQUENCIES, 'can_plan': request.user.has_perm('erp.add_samplingplan'),
         'sites': _sites(request.user), 'can_eq': request.user.has_perm('erp.add_labequipment')})
+
+
+@login_required
+@require_POST
+def sampling_save(request):
+    from . import sampling as SMP
+    P = request.POST
+    try:
+        product = Product.objects.get(pk=P.get('product') or 0)
+        site = Site.objects.filter(pk=P.get('site') or 0).first()
+        if site:
+            from .services import require_site
+            require_site(request.user, site)
+        if P.get('deactivate'):
+            permitted(request.user, 'change_samplingplan')
+            SamplingPlan.objects.filter(pk=P['deactivate']).update(active=False)
+            messages.success(request, 'Sampling plan stopped.')
+            return redirect('quality')
+        SMP.save_plan(request.user, product, P.get('stage', ''), P.get('frequency', ''), site, list(QualitySpec.objects.filter(pk__in=P.getlist('parameters'), product=product)),
+                      P.get('sample_size', ''), P.get('note', ''))
+        messages.success(request, 'Sampling plan saved.')
+    except Product.DoesNotExist:
+        messages.error(request, 'Choose the product.')
+    except ValidationError as e:
+        messages.error(request, ' '.join(e.messages))
+    return redirect('quality')
 
 
 def _spec_groups():

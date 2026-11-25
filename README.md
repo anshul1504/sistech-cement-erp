@@ -289,6 +289,11 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   deposit held, are blocked while the dealer has overdue invoices unless the reason records the settlement, and are approved
   by a different user with recent identity confirmation. The trial-balance subledger check includes deposits.
 
+## Quality sampling plan (FR-QC-001)
+- **Quality lab → Sampling plan**: per product (and plant) the stage (incoming truck, in-process, finished batch, dispatch),
+  frequency (every truck / batch / shift / day / week), parameters and sample size. **Samples due** lists trucks on quality
+  hold, batches missing a planned parameter and periodic samples not yet recorded, each linked to where the result is entered.
+
 ## Maintenance
 - **Plant operations → Maintenance** (one page): equipment register with criticality, breakdown / preventive / inspection jobs
   (report → start with technician → done with work, spares and production downtime → verified by someone other than the

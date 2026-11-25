@@ -3606,3 +3606,28 @@ class MaintenanceJob(models.Model):
     @property
     def overdue(self):
         return self.status in ('open', 'progress') and self.due_on and self.due_on < timezone.localdate()
+
+
+# ---------- Quality sampling plan (FR-QC-001) ----------
+
+SAMPLING_STAGES = [('incoming', 'Incoming material (truck)'), ('process', 'In-process'), ('finished', 'Finished batch'), ('dispatch', 'Dispatch / packed bags')]
+SAMPLING_FREQUENCIES = [('truck', 'Every truck'), ('batch', 'Every batch'), ('shift', 'Every shift'), ('daily', 'Once a day'), ('weekly', 'Once a week')]
+
+
+class SamplingPlan(models.Model):
+    """What to sample, where, how often and which parameters to test. Drives the 'samples due' list in the lab."""
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='sampling_plans')
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, related_name='sampling_plans', help_text='Empty = every plant.')
+    stage = models.CharField(max_length=9, choices=SAMPLING_STAGES)
+    frequency = models.CharField(max_length=7, choices=SAMPLING_FREQUENCIES)
+    parameters = models.ManyToManyField('QualitySpec', blank=True, related_name='sampling_plans')
+    sample_size = models.CharField(max_length=80, blank=True, help_text='e.g. 5 kg composite from 3 points; 3 bars × 1 m')
+    note = models.CharField(max_length=200, blank=True)
+    active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['product__name', 'stage']
+
+    def __str__(self): return f'{self.product} · {self.get_stage_display()} · {self.get_frequency_display()}'

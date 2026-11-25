@@ -64,6 +64,7 @@ MODULES = [
     ('equipment', 'Equipment & PM schedule', {'view': 'view_equipment', 'create': 'add_equipment', 'edit': 'add_maintenanceplan'}),
     ('shift_logs', 'Shift log', {'view': 'view_shiftlog', 'create': 'add_shiftlog'}),
     ('packing', 'Packing', {'view': 'view_packingrun', 'create': 'add_packingrun'}),
+    ('sampling', 'Sampling plan', {'view': 'view_samplingplan', 'create': 'add_samplingplan', 'edit': 'change_samplingplan'}),
     ('quality', 'Quality lab', {'view': 'view_qualitytest', 'create': 'add_qualitytest', 'edit': 'add_labequipment'}),
     ('invoices', 'Tax invoices', {'view': 'view_invoice', 'post': 'post_invoice', 'export': 'export_invoice'}),
     ('receipts', 'Receipts & ledger', {'view': 'view_receipt', 'create': 'add_receipt', 'cancel': 'bounce_receipt'}),
@@ -156,6 +157,7 @@ PRESETS['Finance controller'] |= {'view_depositentry', 'approve_depositentry'}
 PRESETS['Logistics manager'] |= {'decide_dispatchincident', 'add_returnrequest', 'view_returnrequest'}
 PRESETS['Production operator'] |= {'view_maintenancejob', 'add_maintenancejob', 'change_maintenancejob', 'view_equipment'}
 PRESETS['Production head'] |= {'view_maintenancejob', 'add_maintenancejob', 'change_maintenancejob', 'verify_maintenancejob', 'view_equipment', 'add_equipment', 'add_maintenanceplan'}
+PRESETS['Quality manager'] |= {'view_samplingplan', 'add_samplingplan', 'change_samplingplan'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():
