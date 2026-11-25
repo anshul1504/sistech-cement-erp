@@ -38,6 +38,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 ## Latest verified milestones
 
+- Maintenance: equipment register, breakdown/preventive/inspection jobs with independent verification, preventive schedules and due-job opening, MTTR/MTBF/downtime KPIs; PDFs for weighment slip, gate pass, GRN and test certificate. Migration 0061 adds tables only. Spares issue from stores against a job and PLC/condition monitoring remain pending.
+
 - Supply plan: horizon-based demand (orders vs 30-day sales), stock/transit/on-order netting, partner commitment headroom, recipe-aware source suggestion and draft purchase requests. Capacity/MRP for own plants and maintenance planning remain pending.
 
 - Server-side PDF for 12 document types and 5 financial reports with one branded design, scope-checked and audited downloads; order page layout tidied (totals right, two-column cards, secondary actions collapsed). Report packs remain Excel; PDF report packs for dashboards remain pending.

@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.20.2'
+ASSET_VERSION = '0.20.3'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -50,6 +50,7 @@ NAV_GROUPS = [
     ('Plant operations', [
         _item('production', 'Production', 'factory', 'view_production', match=('production_new', 'production_action', 'production_detail', 'coa', 'trace')),
         _item('recipes', 'Recipes & BOM', 'clipboard', 'view_recipe', match=('recipe_new',)),
+        _item('maintenance', 'Maintenance', 'settings', 'view_maintenancejob'),
         _item('shift_logs', 'Shift log', 'history', 'view_shiftlog'),
         _item('packing', 'Packing', 'package', 'view_packingrun'),
         _item('quality', 'Quality lab', 'flask', 'view_qualitytest', match=('quality_new',)),

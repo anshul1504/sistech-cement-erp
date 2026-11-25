@@ -60,6 +60,8 @@ MODULES = [
     ('damage', 'Damaged stock', {'view': 'view_damagereport', 'create': 'add_damagereport', 'approve': 'decide_damagereport'}),
     ('production', 'Production', {'view': 'view_production', 'create': 'add_production', 'post': 'complete_production', 'approve': 'release_production'}),
     ('recipes', 'Recipes & BOM', {'view': 'view_recipe', 'create': 'add_recipe', 'approve': 'approve_recipe'}),
+    ('maintenance', 'Maintenance', {'view': 'view_maintenancejob', 'create': 'add_maintenancejob', 'edit': 'change_maintenancejob', 'approve': 'verify_maintenancejob'}),
+    ('equipment', 'Equipment & PM schedule', {'view': 'view_equipment', 'create': 'add_equipment', 'edit': 'add_maintenanceplan'}),
     ('shift_logs', 'Shift log', {'view': 'view_shiftlog', 'create': 'add_shiftlog'}),
     ('packing', 'Packing', {'view': 'view_packingrun', 'create': 'add_packingrun'}),
     ('quality', 'Quality lab', {'view': 'view_qualitytest', 'create': 'add_qualitytest', 'edit': 'add_labequipment'}),
@@ -152,6 +154,8 @@ PRESETS['Finance controller'] |= {'view_commissionplan', 'view_commissionrun', '
 PRESETS['Accountant'] |= {'view_depositentry', 'add_depositentry'}
 PRESETS['Finance controller'] |= {'view_depositentry', 'approve_depositentry'}
 PRESETS['Logistics manager'] |= {'decide_dispatchincident', 'add_returnrequest', 'view_returnrequest'}
+PRESETS['Production operator'] |= {'view_maintenancejob', 'add_maintenancejob', 'change_maintenancejob', 'view_equipment'}
+PRESETS['Production head'] |= {'view_maintenancejob', 'add_maintenancejob', 'change_maintenancejob', 'verify_maintenancejob', 'view_equipment', 'add_equipment', 'add_maintenanceplan'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():

@@ -123,6 +123,8 @@ def dashboard_area(request, area):
         ctx['supply'] = I.sourcing_summary(sites, period)
     elif area == 'plant':
         ctx['plant'] = I.plant_summary(sites, period)
+        from .maintenance import kpis
+        ctx['maint'] = kpis(sites)
     elif area == 'quality':
         sold = I._total(I.net_sales(sites, period.start, period.end))['mt']
         ctx['quality'] = I.quality_summary(sites, period, sold, user=request.user)

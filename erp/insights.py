@@ -614,6 +614,12 @@ def my_queue(user, sites=None):
         from .pod import can_decide as can_review_pod
         ids=[item.pk for item in PODCorrection.objects.filter(dispatch__site__in=sites,status='requested').select_related('dispatch__site') if can_review_pod(user,item)]
         add('POD corrections to review',PODCorrection.objects.filter(pk__in=ids),reverse('dispatch_board'),'Independent delivery evidence review')
+    if has('verify_maintenancejob'):
+        from .models import MaintenanceJob
+        add('Maintenance jobs to verify', MaintenanceJob.objects.filter(status='done', equipment__site__in=sites).exclude(assigned_to=user), reverse('maintenance') + '?status=done', 'Close after checking the work')
+    if has('change_maintenancejob'):
+        from .models import MaintenanceJob
+        add('Breakdowns open', MaintenanceJob.objects.filter(kind='breakdown', status__in=['open', 'progress'], equipment__site__in=sites), reverse('maintenance'), 'Production may be stopped', 'danger')
     if has('decide_dispatchincident'):
         from .models import DispatchIncident
         add('Diversions / refused loads to decide', DispatchIncident.objects.filter(status='open', kind__in=['diversion', 'refused'], dispatch__site__in=sites).exclude(reported_by=user),

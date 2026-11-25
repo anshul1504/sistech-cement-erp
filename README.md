@@ -289,6 +289,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   deposit held, are blocked while the dealer has overdue invoices unless the reason records the settlement, and are approved
   by a different user with recent identity confirmation. The trial-balance subledger check includes deposits.
 
+## Maintenance
+- **Plant operations → Maintenance** (one page): equipment register with criticality, breakdown / preventive / inspection jobs
+  (report → start with technician → done with work, spares and production downtime → verified by someone other than the
+  technician), preventive schedules every N days (open due jobs from the page or daily with
+  `python manage.py open_due_maintenance --user <username>`), MTTR, MTBF and downtime on the page and the plant dashboard.
+
 ## Supply plan (FR-PRD-001, asset-light)
 - **Procurement → Supply plan**: for the next N days per plant/depot and finished product — demand (larger of open approved
   orders and 30-day average sales × days), stock, transfers in transit, open POs/requests, reorder level and days of cover.

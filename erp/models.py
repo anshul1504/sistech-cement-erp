@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('DEP', 'Security deposit'), ('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('MNT', 'Maintenance job'), ('DEP', 'Security deposit'), ('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -3542,3 +3542,67 @@ class DispatchIncident(models.Model):
         permissions = [('decide_dispatchincident', 'Approve diversions and refused-load returns')]
 
     def __str__(self): return f'{self.dispatch} · {self.get_kind_display()}'
+
+
+# ---------- Maintenance (SRS §6.2 maintenance request, FR-PRD-001 planned maintenance) ----------
+
+class Equipment(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='equipment')
+    code = models.CharField(max_length=30)
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=12, default='machine', choices=[('mill', 'Mill / crusher'), ('kiln', 'Kiln / furnace'), ('packer', 'Packer'), ('conveyor', 'Conveyor / elevator'),
+                                                                     ('weighbridge', 'Weighbridge'), ('utility', 'Power / utility'), ('vehicle', 'Plant vehicle'), ('machine', 'Other machine')])
+    criticality = models.CharField(max_length=6, default='medium', choices=[('high', 'High — stops production'), ('medium', 'Medium'), ('low', 'Low')])
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['site__code', 'code']
+        constraints = [models.UniqueConstraint(fields=['site', 'code'], name='unique_equipment_code')]
+
+    def __str__(self): return f'{self.code} · {self.name}'
+
+
+class MaintenancePlan(models.Model):
+    """Preventive task repeated every N days; a job is opened when it falls due."""
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='plans')
+    task = models.CharField(max_length=150)
+    every_days = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    next_due = models.DateField()
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['next_due']
+
+    def __str__(self): return f'{self.equipment.code} · {self.task}'
+
+
+class MaintenanceJob(models.Model):
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, related_name='jobs')
+    plan = models.ForeignKey(MaintenancePlan, null=True, blank=True, on_delete=models.SET_NULL, related_name='jobs')
+    kind = models.CharField(max_length=10, choices=[('breakdown', 'Breakdown'), ('preventive', 'Preventive'), ('inspection', 'Inspection')])
+    priority = models.CharField(max_length=6, default='normal', choices=[('urgent', 'Urgent'), ('normal', 'Normal'), ('low', 'Low')])
+    description = models.CharField(max_length=300)
+    status = models.CharField(max_length=10, default='open', choices=[('open', 'Open'), ('progress', 'In progress'), ('done', 'Done · verify'), ('closed', 'Closed'), ('cancelled', 'Cancelled')])
+    due_on = models.DateField(null=True, blank=True)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    downtime_minutes = models.PositiveIntegerField(default=0)
+    work_done = models.CharField(max_length=300, blank=True)
+    spares = models.CharField('Spares / consumables used', max_length=200, blank=True)
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    reported_at = models.DateTimeField(auto_now_add=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-reported_at']
+        permissions = [('verify_maintenancejob', 'Verify and close maintenance jobs')]
+
+    def __str__(self): return self.number
+
+    @property
+    def overdue(self):
+        return self.status in ('open', 'progress') and self.due_on and self.due_on < timezone.localdate()

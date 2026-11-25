@@ -193,3 +193,4 @@
   .ins-tabs-select .form-select { height: 42px; font-weight: 600; color: var(--o-ink); }
 }
 .ins-filter .ord-checkline { white-space: nowrap; display: inline-flex !important; }
+.mt-job { margin: 0 0 8px; font-size: 13px; color: var(--o-ink); overflow-wrap: anywhere; }

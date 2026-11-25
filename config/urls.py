@@ -5,6 +5,7 @@ from erp import views as v
 from erp import order_views as ov
 from erp import insight_views as iv
 from erp import pdf_views as pdfv
+from erp import maintenance_views as mtv
 from erp import support_views as spv
 from erp import collect_views as cv
 from erp import return_views as rtv
@@ -174,6 +175,8 @@ urlpatterns += [
     path('purchase/requests/new/', pcv.pr_form, name='pr_new'),
     path('purchase/requests/reorder/', pcv.reorder, name='reorder'),
     path('purchase/supply-plan/', pcv.supply_plan, name='supply_plan'),
+    path('maintenance/', mtv.maintenance, name='maintenance'),
+    path('maintenance/<slug:action>/', mtv.maintenance_action, name='maintenance_action'),
     path('purchase/requests/<int:pk>/', pcv.pr_detail, name='pr_detail'),
     path('purchase/requests/<int:pk>/edit/', pcv.pr_form, name='pr_edit'),
     path('purchase/requests/<int:pk>/direct-po/', pcv.pr_direct, name='pr_direct'),
