@@ -166,3 +166,7 @@
 @media (max-width: 1199.98px) { .bud-months { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 575.98px) { .bud-months { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .cm-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 6px 14px; }
+.rp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 260px) auto auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--o-line); border-radius: 12px; }
+.rp-row span { display: grid; min-width: 0; font-size: 13.5px; }
+.rp-row small { color: var(--o-ink-3); font-size: 12px; }
+@media (max-width: 767.98px) { .rp-row { grid-template-columns: minmax(0, 1fr) auto; } .rp-row .form-select { grid-column: 1 / -1; grid-row: 2; } }

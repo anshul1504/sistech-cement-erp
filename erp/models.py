@@ -3466,3 +3466,25 @@ class CommissionLine(models.Model):
     prior = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=16, decimal_places=2, help_text='This run: cumulative − prior. Negative = recovery.')
     tds = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+
+
+# ---------- Scheduled report packs (§11) ----------
+
+REPORT_PACKS = [('management', 'Management summary'), ('sales', 'Sales'), ('credit', 'Credit & collections'), ('stock', 'Stock & dispatch')]
+REPORT_FREQUENCIES = [('daily', 'Daily (yesterday)'), ('weekly', 'Weekly on Monday (last 7 days)'), ('monthly', 'Monthly on the 1st (last month)')]
+
+
+class ReportSubscription(models.Model):
+    """A user's emailed Excel report pack. The pack is built with that user's own permissions and plant access at send time."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='report_subscriptions')
+    pack = models.CharField(max_length=12, choices=REPORT_PACKS)
+    frequency = models.CharField(max_length=8, choices=REPORT_FREQUENCIES, default='weekly')
+    active = models.BooleanField(default=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['user__username', 'pack']
+        constraints = [models.UniqueConstraint(fields=['user', 'pack'], name='one_subscription_per_pack')]
+
+    def __str__(self): return f'{self.user} · {self.get_pack_display()} · {self.get_frequency_display()}'

@@ -42,7 +42,7 @@
   {% elif area == 'sales' %}
   <div class="inf-kpis ins-kpis" role="list">
     <a role="listitem" class="inf-kpi" href="{% url 'insight_drill' 'sales' %}?{{ period.query }}{{ site_q }}"><span>Net sales</span><strong>{{ sales.value|inr_short }}</strong><small>{% include 'erp/_insight_delta.html' with d=sales.value_change %} · {{ sales.invoices }} invoices</small></a>
-    <div role="listitem" class="inf-kpi"><span>Volume</span><strong>{{ sales.mt|mt }}</strong><small>{% include 'erp/_insight_delta.html' with d=sales.mt_change %} · {{ sales.dealers }} buying customer{{ sales.dealers|pluralize }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Volume</span><strong>{{ sales.mt|mt }}</strong><small>{% include 'erp/_insight_delta.html' with d=sales.mt_change %} · {{ sales.buyers }} buying customer{{ sales.buyers|pluralize }}</small></div>
     <div role="listitem" class="inf-kpi"><span>Realisation</span><strong>{% if sales.per_mt %}₹{{ sales.per_mt|indian }}{% else %}—{% endif %}</strong><small>net ₹ per MT, before GST</small></div>
     <div role="listitem" class="inf-kpi{% if sales.target_pct is not None and sales.target_pct >= 100 %} is-good{% endif %}"><span>Target achievement</span><strong>{% if sales.target_pct is not None %}{{ sales.target_pct }}%{% else %}—{% endif %}</strong><small>{% if sales.target %}{{ sales.target_actual|inr_short }} of {{ sales.target|inr_short }}{% else %}no monthly targets set{% endif %}</small></div>
   </div>

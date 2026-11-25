@@ -291,3 +291,39 @@ def my_work(request):
     if request.GET.get('format') == 'json':
         return JsonResponse({'count': sum(i['count'] for i in items), 'items': items})
     return render(request, 'erp/my_work.html', {'title': 'My work', 'items': I.my_queue(request.user)})
+
+
+# ---------- Excel report packs ----------
+
+@login_required
+def report_packs(request):
+    """Download a pack now, or subscribe to receive it by email (built with your own access at send time)."""
+    from . import report_packs as RP
+    from .models import ReportSubscription, REPORT_PACKS, REPORT_FREQUENCIES
+    u = request.user
+    packs = [(k, l) for k, l in REPORT_PACKS if RP.allowed(u, k)]
+    if not packs:
+        raise PermissionDenied
+    if request.method == 'POST':
+        from django.contrib import messages
+        pack, freq = request.POST.get('pack'), request.POST.get('frequency')
+        if pack in dict(packs) and freq in dict(REPORT_FREQUENCIES):
+            if request.POST.get('remove') == '1':
+                ReportSubscription.objects.filter(user=u, pack=pack).delete()
+                messages.success(request, 'Subscription removed.')
+            else:
+                ReportSubscription.objects.update_or_create(user=u, pack=pack, defaults={'frequency': freq, 'active': True})
+                messages.success(request, f'{dict(packs)[pack]} will be emailed {dict(REPORT_FREQUENCIES)[freq].split(" (")[0].lower()} to {u.email or "your email (add it in My account)"}.')
+        return redirect('report_packs')
+    if request.GET.get('download') in dict(packs):
+        from django.http import HttpResponse
+        from .models import AuditEvent
+        period = I.parse_period(request.GET)
+        name, data = RP.build(u, request.GET['download'], period)
+        AuditEvent.objects.create(actor=u, action='Report pack downloaded', reference=request.GET['download'], detail=f'{period.start} – {period.end}')
+        resp = HttpResponse(data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp['Content-Disposition'] = f'attachment; filename="{name}"'
+        return resp
+    subs = {s.pack: s for s in ReportSubscription.objects.filter(user=u)}
+    return render(request, 'erp/report_packs.html', {'title': 'Report packs', 'packs': [(k, l, subs.get(k)) for k, l in packs], 'frequencies': REPORT_FREQUENCIES,
+                                                     'periods': I.PERIODS, 'period': I.parse_period(request.GET), 'areas': areas_for(u)})

@@ -1,0 +1,17 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">DASHBOARDS</div><h1>Report packs</h1><p>Excel workbooks built from the same numbers as the dashboards, limited to your plants and permissions. Download one now, or have it emailed daily, weekly or monthly.</p></div></div>
+  {% include 'erp/_insight_tabs.html' %}
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Download now</h2></div>
+    <form method="get" class="ins-filter"><select class="form-select" name="download" aria-label="Pack">{% for k, l, s in packs %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+      <select class="form-select" name="p" aria-label="Period">{% for k, l in periods %}{% if k != 'custom' %}<option value="{{ k }}"{% if period.key == k %} selected{% endif %}>{{ l }}</option>{% endif %}{% endfor %}</select>
+      <button class="org-btn is-primary is-sm"><svg width="16" height="16"><use href="#ic-download"/></svg> Download Excel</button></form></section>
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>Email me</h2><small>sent to {{ user.email|default:'— add your email in My account' }}</small></div>
+    <ul class="ins-work">{% for k, l, s in packs %}<li><form method="post" class="rp-row">{% csrf_token %}<input type="hidden" name="pack" value="{{ k }}">
+      <span><strong>{{ l }}</strong><small>{% if s %}Subscribed · {{ s.get_frequency_display }}{% if s.last_sent_at %} · last sent {{ s.last_sent_at|date:'d M, H:i' }}{% endif %}{% else %}Not subscribed{% endif %}</small></span>
+      <select class="form-select" name="frequency" aria-label="Frequency">{% for f, fl in frequencies %}<option value="{{ f }}"{% if s.frequency == f %} selected{% endif %}>{{ fl }}</option>{% endfor %}</select>
+      <button class="org-btn is-light is-sm">{% if s %}Update{% else %}Subscribe{% endif %}</button>{% if s %}<button class="org-btn is-light is-sm is-danger" name="remove" value="1">Stop</button>{% endif %}</form></li>{% endfor %}</ul></section>
+</div>
+{% endblock %}

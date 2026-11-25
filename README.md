@@ -299,6 +299,9 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Drill-down** (`/dashboards/drill/<kind>/`): every figure opens the invoices, receipts, orders, trips, GRNs, batches or
   complaints behind it, with the same filters, and exports to CSV (filters, plants and generation time in the first row;
   every export is logged in the audit trail).
+- **Report packs** (`/dashboards/report-packs/`): Management, Sales, Credit and Stock & dispatch Excel workbooks built from the
+  dashboard engine with the user's own access; download now or subscribe daily / weekly / monthly. Schedule
+  `python manage.py send_report_packs` once a day (requires `openpyxl`, in requirements).
 - **KPI definitions** (`/dashboards/definitions/`): formula and scope of every number; each dashboard shows when it was
   generated and counts posted documents only.
 - **Access**: operational figures follow your plant/depot access; collections, receivables, cash and P&L need the

@@ -21,7 +21,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 | Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, tax scope, combined/split matching, beneficiary approval, signed finance reconciliation |
 | Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, deposit/refund lifecycle, channel ingestion and all downstream corrections |
 | API / Android (§6) | Responsive web only | Versioned API, employee/dealer/driver apps, token/device controls, encrypted offline sync and conflicts |
-| Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | Scheduled PDF/Excel packs, saved filters, complete dimensional analytics |
+| Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | PDF packs, saved filters, complete dimensional analytics |
 | Integrations (§12) | Email implementation and selected web sharing | GSP/IRP/EWB, bank/gateway, WhatsApp/SMS/push, bridge/GPS/scanners/PLC/LIMS, legacy connectors |
 | Nonfunctional / rollout (§13–15) | Automated developer checks, local migration backups | PostgreSQL load/race tests, accessibility/localisation, observability, restore drills, actual opening-data migration, training, business UAT/sign-off |
 
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- Scheduled Excel report packs (management / sales / credit / stock & dispatch) rebuilt per subscriber with current permissions and plant scope, scope/period/generation header on every sheet, download audit, `send_report_packs` command. Also fixed the sales dashboard buyer count being overwritten by the top-customer list. Migration 0058 adds a table only.
 
 - Sales commission: approved plans (net sales / collections / per MT, plant, optional TDS), sequential earn-once runs with automatic recovery after credit notes, independent approval excluding beneficiaries, GL posting to commission expense/payable/TDS payable, personal statement. Migration 0057 adds tables only. Agent/distributor beneficiaries with KYC/bank and payroll payout remain pending.
 

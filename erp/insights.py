@@ -208,7 +208,7 @@ def sales_summary(sites, period, drill=''):
     return {
         'value': now['value'], 'mt': now['mt'], 'prev_value': before['value'], 'prev_mt': before['mt'],
         'value_change': change(now['value'], before['value']), 'mt_change': change(now['mt'], before['mt']),
-        'invoices': invoices.count(), 'dealers': invoices.values('partner').distinct().count(),
+        'invoices': invoices.count(), 'buyers': invoices.values('partner').distinct().count(),
         'per_mt': (now['value'] / now['mt']).quantize(Decimal('1')) if now['mt'] > 0 else None,
         'target': target, 'target_actual': target_actual, 'target_pct': pct(target_actual, target),
         'products': _ranked(by_product, lambda k: products[k].name if k in products else '—', link=lambda k: f'{d}?{q}&product={k}{drill}'),
