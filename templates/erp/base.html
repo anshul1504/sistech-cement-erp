@@ -146,7 +146,7 @@
         <div class="dropdown">
           <button class="hd-create" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Create new"><svg><use href="#ic-plus"/></svg><span>Create</span></button>
           <div class="dropdown-menu dropdown-menu-end hd-menu">
-            <div class="hd-menu-label">Create new</div>
+            <div class="hd-menu-label">{{ quick_create_label }}</div>
             {% for label, url, icon in quick_create %}<a class="hd-menu-item" href="{{ url }}" data-quick-create><svg><use href="#ic-{{ icon }}"/></svg>{{ label }}</a>{% endfor %}
           </div>
         </div>

@@ -50,3 +50,28 @@ class ModuleNavigationTests(TestCase):
         r = self.client.get(reverse('dashboard'))
         self.assertEqual(r.status_code, 302)
         self.assertEqual(self.client.get(reverse('module_home', args=['finance'])).status_code, 404)
+
+
+@override_settings(EMAIL_OTP_ENABLED=False)
+class CreateMenuTests(TestCase):
+    def test_create_menu_follows_module_and_role(self):
+        admin = User.objects.create_superuser('cm-admin', 'c@example.test', 'x')
+        self.client.force_login(admin)
+        home = [l for l, _, _ in self.client.get(reverse('dashboard')).context['quick_create']]
+        self.assertLessEqual(len(home), 8)
+        self.assertIn('Sales order', home)
+        for rare in ('Product', 'User', 'Role', 'Plant or depot', 'Opening stock'):
+            self.assertNotIn(rare, home)
+        sales = self.client.get(reverse('sales')).context
+        self.assertEqual(sales['quick_create_label'], 'New in Sales & CRM')
+        labels = [l for l, _, _ in sales['quick_create']]
+        self.assertIn('Quotation', labels)
+        self.assertNotIn('Receipt', labels)
+        admin_page = [l for l, _, _ in self.client.get(reverse('products')).context['quick_create']]
+        self.assertIn('Product', admin_page)
+        # a sales executive only ever sees what they may create
+        rep = User.objects.create_user('cm-rep')
+        rep.user_permissions.set(Permission.objects.filter(codename__in=['view_quotation', 'add_quotation', 'view_crmlead', 'add_crmlead']))
+        self.client.force_login(rep)
+        r = self.client.get(reverse('dashboard'), follow=True)
+        self.assertEqual(sorted(l for l, _, _ in r.context['quick_create']), ['CRM lead', 'Quotation'])

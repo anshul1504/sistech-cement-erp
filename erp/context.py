@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.24.1'
+ASSET_VERSION = '0.24.2'
 
 def _area(area, label):
     """A module's dashboard (erp.insight_views.AREAS); visible when the dashboard's own check passes."""
@@ -291,61 +291,47 @@ def navigation(request):
                   {'label': 'Modules', 'live': True, 'items': [{'route': 'module_home', 'label': m['label'], 'icon': m['icon'], 'url': m['url'],
                                                                'active': False, 'soon': False} for m in modules]}]
 
-    quick_create = []
-    if user.has_perm('erp.add_salesproject'):
-        quick_create.append(('Project opportunity',reverse('project_new'),'building'))
-    if user.has_perm('erp.add_beatplan'):
-        quick_create.append(('Daily beat plan', reverse('beat_new'), 'truck'))
-    if user.has_perm('erp.add_returnrequest'):
-        quick_create.append(('Customer return', reverse('return_new'), 'truck'))
-    if user.has_perm('erp.add_crmlead'):
-        quick_create.append(('CRM lead', reverse('crm_lead_new'), 'crm'))
-    if user.has_perm('erp.add_complaint'):
-        quick_create.append(('Complaint', reverse('complaint_new'), 'shield'))
-    if user.has_perm('erp.add_quotation'):
-        quick_create.append(('Quotation', reverse('quotation_new'), 'quote'))
-    if order_permission(user, 'Sale', 'create'):
-        quick_create.append(('New sales order', reverse('order_new', args=['Sale']), 'sales'))
-    if user.has_perm('erp.add_purchaserequest'):
-        quick_create.append(('Purchase request', reverse('pr_new'), 'clipboard'))
-    if order_permission(user, 'Purchase', 'create'):
-        quick_create.append(('New purchase order', reverse('order_new', args=['Purchase']), 'purchase'))
-    if user.has_perm('erp.add_production'):
-        quick_create.append(('Process order', reverse('production_new'), 'factory'))
-    if user.has_perm('erp.add_shiftlog'):
-        quick_create.append(('Shift log', reverse('shift_logs'), 'history'))
-    if user.has_perm('erp.add_qualitytest'):
-        quick_create.append(('Quality test', reverse('quality_new'), 'flask'))
-    if user.has_perm('erp.add_product'):
-        quick_create.append(('Product', reverse('products_new'), 'package'))
-    if user.has_perm('erp.add_vehicle'):
-        quick_create.append(('Vehicle', reverse('vehicle_new'), 'truck'))
-    if user.has_perm('erp.add_journalentry') and user.has_perm('erp.access_company_finance'):
-        quick_create.append(('Journal voucher', reverse('voucher_new'), 'book'))
-    if user.has_perm('erp.add_receipt') and user.has_perm('erp.access_company_finance'):
-        quick_create.append(('Receipt', reverse('receipt_new'), 'book'))
-    if user.has_perm('erp.add_pricerule'):
-        quick_create.append(('Price', reverse('prices_new'), 'receipt'))
-    if user.has_perm('erp.add_influencer'):
-        quick_create.append(('Mason or contractor', reverse('influencers_new'), 'hardhat'))
-    if user.has_perm('erp.add_partner'):
-        quick_create.append(('Dealer or supplier', reverse('partners_new'), 'handshake'))
-    if user.has_perm('erp.add_site'):
-        quick_create.append(('Plant or depot', reverse('sites_new'), 'building'))
-    if user.has_perm('erp.add_stocktransfer'):
-        quick_create.append(('Stock transfer', reverse('transfer_new'), 'truck'))
-    if user.has_perm('erp.add_damagereport'):
-        quick_create.append(('Damaged stock report', reverse('damage_new'), 'shield'))
-    if user.has_perm('erp.post_opening'):
-        quick_create.append(('Opening stock', reverse('opening'), 'boxes'))
-    if user.is_superuser:
-        quick_create.append(('User', reverse('member_new'), 'user'))
-        quick_create.append(('Role', reverse('role_new'), 'shield'))
+    # Create menu: inside a module only that module's "new" actions; elsewhere only the everyday ones (core), at most 8.
+    # Every entry is gated by the permission its form needs, so each role sees only what it can actually create.
+    fin = user.has_perm('erp.access_company_finance')
+    has = lambda p: user.has_perm('erp.' + p)
+    options = [  # (module, core, label, route, args, icon, allowed)
+        ('sales', True, 'Sales order', 'order_new', ['Sale'], 'sales', order_permission(user, 'Sale', 'create')),
+        ('sales', True, 'Quotation', 'quotation_new', [], 'quote', has('add_quotation')),
+        ('sales', True, 'CRM lead', 'crm_lead_new', [], 'crm', has('add_crmlead')),
+        ('sales', False, 'Daily beat plan', 'beat_new', [], 'truck', has('add_beatplan')),
+        ('sales', False, 'Project opportunity', 'project_new', [], 'building', has('add_salesproject')),
+        ('sales', False, 'Customer return', 'return_new', [], 'truck', has('add_returnrequest')),
+        ('sales', False, 'Price', 'prices_new', [], 'receipt', has('add_pricerule')),
+        ('people', False, 'Mason or contractor', 'influencers_new', [], 'hardhat', has('add_influencer')),
+        ('people', False, 'C&F, agent or supplier', 'partners_new', [], 'handshake', has('add_partner')),
+        ('procurement', True, 'Purchase request', 'pr_new', [], 'clipboard', has('add_purchaserequest')),
+        ('procurement', True, 'Purchase order', 'order_new', ['Purchase'], 'purchase', order_permission(user, 'Purchase', 'create')),
+        ('plant', True, 'Process order', 'production_new', [], 'factory', has('add_production')),
+        ('plant', True, 'Quality test', 'quality_new', [], 'flask', has('add_qualitytest')),
+        ('plant', False, 'Complaint', 'complaint_new', [], 'shield', has('add_complaint')),
+        ('stock', True, 'Stock transfer', 'transfer_new', [], 'truck', has('add_stocktransfer')),
+        ('stock', False, 'Damaged stock report', 'damage_new', [], 'shield', has('add_damagereport')),
+        ('stock', False, 'Opening stock', 'opening', [], 'boxes', has('post_opening')),
+        ('logistics', False, 'Vehicle', 'vehicle_new', [], 'truck', has('add_vehicle')),
+        ('finance', True, 'Receipt', 'receipt_new', [], 'book', fin and has('add_receipt')),
+        ('finance', True, 'Journal voucher', 'voucher_new', [], 'book', fin and has('add_journalentry')),
+        ('admin', False, 'Product', 'products_new', [], 'package', has('add_product')),
+        ('admin', False, 'Plant or depot', 'sites_new', [], 'building', has('add_site')),
+        ('admin', False, 'User', 'member_new', [], 'user', user.is_superuser),
+        ('admin', False, 'Role', 'role_new', [], 'shield', user.is_superuser),
+    ]
+    here = module['key'] if module else None
+    picked = [o for o in options if o[6] and (o[0] == here if here else o[1])]
+    if not here:
+        picked = picked[:8]
+    quick_create = [(o[2], reverse(o[3], args=o[4]), o[5]) for o in picked]
+    quick_create_label = f"New in {module['label']}" if module else 'Create new'
 
     if user.is_superuser:
         role_label = 'Super administrator'
     else:
         role_label = ', '.join(user.groups.order_by('name').values_list('name', flat=True)[:2]) or 'No role assigned'
 
-    context.update(nav_groups=groups, nav_current=current, nav_modules=modules, nav_module=module, quick_create=quick_create, user_role_label=role_label)
+    context.update(nav_groups=groups, nav_current=current, nav_modules=modules, nav_module=module, quick_create=quick_create, quick_create_label=quick_create_label, user_role_label=role_label)
     return context
