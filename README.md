@@ -303,6 +303,15 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   replies or adds internal notes, and resolves with a resolution note. The user accepts and rates (1–5) or reopens within
   7 days. Unassigned / assigned tickets and answers waiting for the user appear in the My work bell and daily email.
 
+## PDF documents & reports
+- **View PDF / Download PDF** on tax invoices (original / duplicate / triplicate), credit notes, sales & purchase orders,
+  quotations, receipts, customer statements, returns (RMA), GRNs, debit notes, payment vouchers, journal vouchers,
+  commission statements, and on trial balance, P&L, balance sheet, outstanding & ageing and budget vs actual.
+- One design for all (`erp/pdf.py`, ReportLab + local Poppins fonts): company logo and statutory IDs, document box, key facts,
+  parties, item table with totals, amount in words, bank details, terms, signatures, page footer with generation time.
+- Same permission and plant scope as the screen; every PDF download is written to the audit trail. Requires `reportlab`
+  (in requirements).
+
 ## Dashboards, My work & reminders (Step 9a)
 - **Home** (`/`) is role-based: the work waiting for you (only approvals you may give, never your own documents), headline
   numbers from each dashboard you may open, and *My sales* (orders you created, against your monthly target) for sales staff.

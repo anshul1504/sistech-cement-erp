@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  {% include 'erp/_pdf_bar.html' with kind='commission' pk=run.pk %}
   <div class="org-head"><div><div class="eyebrow"><a href="{% url 'commission_plan' run.plan.pk %}">← {{ run.plan.name }}</a></div><h1>{{ run.number }}</h1>
     <p>{{ run.start|date:'d M Y' }} – {{ run.end|date:'d M Y' }} · calculated by {{ run.created_by|who }} · <span class="ins-pill{% if run.status == 'approved' %} is-good{% elif run.status == 'draft' %} is-warn{% else %} is-danger{% endif %}">{{ run.get_status_display }}</span>{% if run.decided_by %} by {{ run.decided_by|who }}{% endif %}{% if journal %} · <a href="{% url 'journal_detail' journal.pk %}">{{ journal.number }}</a>{% endif %}</p></div></div>
   <div class="inf-kpis is-three" role="list"><div role="listitem" class="inf-kpi"><span>This run</span><strong>{{ run.total|inr_short }}</strong><small>negative = recovery</small></div><div role="listitem" class="inf-kpi"><span>TDS</span><strong>{{ run.tds|inr_short }}</strong><small>{{ run.plan.tds_rate|qty }}%</small></div><div role="listitem" class="inf-kpi"><span>People</span><strong>{{ lines|length }}</strong><small>with earnings or recovery</small></div></div>

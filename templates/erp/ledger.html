@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
+  {% include 'erp/_pdf_bar.html' with kind='statement' pk=partner.pk %}
   <div class="org-head">
     <div><div class="eyebrow"><a href="{% url 'partner_detail' partner.pk %}">← {{ partner.name }}</a></div><h1>Customer ledger</h1><p>{{ partner.code }}{% if partner.gstin %} · GSTIN {{ partner.gstin }}{% endif %} · payment terms {{ partner.payment_terms_days }} days</p></div>
     <div class="doc-head-actions"><a class="org-btn is-light" href="?from={{ filters.from }}&to={{ filters.to }}&export=csv"><svg><use href="#ic-download"/></svg>Export</a>{% if can_receive %}<a class="org-btn is-primary" href="{% url 'receipt_new' %}?partner={{ partner.pk }}"><svg><use href="#ic-plus"/></svg>Record receipt</a>{% endif %}</div>

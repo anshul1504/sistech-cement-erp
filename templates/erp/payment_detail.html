@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
+  {% include 'erp/_pdf_bar.html' with kind='payment' pk=pay.pk %}
   <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'payments' %}">← Payments</a></div></div>
   <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-book"/></svg></span>
     <div class="org-hero-text"><h1>{{ pay.payee.name }}</h1><p>{{ pay.number }} · {{ pay.get_mode_display }}{% if not can.offset and not can.refund %} from {{ pay.bank.name }}{% endif %} · {{ pay.date|date:'d M Y' }}</p>

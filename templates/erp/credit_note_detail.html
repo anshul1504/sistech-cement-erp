@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  {% include 'erp/_pdf_bar.html' with kind='credit-note' pk=cn.pk %}
   <div class="org-head adm-crumb inv-noprint"><div class="eyebrow"><a href="{% url 'credit_notes' %}">← Credit notes</a></div></div>
   <div class="ord-workflow inv-noprint">
     <div><strong class="inv-tool-title">{{ cn.number }}</strong><span class="acc-muted"> · {{ cn.get_reason_display }} · ₹{{ cn.total|indian }}{% if unapplied %} · ₹{{ unapplied|indian:2 }} held as credit{% endif %}</span></div>

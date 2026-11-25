@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
+  {% include 'erp/_pdf_bar.html' with kind='grn' pk=g.pk %}
   <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'inbound' %}">← Goods receipt</a></div></div>
   <section class="org-hero mst-hero">
     <span class="mst-icon is-xl is-supplier"><svg><use href="#ic-boxes"/></svg></span>

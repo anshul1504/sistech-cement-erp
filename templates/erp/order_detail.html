@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
+  {% include 'erp/_pdf_bar.html' with kind='order' pk=order.pk %}
   <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% if order.kind == 'Sale' %}{% url 'sales' %}{% else %}{% url 'purchases' %}{% endif %}">← {% if order.kind == 'Sale' %}Sales orders{% else %}Purchase orders{% endif %}</a></div></div>
   <section class="org-hero mst-hero">
     <span class="mst-icon is-xl"><svg><use href="#ic-{% if order.kind == 'Sale' %}sales{% else %}purchase{% endif %}"/></svg></span>
@@ -48,11 +49,11 @@
       {% if order.kind == 'Sale' and order.status == 'Completed' and not order.site.uses_weighbridge %}{% if invoice %}<a class="org-btn is-primary" href="{% url 'invoice_detail' invoice.pk %}">Invoice {{ invoice.number }}</a>{% elif perms.erp.post_invoice %}<a class="org-btn is-primary" href="{% url 'invoice_new' order.pk %}">Post tax invoice</a>{% endif %}{% endif %}
       {% if order.kind == 'Purchase' or order.status == 'Draft' %}{% if order.status in 'Draft Submitted Approved' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" data-confirm="Cancel {{ order.number }}?">{% csrf_token %}<button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}{% endif %}
     </div>
-    {% if order.kind == 'Sale' %}<div class="ord-more">
+    {% if order.kind == 'Sale' and sale.can_hold or order.kind == 'Sale' and order.status == 'Part dispatched' and can_post or order.kind == 'Sale' and order.status in 'Submitted Approved On hold' and can_cancel %}<details class="ord-more-wrap"><summary>More actions — hold, short-close or cancel</summary><div class="ord-more">
       {% if sale.can_hold %}<form method="post" action="{% url 'order_action' order.pk 'hold' %}" class="ord-inline">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="Hold reason (e.g. dealer asked to wait, payment dispute)" aria-label="Hold reason"><button class="org-btn is-light">Put on hold</button></form>{% endif %}
       {% if order.status == 'Part dispatched' and can_post %}<form method="post" action="{% url 'order_action' order.pk 'close' %}" class="ord-inline" data-confirm="Short-close {{ order.number }}? The undispatched balance will not be supplied.">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="Why short-close? (customer does not need the balance…)" aria-label="Short-close reason"><button class="org-btn is-light">Short-close</button></form>{% endif %}
       {% if order.status in 'Submitted Approved On hold' and can_cancel %}<form method="post" action="{% url 'order_action' order.pk 'cancel' %}" class="ord-inline" data-confirm="Cancel {{ order.number }}? Reserved stock is released.">{% csrf_token %}<input class="form-control" name="reason" required maxlength="200" placeholder="Cancellation reason" aria-label="Cancellation reason"><button class="org-btn is-light is-danger">Cancel order</button></form>{% endif %}
-    </div>{% endif %}
+    </div></details>{% endif %}
   </section>
 
   {% if order.kind == 'Sale' and order.status == 'Submitted' and can_approve and order.created_by_id != user.pk and sale.credit or order.kind == 'Sale' and order.status == 'Submitted' and can_approve and order.created_by_id != user.pk and sale.short %}
@@ -69,7 +70,7 @@
       <div><button class="org-btn is-primary">Approve with these reasons</button></div>
     </form></section>{% endif %}
 
-  <div class="acc-grid">
+  <div class="acc-grid ord-detail-grid">
     <section class="org-card org-view acc-wide ord-items">
       <header class="acc-card-head"><h2>Items</h2><span class="acc-muted">{{ lines|length }} line{{ lines|length|pluralize }}</span></header>
       <div class="ord-table" role="table">

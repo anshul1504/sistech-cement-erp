@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_return_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page rma-page">
+  {% include 'erp/_pdf_bar.html' with kind='return' pk=r.pk %}
   <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'returns' %}">← Customer returns</a></div></div>
   <section class="org-hero mst-hero"><span class="mst-icon is-xl"><svg><use href="#ic-truck"/></svg></span>
     <div class="org-hero-text"><h1>{{ r.number }}</h1><p>{{ r.partner.name }} · invoice {% if perms.erp.view_invoice %}<a href="{% url 'invoice_detail' r.invoice.pk %}">{{ r.invoice.number }}</a>{% else %}{{ r.invoice.number }}{% endif %} · {{ r.site.code }} · raised {{ r.created_at|date:'d M Y' }} by {{ r.created_by|who }}</p>

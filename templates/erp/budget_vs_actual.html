@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  {% include 'erp/_pdf_bar.html' with report='budget-vs-actual' %}
   <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Budget vs actual</h1><p>Budget for the months up to the selected date against posted entries. Variance is favourable (+) when income is above budget or expense below it.</p></div></div>
   {% include 'erp/_acc_tabs.html' %}
   <form method="get" class="ins-filter" style="margin-bottom:16px">

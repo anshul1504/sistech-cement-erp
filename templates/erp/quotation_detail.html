@@ -1,7 +1,8 @@
 {% extends 'erp/base.html' %}{% load erp_format static %}
 {% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
 {% block content %}
-{% if project_context %}<div class="org-page d-print-none"><a class="org-btn is-light" href="{% url 'project_detail' project_context.pk %}">← Project {{ project_context.number }}</a></div>{% endif %}
+{% if project_context %}<div class="org-page d-print-none">  {% include 'erp/_pdf_bar.html' with kind='quotation' pk=q.pk %}
+<a class="org-btn is-light" href="{% url 'project_detail' project_context.pk %}">← Project {{ project_context.number }}</a></div>{% endif %}
 <div class="org-page acc-page adm-page mst-page ord-page inv-page">
   <div class="inv-noprint">
     <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'quotations' %}">← Quotations</a></div></div>

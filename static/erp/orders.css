@@ -481,3 +481,21 @@ a.ord-tr:hover { background: #fafbfd; }
 .sup-reply { display: grid; gap: 8px; }
 .sup-actions { display: grid; gap: 10px; }
 .sup-actions .ord-inline .form-control, .sup-actions .ord-inline .form-select { flex: 1 1 160px; min-width: 0; }
+
+/* Order detail: totals on the right, two-column cards, quiet secondary actions */
+.ord-page .ord-summary { flex-direction: row-reverse; flex-wrap: wrap; align-items: flex-start; }
+.ord-page .ord-summary .ord-words { align-self: center; }
+.ord-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.ord-detail-grid > .org-card:not(.acc-wide):last-child:nth-child(even) { grid-column: auto; }
+.ord-more-wrap { flex-basis: 100%; margin-top: 4px; border-top: 1px dashed var(--o-line); padding-top: 10px; }
+.ord-more-wrap > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--o-ink-3); list-style: none; }
+.ord-more-wrap > summary::-webkit-details-marker { display: none; }
+.ord-more-wrap > summary::before { content: "▸ "; }
+.ord-more-wrap[open] > summary::before { content: "▾ "; }
+.ord-more-wrap .ord-more { border-top: 0; padding-top: 10px; }
+@media (max-width: 991.98px) { .ord-detail-grid { grid-template-columns: minmax(0, 1fr) !important; } }
+/* PDF buttons on documents and reports */
+.pdf-bar { float: right; display: flex; gap: 8px; margin: 0 0 8px 16px; position: relative; z-index: 1; }
+.pdf-bar .org-btn svg { width: 15px; height: 15px; }
+@media (max-width: 767.98px) { .pdf-bar { float: none; margin: 0 0 12px; justify-content: flex-end; } }
+@media print { .pdf-bar { display: none !important; } }

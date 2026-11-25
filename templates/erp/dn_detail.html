@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  {% include 'erp/_pdf_bar.html' with kind='debit-note' pk=dn.pk %}
   <div class="ord-workflow inv-noprint"><div><a href="{% url 'debit_notes' %}">← Debit notes</a></div><div class="ord-buttons"><button class="org-btn is-primary" type="button" onclick="window.print()">Print</button></div></div>
   <article class="inv-sheet lg-slip">
     <header class="inv-top">
