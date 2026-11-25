@@ -46,6 +46,7 @@ MODULES = [
     ('commission_runs', 'Commission runs', {'view': 'view_commissionrun', 'create': 'add_commissionrun', 'approve': 'approve_commissionrun'}),
     ('channel_rates', 'Channel commission rates (C&F / agents)', {'view': 'view_channelrate', 'create': 'add_channelrate', 'edit': 'change_channelrate', 'approve': 'approve_channelrate'}),
     ('channel_runs', 'Channel commission runs', {'view': 'view_channelrun', 'create': 'add_channelrun', 'approve': 'approve_channelrun'}),
+    ('secondary_sales', 'Secondary sales (dealer → retailer)', {'view': 'view_secondarysale', 'create': 'manage_secondarysale'}),
     ('deposits', 'Dealer security deposits', {'view': 'view_depositentry', 'create': 'add_depositentry', 'approve': 'approve_depositentry'}),
     ('tds', 'TDS', {'view': 'view_tdsdeduction', 'create': 'add_tdsdeduction', 'post': 'add_tdschallan'}),
     ('cost_centres', 'Cost centres', {'view': 'view_costcentre', 'create': 'add_costcentre', 'edit': 'change_costcentre'}),
@@ -160,6 +161,9 @@ PRESETS['Finance controller'] |= {'view_commissionplan', 'view_commissionrun', '
 PRESETS['Sales manager'] |= {'view_channelrate', 'add_channelrate', 'change_channelrate'}
 PRESETS['Accountant'] |= {'view_channelrate', 'view_channelrun', 'add_channelrun'}
 PRESETS['Finance controller'] |= {'view_channelrate', 'view_channelrun', 'approve_channelrate', 'approve_channelrun'}
+# Secondary sales: the field team records dealer → retailer sales; management reads sell-through.
+PRESETS['Sales executive'] |= {'view_secondarysale', 'manage_secondarysale'}
+PRESETS['Sales manager'] |= {'view_secondarysale', 'manage_secondarysale'}
 PRESETS['Accountant'] |= {'view_depositentry', 'add_depositentry'}
 PRESETS['Finance controller'] |= {'view_depositentry', 'approve_depositentry'}
 PRESETS['Logistics manager'] |= {'decide_dispatchincident', 'add_returnrequest', 'view_returnrequest'}

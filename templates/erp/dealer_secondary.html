@@ -1,0 +1,37 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}<link href="{% static 'erp/influencers.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'erp/dealer.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'dealer_dashboard' %}">← My dealer account</a></div><h1>Sales to retailers</h1><p>Note what you sold on to retailers. It helps Sistech plan supply and schemes for your area.</p></div></div>
+  {% with m=month.rows.0 %}
+  <div class="inf-kpis" role="list">
+    <div class="inf-kpi" role="listitem"><span>Bought this month</span><strong>{{ m.primary_mt|default:0|mt }}</strong><small>from Sistech, net of returns</small></div>
+    <div class="inf-kpi" role="listitem"><span>Sold to retailers</span><strong>{{ m.secondary_mt|default:0|mt }}</strong><small>{{ m.retailers|default:0 }} retailer{{ m.retailers|default:0|pluralize }}</small></div>
+    <div class="inf-kpi" role="listitem"><span>Sell-through</span><strong>{% if m.through is not None and m %}{{ m.through }}%{% else %}—{% endif %}</strong><small>sold on ÷ bought</small></div>
+  </div>
+  {% endwith %}
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Add a sale</h2></header>
+      <form method="post" class="sec-form">{% csrf_token %}
+        <div class="org-field"><label class="form-label" for="d-r">Retailer</label><select class="form-select" id="d-r" name="retailer"><option value="">Not in the list — type below</option>{% for r in retailers %}<option value="{{ r.pk }}">{{ r.name }}{% if r.city %} · {{ r.city }}{% endif %}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="d-rn">Shop name</label><input class="form-control" id="d-rn" name="retailer_name" maxlength="120" placeholder="if not in the list"></div>
+        <div class="org-field"><label class="form-label" for="d-p">Product</label><select class="form-select" id="d-p" name="product" required>{% for p in products %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="d-q">Quantity</label><input class="form-control" id="d-q" name="quantity" inputmode="decimal" required placeholder="bags / MT"></div>
+        <div class="org-field"><label class="form-label" for="d-dt">Date</label><input class="form-control" type="date" id="d-dt" name="date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required></div>
+        <div class="org-field"><label class="form-label" for="d-rt">Your rate ₹ (optional)</label><input class="form-control" id="d-rt" name="rate" inputmode="decimal"></div>
+        <button class="org-btn is-primary" type="submit">Save</button>
+      </form>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Top retailers this month</h2></header>
+      {% if top %}<ul class="mst-stock-list">{% for t in top %}<li><span><strong>{{ t.name }}</strong></span><span class="mst-qty">{{ t.mt|mt }}</span></li>{% endfor %}</ul>{% else %}<p class="acc-muted">Nothing yet this month.</p>{% endif %}
+    </section>
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>My entries</h2></header>
+      {% if entries %}<ul class="mst-order-list">{% for e in entries %}<li class="{% if e.status == 'cancelled' %}is-inactive{% endif %}"><span><strong>{{ e.buyer }}</strong><small>{{ e.date|date:'d M Y' }} · {{ e.product.name }}{% if e.status == 'cancelled' %} · cancelled{% endif %}</small></span><span class="mst-qty">{{ e.quantity|floatformat:'-3' }} {{ e.product.unit }}</span><span>{% if e.rate %}₹{{ e.rate|indian:2 }}{% endif %}</span>{% if e.status == 'active' %}<form method="post" data-confirm="Cancel this entry?">{% csrf_token %}<input type="hidden" name="cancel" value="{{ e.pk }}"><button class="org-btn is-light is-sm" type="submit">Cancel</button></form>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No entries yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

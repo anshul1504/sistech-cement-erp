@@ -3851,3 +3851,30 @@ class DealerOrderRequestLine(models.Model):
 
     class Meta:
         ordering = ['pk']
+
+
+# ---------- Secondary sales (dealer → retailer) ----------
+
+class SecondarySale(models.Model):
+    """What a dealer or distributor sold on to a retailer — entered by the dealer's login or the sales team (sell-through)."""
+    dealer = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='secondary_sales', limit_choices_to={'kind__in': ['Dealer', 'Distributor']})
+    retailer = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='secondary_purchases', limit_choices_to={'kind': 'Retailer'})
+    retailer_name = models.CharField('Retailer (not registered)', max_length=120, blank=True)
+    date = models.DateField()
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=POSITIVE)
+    rate = models.DecimalField('Selling rate (₹, optional)', max_digits=12, decimal_places=2, null=True, blank=True)
+    source = models.CharField(max_length=6, choices=[('dealer', 'Dealer login'), ('staff', 'Sales team'), ('import', 'File import')])
+    status = models.CharField(max_length=9, default='active', choices=[('active', 'Active'), ('cancelled', 'Cancelled')])
+    cancel_reason = models.CharField(max_length=200, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    entered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-pk']
+        permissions = [('manage_secondarysale', 'Record and correct dealer secondary sales')]
+
+    @property
+    def buyer(self):
+        return self.retailer.name if self.retailer_id else self.retailer_name

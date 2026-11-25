@@ -1,0 +1,69 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}<link href="{% static 'erp/influencers.css' %}?v={{ asset_version }}" rel="stylesheet"><link href="{% static 'erp/dealer.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow">SALES · SELL-THROUGH</div><h1>Secondary sales</h1><p>What dealers sold on to retailers, against what they bought from Sistech. Dealers enter it from their login; the sales team can add or import the monthly sheet.</p></div>
+    <form method="get" class="ins-filter sec-filter">
+      <select class="form-select" name="p" aria-label="Period" onchange="this.form.submit()">{% for k, l in periods %}{% if k != 'custom' %}<option value="{{ k }}"{% if period.key == k %} selected{% endif %}>{{ l }}</option>{% endif %}{% endfor %}</select>
+      <select class="form-select" name="dealer" aria-label="Dealer" onchange="this.form.submit()"><option value="">All dealers</option>{% for d in dealers %}<option value="{{ d.pk }}"{% if dealer.pk == d.pk %} selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+    </form></div>
+
+  <div class="inf-kpis" role="list">
+    <div class="inf-kpi" role="listitem"><span>Bought from Sistech</span><strong>{{ through.total.primary_mt|mt }}</strong><small>{{ period.label|lower }} · net of returns</small></div>
+    <div class="inf-kpi" role="listitem"><span>Sold to retailers</span><strong>{{ through.total.secondary_mt|mt }}</strong><small>as reported</small></div>
+    <div class="inf-kpi{% if through.total.through is not None and through.total.through < 60 %} is-warn{% endif %}" role="listitem"><span>Sell-through</span><strong>{% if through.total.through is not None %}{{ through.total.through }}%{% else %}—{% endif %}</strong><small>sold on ÷ bought</small></div>
+    <div class="inf-kpi" role="listitem"><span>Dealers reporting</span><strong>{{ through.rows|length }}</strong><small>with sales or reports</small></div>
+  </div>
+
+  <div class="acc-grid">
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>By dealer</h2><small>MT</small></header>
+      {% if through.rows %}
+      <div class="sec-table" role="table">
+        <div class="sec-tr sec-th" role="row"><span>Dealer</span><span>Bought</span><span>Sold on</span><span>Sell-through</span><span>Stock added</span><span>Retailers</span></div>
+        {% for r in through.rows %}
+        <a class="sec-tr" role="row" href="?p={{ period.key }}&amp;dealer={{ r.dealer.pk }}"><span><strong>{{ r.dealer.name }}</strong><small>{{ r.dealer.code }}</small></span><span data-label="Bought">{{ r.primary_mt|mt }}</span><span data-label="Sold on">{{ r.secondary_mt|mt }}</span>
+          <span data-label="Sell-through">{% if r.through is not None %}<span class="sec-bar"><i style="width:{% if r.through > 100 %}100{% else %}{{ r.through|stringformat:'s' }}{% endif %}%"></i></span>{{ r.through }}%{% else %}—{% endif %}</span>
+          <span data-label="Stock added" class="{% if r.stock_added < 0 %}mst-missing{% endif %}">{{ r.stock_added|mt }}</span><span data-label="Retailers">{{ r.retailers }}</span></a>
+        {% endfor %}
+      </div>
+      {% else %}<p class="acc-muted">No primary or secondary sales in this period.</p>{% endif %}
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Top retailers</h2><small>MT bought</small></header>
+      {% if top %}<ul class="mst-stock-list">{% for t in top %}<li><span><strong>{% if t.retailer %}<a href="{% url 'partner_detail' t.retailer.pk %}">{{ t.name }}</a>{% else %}{{ t.name }}{% endif %}</strong><small>via {{ t.dealer.name }}{% if not t.retailer %} · not registered{% endif %}</small></span><span class="mst-qty">{{ t.mt|mt }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No secondary sales reported.</p>{% endif %}
+    </section>
+
+    {% if can %}
+    <section class="org-card org-view acc-wide">
+      <header class="acc-card-head"><h2>Record a sale</h2></header>
+      <form method="post" class="sec-form">{% csrf_token %}
+        <div class="org-field"><label class="form-label" for="s-d">Dealer</label><select class="form-select" id="s-d" name="dealer" required><option value="">Choose</option>{% for d in dealers %}<option value="{{ d.pk }}">{{ d.name }}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="s-r">Retailer</label><select class="form-select" id="s-r" name="retailer"><option value="">Not registered — type below</option>{% regroup retailers by parent as groups %}{% for g in groups %}<optgroup label="{{ g.grouper.name }}">{% for r in g.list %}<option value="{{ r.pk }}">{{ r.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="s-rn">Shop name</label><input class="form-control" id="s-rn" name="retailer_name" maxlength="120" placeholder="if not registered"></div>
+        <div class="org-field"><label class="form-label" for="s-p">Product</label><select class="form-select" id="s-p" name="product" required>{% for p in products %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="org-field"><label class="form-label" for="s-q">Quantity</label><input class="form-control" id="s-q" name="quantity" inputmode="decimal" required></div>
+        <div class="org-field"><label class="form-label" for="s-dt">Date</label><input class="form-control" type="date" id="s-dt" name="date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required></div>
+        <div class="org-field"><label class="form-label" for="s-rt">Rate ₹ (optional)</label><input class="form-control" id="s-rt" name="rate" inputmode="decimal"></div>
+        <button class="org-btn is-primary" type="submit">Save</button>
+      </form>
+    </section>
+    <section class="org-card org-view">
+      <header class="acc-card-head"><h2>Import monthly sheet</h2></header>
+      <form method="post" enctype="multipart/form-data" class="sec-import">{% csrf_token %}
+        <p class="acc-muted">CSV columns: dealer code, retailer code or shop name, product code, quantity, date, rate (optional). All rows or none are saved.</p>
+        <input class="form-control" type="file" name="file" accept=".csv,text/csv" required>
+        <button class="org-btn is-light" type="submit">Import</button>
+      </form>
+    </section>
+    {% endif %}
+
+    <section class="org-card org-view acc-wide net-full">
+      <header class="acc-card-head"><h2>Entries</h2><small>{{ period.label|lower }}{% if dealer %} · {{ dealer.name }}{% endif %}</small></header>
+      {% if entries %}<ul class="mst-order-list">{% for e in entries %}<li class="{% if e.status == 'cancelled' %}is-inactive{% endif %}"><span><strong>{{ e.dealer.name }} → {{ e.buyer }}</strong><small>{{ e.date|date:'d M Y' }} · {{ e.product.name }} · {{ e.get_source_display }} · {{ e.entered_by|who }}{% if e.status == 'cancelled' %} · cancelled: {{ e.cancel_reason }}{% endif %}</small></span><span class="mst-qty">{{ e.quantity|floatformat:'-3' }} {{ e.product.unit }}</span><span>{% if e.rate %}₹{{ e.rate|indian:2 }}{% endif %}</span>{% if can and e.status == 'active' %}<form method="post" class="ch-inline">{% csrf_token %}<input type="hidden" name="cancel" value="{{ e.pk }}"><input class="form-control form-control-sm" name="reason" placeholder="Reason" required aria-label="Reason"><button class="org-btn is-light is-sm" type="submit">Cancel</button></form>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="acc-muted">No entries in this period.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

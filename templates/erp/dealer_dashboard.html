@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
-  <div class="org-head"><div><div class="eyebrow">MY DEALER ACCOUNT</div><h1>{{ partner.name }}</h1><p>{{ partner.code }}{% if partner.city %} · {{ partner.city }}{% endif %}</p></div><div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'dealer_orders' %}">Request an order</a><a class="org-btn is-light" href="{% url 'my_ledger' %}">My ledger &amp; downloads</a><a class="org-btn is-light" href="{% url 'dealer_invoices' %}">My invoices</a></div></div>
+  <div class="org-head"><div><div class="eyebrow">MY DEALER ACCOUNT</div><h1>{{ partner.name }}</h1><p>{{ partner.code }}{% if partner.city %} · {{ partner.city }}{% endif %}</p></div><div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'dealer_orders' %}">Request an order</a><a class="org-btn is-light" href="{% url 'dealer_secondary' %}">Sales to retailers</a><a class="org-btn is-light" href="{% url 'my_ledger' %}">My ledger &amp; downloads</a><a class="org-btn is-light" href="{% url 'dealer_invoices' %}">My invoices</a></div></div>
   <div class="inf-kpis" role="list">
     <div class="inf-kpi" role="listitem"><span>Account balance</span><strong>₹{{ balance|indian:2 }}</strong><small>Positive = due · negative = advance</small></div>
     <div class="inf-kpi" role="listitem"><span>Overdue invoices</span><strong>₹{{ age.overdue|indian:2 }}</strong><small>Current unpaid invoice balance</small></div>

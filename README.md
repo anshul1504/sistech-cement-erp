@@ -42,6 +42,15 @@ module they were opened from. A user with only one working module goes straight 
 home KPIs are the *Overview* dashboard (`/dashboards/overview/`). Module definitions: `erp/context.py`
 (`MODULES`). Shared spacing / filter-bar / tab rules: `static/erp/polish.css`.
 
+## Secondary sales (dealer → retailer)
+
+Dealers note what they sold on to retailers at *My dealer account → Sales to retailers* (only their own retailers from
+the People network, or a typed shop name). The sales team sees **Sales & CRM → Secondary sales**: per dealer, MT bought
+from Sistech (invoices minus credit notes) against MT sold on, sell-through %, estimated stock added and retailers
+served; top retailers; and all entries. With `manage_secondarysale` they can add entries for any dealer or import the
+monthly CSV (dealer code, retailer code or shop name, product code, quantity, date, rate — all rows or none). Entries
+are never edited; a wrong one is cancelled with a reason. Rules: `erp/secondary.py`.
+
 ## Dealer order requests
 
 A linked dealer login (*My dealer account → Request an order*, `/dealer/orders/`) asks for up to 10 cement/TMT products
