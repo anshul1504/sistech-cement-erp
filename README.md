@@ -289,6 +289,13 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   deposit held, are blocked while the dealer has overdue invoices unless the reason records the settlement, and are approved
   by a different user with recent identity confirmation. The trial-balance subledger check includes deposits.
 
+## Supply plan (FR-PRD-001, asset-light)
+- **Procurement → Supply plan**: for the next N days per plant/depot and finished product — demand (larger of open approved
+  orders and 30-day average sales × days), stock, transfers in transit, open POs/requests, reorder level and days of cover.
+  Suggested source: the manufacturing partner with a current rate (and its remaining monthly commitment), own production
+  when an approved recipe exists, otherwise buy/transfer. Tick shortfalls to raise draft purchase requests (source
+  *Production plan*) with partner rates filled in. Nothing is ordered automatically.
+
 ## Trip exceptions (FR-LOG-015)
 - On a truck in transit (dispatch page → Trip exceptions): report a **breakdown** or **delay** (resolved with a note), a
   **diversion** (new delivery point, approved by a different user; update the e-way bill Part-B with your GSP) or a

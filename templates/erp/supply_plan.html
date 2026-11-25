@@ -1,0 +1,21 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">PROCUREMENT · PLANNING</div><h1>Supply plan</h1><p>What each plant and depot needs for the next {{ horizon }} days: the larger of open orders and recent daily sales, plus the reorder level, minus stock, trucks on the way and what is already on order. Tick the shortfalls to raise draft purchase requests — partner rates are filled in automatically.</p></div></div>
+  <form method="get" class="ins-filter" style="margin-bottom:16px"><label class="ord-checkline">Plan for <input class="form-control" type="number" name="days" min="1" max="60" value="{{ horizon }}" style="width:80px"> days</label>
+    {% if sites|length > 1 %}<select class="form-select" name="site" aria-label="Plant or depot"><option value="">All my plants &amp; depots</option>{% for s in sites %}<option value="{{ s.pk }}"{% if site == s.pk|stringformat:'s' %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select>{% endif %}
+    <button class="org-btn is-light is-sm">Recalculate</button></form>
+  <div class="inf-kpis is-three" role="list"><div role="listitem" class="inf-kpi{% if short %} is-danger{% endif %}"><span>Items short</span><strong>{{ short }}</strong><small>in the next {{ horizon }} days</small></div>
+    <div role="listitem" class="inf-kpi"><span>Items planned</span><strong>{{ rows|length }}</strong><small>with demand, stock or a partner rate</small></div>
+    <div role="listitem" class="inf-kpi"><span>Method</span><strong style="font-size:15px">Orders vs 30-day sales</strong><small>larger of the two is used</small></div></div>
+  <form method="post">{% csrf_token %}<input type="hidden" name="days" value="{{ horizon }}">
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>Plan</h2>{% if can_add %}<button class="org-btn is-primary is-sm">Raise purchase requests for ticked items</button>{% endif %}</div>
+    {% if rows %}<ul class="sp-list">{% for r in rows %}<li class="{% if r.short %}is-short{% endif %}">
+      <div class="sp-head">{% if can_add and r.short %}<input type="checkbox" name="pick_{{ r.key }}" aria-label="Pick {{ r.product.name }}" checked>{% endif %}<span><strong>{{ r.product.name }}</strong><small>{{ r.site.code }} · {{ r.site.name }}</small></span>
+        <span class="sp-source">{% if r.source == 'partner' %}<span class="ins-pill is-good">Partner: {{ r.contract.partner.name }} @ ₹{{ r.contract.rate|indian:2 }}</span>{% if r.room is not None %} <small>{{ r.room|qty }} left this month</small>{% endif %}{% elif r.source == 'make' %}<span class="ins-pill">Own production</span>{% else %}<span class="ins-pill is-warn">Buy / transfer</span>{% endif %}</span></div>
+      <dl class="sp-facts"><div><dt>Open orders</dt><dd>{{ r.open|qty }}</dd></div><div><dt>Sales / day</dt><dd>{{ r.daily|qty }}</dd></div><div><dt>Demand</dt><dd>{{ r.demand|qty }}</dd></div><div><dt>Stock</dt><dd>{{ r.stock|qty }}</dd></div><div><dt>In transit</dt><dd>{{ r.transit|qty }}</dd></div><div><dt>On order</dt><dd>{{ r.po|plus:r.pr|qty }}</dd></div><div><dt>Cover</dt><dd>{% if r.cover is not None %}{{ r.cover }} d{% else %}—{% endif %}</dd></div>
+        <div class="sp-short"><dt>Shortfall ({{ r.product.unit }})</dt><dd>{% if r.short %}{% if can_add %}<input class="form-control" name="qty_{{ r.key }}" inputmode="decimal" value="{{ r.suggest|qty }}" aria-label="Quantity">{% else %}{{ r.short|qty }}{% endif %}{% else %}<span class="ins-pill is-good">Covered</span>{% endif %}</dd></div></dl></li>{% endfor %}</ul>
+    {% else %}<p class="ins-empty">No finished products with demand, stock or partner rates at your plants.</p>{% endif %}</section></form>
+</div>
+{% endblock %}

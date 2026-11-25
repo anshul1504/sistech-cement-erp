@@ -173,6 +173,7 @@ urlpatterns += [
     path('purchase/requests/', pcv.purchase_requests, name='purchase_requests'),
     path('purchase/requests/new/', pcv.pr_form, name='pr_new'),
     path('purchase/requests/reorder/', pcv.reorder, name='reorder'),
+    path('purchase/supply-plan/', pcv.supply_plan, name='supply_plan'),
     path('purchase/requests/<int:pk>/', pcv.pr_detail, name='pr_detail'),
     path('purchase/requests/<int:pk>/edit/', pcv.pr_form, name='pr_edit'),
     path('purchase/requests/<int:pk>/direct-po/', pcv.pr_direct, name='pr_direct'),

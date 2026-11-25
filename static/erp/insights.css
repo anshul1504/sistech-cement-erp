@@ -170,3 +170,16 @@
 .rp-row span { display: grid; min-width: 0; font-size: 13.5px; }
 .rp-row small { color: var(--o-ink-3); font-size: 12px; }
 @media (max-width: 767.98px) { .rp-row { grid-template-columns: minmax(0, 1fr) auto; } .rp-row .form-select { grid-column: 1 / -1; grid-row: 2; } }
+/* Supply plan rows: facts wrap (no sideways scroll) */
+.sp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sp-list > li { padding: 12px; border: 1px solid var(--o-line); border-radius: 12px; min-width: 0; }
+.sp-list > li.is-short { border-left: 3px solid #d92d20; }
+.sp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+.sp-head > span:first-of-type { display: grid; min-width: 0; flex: 1 1 200px; }
+.sp-head small { color: var(--o-ink-3); font-size: 12px; }
+.sp-facts { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.sp-facts dt { font-size: 11px; font-weight: 400; color: var(--o-ink-3); }
+.sp-facts dd { margin: 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sp-facts input.form-control { height: 34px; max-width: 130px; padding: 4px 8px; font-size: 13px; text-align: right; }
+@media (max-width: 991.98px) { .sp-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 479.98px) { .sp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

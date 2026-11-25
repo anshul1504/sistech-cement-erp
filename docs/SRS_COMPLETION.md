@@ -38,6 +38,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 
 ## Latest verified milestones
 
+- Supply plan: horizon-based demand (orders vs 30-day sales), stock/transit/on-order netting, partner commitment headroom, recipe-aware source suggestion and draft purchase requests. Capacity/MRP for own plants and maintenance planning remain pending.
+
 - Server-side PDF for 12 document types and 5 financial reports with one branded design, scope-checked and audited downloads; order page layout tidied (totals right, two-column cards, secondary actions collapsed). Report packs remain Excel; PDF report packs for dashboards remain pending.
 
 - Trip exceptions: breakdown/delay log and resolution, independently approved diversions, refused-load return to origin opening an RMA and a terminal 'Returned to origin' trip status that stays freight-billable. Migration 0060 adds a table and a status choice only. GPS/ETA and partial re-delivery to a second customer remain pending.

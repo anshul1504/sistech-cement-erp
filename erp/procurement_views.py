@@ -316,3 +316,47 @@ def rfq_cancel(request, pk):
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
     return redirect('rfq_detail', pk=pk)
+
+
+@login_required
+def supply_plan(request):
+    """Shortfalls for the next N days per plant/depot and product, with one-click draft purchase requests (FR-PRD-001)."""
+    from . import planning
+    permitted(request.user, 'view_purchaserequest')
+    try:
+        horizon = max(1, min(int(request.GET.get('days') or request.POST.get('days') or 7), 60))
+    except ValueError:
+        horizon = 7
+    sites = list(_sites(request.user))
+    pick = request.GET.get('site', '')
+    if pick.isdigit():
+        sites = [s for s in sites if str(s.pk) == pick]
+    rows = planning.plan(sites, horizon)
+    if request.method == 'POST':
+        permitted(request.user, 'add_purchaserequest')
+        picked, problems = {}, []
+        for r in rows:
+            if request.POST.get('pick_' + r['key']) != 'on':
+                continue
+            qty = _dec(request.POST.get('qty_' + r['key']))
+            if qty in (None, 'bad') or qty <= 0:
+                problems.append(f'{r["product"].name} at {r["site"].code}: enter a quantity.')
+                continue
+            note = f'Supply plan {horizon} days: demand {P.qtxt(r["demand"])}, stock {P.qtxt(r["stock"])}, on order {P.qtxt(r["po"] + r["pr"])}'
+            picked.setdefault(r['site'], []).append((r['product'], qty, r['contract'].rate if r['contract'] else None, note))
+        if not picked and not problems:
+            problems.append('Tick at least one item.')
+        if not problems:
+            try:
+                made = [P.save_request(request.user, site, timezone.localdate() + timedelta(days=min(horizon, 7)), 'production', 'normal', f'Supply plan for the next {horizon} days', items)
+                        for site, items in picked.items()]
+            except ValidationError as e:
+                problems += e.messages
+            else:
+                messages.success(request, f'{len(made)} draft purchase request{"s" if len(made) > 1 else ""} raised: {", ".join(p.number for p in made)}. Check and submit.')
+                return redirect('pr_detail', pk=made[0].pk) if len(made) == 1 else redirect(reverse('purchase_requests') + '?status=draft')
+        for p in problems:
+            messages.error(request, p)
+    short = [r for r in rows if r['short'] > 0]
+    return render(request, 'erp/supply_plan.html', {'title': 'Supply plan', 'rows': rows, 'horizon': horizon, 'short': len(short),
+                                                    'sites': _sites(request.user).order_by('code'), 'site': pick, 'can_add': request.user.has_perm('erp.add_purchaserequest')})
