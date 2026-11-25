@@ -15,7 +15,7 @@
       <div class="adm-matrix-wrap">
         <table class="adm-matrix is-readonly">
           <thead><tr><th>Module</th>{% for key, label in actions %}<th>{{ label }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in matrix %}<tr><th scope="row">{{ row.label }}</th>{% for cell in row.cells %}<td>{% if not cell.code %}<span class="adm-na">—</span>{% elif cell.checked %}<span class="adm-yes" aria-label="Allowed">✓</span>{% else %}<span class="adm-no" aria-label="Not allowed"></span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          <tbody>{% for row in matrix %}<tr><th scope="row">{{ row.label }}</th>{% for cell in row.cells %}<td data-label="{{ cell.label }}">{% if not cell.code %}<span class="adm-na">—</span>{% elif cell.checked %}<span class="adm-yes" aria-label="Allowed">✓</span>{% else %}<span class="adm-no" aria-label="Not allowed"></span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
         </table>
       </div>
     </section>

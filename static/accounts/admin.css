@@ -135,3 +135,20 @@ a.org-chip:hover { filter: brightness(.96); }
   .adm-matrix-wrap { margin: 0 -16px; padding: 0 16px; }
   .adm-avatar.is-xl { width: 72px; height: 72px; font-size: 28px; }
 }
+
+/* Permission matrix: fits the card on laptops; one card per module on small screens (no sideways scroll) */
+.adm-matrix-wrap { overflow-x: visible; margin: 0; padding: 0; }
+.adm-matrix { min-width: 0; table-layout: fixed; }
+.adm-matrix thead th { white-space: normal; font-size: 10.5px; letter-spacing: .02em; padding: 8px 4px; }
+.adm-matrix thead th:first-child { width: 28%; }
+.adm-matrix tbody th { white-space: normal; }
+.adm-matrix th, .adm-matrix td { padding: 8px 4px; }
+@media (max-width: 1199.98px) {
+  .adm-matrix, .adm-matrix tbody { display: block; }
+  .adm-matrix thead { display: none; }
+  .adm-matrix tbody tr { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px 8px; padding: 10px 0; border-bottom: 1px solid #edf1f7; }
+  .adm-matrix tbody th { grid-column: 1 / -1; border: 0; padding: 0 0 4px; }
+  .adm-matrix tbody td { display: flex; align-items: center; gap: 6px; border: 0; padding: 2px 0; text-align: left; font-size: 12px; }
+  .adm-matrix tbody td::before { content: attr(data-label); color: var(--o-ink-3); min-width: 54px; }
+  .adm-matrix tbody td:has(.adm-na) { display: none; }
+}

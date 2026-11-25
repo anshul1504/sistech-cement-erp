@@ -22,7 +22,7 @@
           <tbody>
             {% for row in matrix %}<tr>
               <th scope="row"><button type="button" class="adm-row-toggle" data-row-toggle>{{ row.label }}</button></th>
-              {% for cell in row.cells %}<td>{% if cell.code %}<label class="adm-cell-check"><input type="checkbox" name="permissions" value="{{ cell.code }}" {% if cell.checked %}checked{% endif %} {% if forloop.first %}data-view{% endif %} aria-label="{{ cell.label }} — {{ row.label }}"><span></span></label>{% else %}<span class="adm-na">—</span>{% endif %}</td>{% endfor %}
+              {% for cell in row.cells %}<td data-label="{{ cell.label }}">{% if cell.code %}<label class="adm-cell-check"><input type="checkbox" name="permissions" value="{{ cell.code }}" {% if cell.checked %}checked{% endif %} {% if forloop.first %}data-view{% endif %} aria-label="{{ cell.label }} — {{ row.label }}"><span></span></label>{% else %}<span class="adm-na">—</span>{% endif %}</td>{% endfor %}
             </tr>{% endfor %}
           </tbody>
         </table>

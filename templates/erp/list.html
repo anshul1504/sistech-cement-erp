@@ -1,19 +1,15 @@
 {% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">SISTECH OPERATIONS</div><h1>{{ title }}</h1><p>{{ subtitle }}</p></div>{% if create %}<a class="btn btn-primary" href="{{ create }}">{{ create_label }}</a>{% endif %}</div>
-<section class="panel">
-  {% if filters %}<form class="filter-bar" method="get"><label class="visually-hidden" for="search">Search records</label><input id="search" class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Search by name or reference…"><button class="btn btn-outline-secondary">Search</button>{% if request.GET.q %}<a class="btn btn-light" href="{{ request.path }}">Clear</a>{% endif %}</form>{% endif %}
-  <div class="table-responsive list-table-wrap">
-    <table class="table list-table">
-      <thead><tr>{% for header in headers %}<th>{{ header }}</th>{% endfor %}<th><span class="visually-hidden">Open</span></th></tr></thead>
-      <tbody>
-        {% for row in page %}<tr>
-          {% for c in row.cells %}<td data-label="{% for h in headers %}{% if forloop.counter == forloop.parentloop.counter %}{{ h }}{% endif %}{% endfor %}">{% if forloop.last %}<span class="cell-value" data-status="{{ c }}">{{ c|cell }}</span>{% else %}{{ c|cell }}{% endif %}</td>{% endfor %}
-          <td class="list-open">{% if row.url %}<a class="table-link" href="{{ row.url }}">Open ↗</a>{% endif %}</td>
-        </tr>{% empty %}<tr><td colspan="12" class="empty-state"><div class="empty-icon">▤</div><h3>No records found</h3><p>Add your first record or try another search.</p></td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="pagination-bar"><span>{{ page.paginator.count }} record{{ page.paginator.count|pluralize }} · Page {{ page.number }} of {{ page.paginator.num_pages }}</span><div>{% if page.has_previous %}<a class="btn btn-sm btn-light" href="?q={{ request.GET.q|urlencode }}&page={{ page.previous_page_number }}">← Previous</a>{% endif %}{% if page.has_next %}<a class="btn btn-sm btn-light" href="?q={{ request.GET.q|urlencode }}&page={{ page.next_page_number }}">Next →</a>{% endif %}</div></div>
-</section>
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">{% if title == 'Audit trail' %}INSIGHTS · CONTROL{% else %}INSIGHTS · REPORTS{% endif %}</div><h1>{{ title }}</h1><p>{{ subtitle }}</p></div>
+    {% if create %}<div class="doc-head-actions"><a class="org-btn is-primary" href="{{ create }}">{% if 'export' in create %}<svg><use href="#ic-download"/></svg>{% else %}<svg><use href="#ic-plus"/></svg>{% endif %}{{ create_label|cut:'+ '|cut:'↓ ' }}</a></div>{% endif %}</div>
+  <section class="org-card doc-list-card"><header class="doc-list-head"><div><h2>{{ page.paginator.count }} record{{ page.paginator.count|pluralize }}</h2><p>Page {{ page.number }} of {{ page.paginator.num_pages }}</p></div>
+    {% if filters %}<form class="doc-filter" method="get"><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Search by name or reference…" aria-label="Search records"><button class="org-btn is-light is-sm">Search</button>{% if request.GET.q %}<a class="org-btn is-light is-sm" href="{{ request.path }}">Clear</a>{% endif %}</form>{% endif %}</header>
+    {% if page.object_list %}<div class="ins-scroll"><table class="ins-table lst-table"><thead><tr>{% for h in headers %}<th{% if forloop.counter > 2 and not forloop.last %} class="is-optional"{% endif %}>{{ h }}</th>{% endfor %}{% if page.object_list.0.url %}<th></th>{% endif %}</tr></thead><tbody>
+      {% for row in page %}<tr>{% for c in row.cells %}<td{% if forloop.counter > 2 and not forloop.last %} class="is-optional"{% endif %}>{% if forloop.first and row.url %}<a href="{{ row.url }}">{{ c|cell }}</a>{% else %}{{ c|cell }}{% endif %}</td>{% endfor %}{% if row.url %}<td><a class="org-btn is-light is-sm" href="{{ row.url }}">Open</a></td>{% endif %}</tr>{% endfor %}
+    </tbody></table></div>
+    {% if page.paginator.num_pages > 1 %}<nav class="ord-pages" aria-label="Pages">{% if page.has_previous %}<a class="org-btn is-light is-sm" href="?q={{ request.GET.q|urlencode }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %}{% if page.has_next %}<a class="org-btn is-light is-sm" href="?q={{ request.GET.q|urlencode }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}</nav>{% endif %}
+    {% else %}<div class="doc-empty"><svg><use href="#ic-history"/></svg><strong>No records found</strong><span>Try another search.</span></div>{% endif %}</section>
+</div>
 {% endblock %}

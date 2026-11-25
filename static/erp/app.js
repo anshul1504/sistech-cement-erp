@@ -205,3 +205,22 @@ document.querySelectorAll('.cell-value[data-status]').forEach(el => { if (status
   load();
   setInterval(() => { if (!document.hidden) load(); }, 120000);
 })();
+
+// Card grids: when the last card ends a row early, let it take the rest of that row (no half-empty rows on any page).
+(() => {
+  const fill = () => document.querySelectorAll('main .acc-grid, main .ins-grid').forEach(g => {
+    const kids = [...g.children].filter(k => k.offsetParent !== null);
+    kids.forEach(k => { if (k.dataset.autoSpan) { k.style.gridColumn = ''; delete k.dataset.autoSpan; } });
+    const st = getComputedStyle(g), tracks = st.gridTemplateColumns.split(' ').map(parseFloat).filter(n => !isNaN(n));
+    if (tracks.length < 2 || !kids.length) return;
+    const gap = parseFloat(st.columnGap) || 0, left = g.getBoundingClientRect().left + parseFloat(st.paddingLeft || 0);
+    const last = kids[kids.length - 1], r = last.getBoundingClientRect();
+    let x = left, start = -1, end = -1;
+    tracks.forEach((w, i) => { if (Math.abs(r.left - x) < 3) start = i; if (Math.abs(r.right - (x + w)) < 3) end = i; x += w + gap; });
+    if (start < 0 || end < 0 || end === tracks.length - 1) return;
+    last.style.gridColumn = `${start + 1} / -1`;
+    last.dataset.autoSpan = '1';
+  });
+  fill();
+  let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(fill, 120); });
+})();

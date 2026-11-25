@@ -183,3 +183,13 @@
 .sp-facts input.form-control { height: 34px; max-width: 130px; padding: 4px 8px; font-size: 13px; text-align: right; }
 @media (max-width: 991.98px) { .sp-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 479.98px) { .sp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lst-table td a.org-btn { white-space: nowrap; }
+
+/* Dashboards on phones: one dropdown instead of 15 pills */
+.ins-tabs-select { display: none; }
+@media (max-width: 767.98px) {
+  .ins-tabs { display: none; }
+  .ins-tabs-select { display: grid; gap: 4px; margin: 0 0 14px; font-size: 12px; font-weight: 500; color: var(--o-ink-3); }
+  .ins-tabs-select .form-select { height: 42px; font-weight: 600; color: var(--o-ink); }
+}
+.ins-filter .ord-checkline { white-space: nowrap; display: inline-flex !important; }
