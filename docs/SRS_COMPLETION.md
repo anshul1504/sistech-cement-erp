@@ -25,7 +25,7 @@ acceptance remain open.
 | Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Bin-directed picking, lot balances per bin, versioned conversions and recall coverage (bin master, put-away and moves are implemented) |
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Own-plant capacity/MRP, complete cost allocation, rework/write-off, automated quarantine/recall |
 | Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records with independent retained corrections, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry, POD-bound pending approval and reviewed post-approval recovery/vendor credits | Hardware, GPS/ETA, mobile delivery proof, re-delivery of refused loads to another customer and advanced freight |
-| Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, TDS return filing, combined/split matching, beneficiary approval, signed finance reconciliation |
+| Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, online 26Q/TRACES submission (working file is built), combined/split matching, beneficiary approval, signed finance reconciliation |
 | Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, customer advance refunds, channel ingestion and all downstream corrections |
 | API / Android (§6) | Responsive web only | Versioned API, employee/dealer/driver apps, token/device controls, encrypted offline sync and conflicts |
 | Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | Dashboard PDF packs, saved filters, complete dimensional analytics (document/report PDFs and scheduled Excel packs are implemented) |
@@ -47,7 +47,7 @@ acceptance remain open.
 
 - Bins & locations: bin master, put-away limited to unbinned stock, bin moves, automatic bin trimming on any site issue (invariant Σ bins ≤ available), audit and one-page desk. Migration 0064 adds tables only. Bin-directed picking on dispatch and lot balances per bin remain pending.
 
-- TDS: advisor-set section/rate per party, bill-level deductions reducing payable (current and historical AP reconciliation updated), reversal before deposit, monthly challan by section. Migration 0063 adds two partner fields and two tables. Form 26Q/TRACES filing, lower-deduction certificates and 194Q turnover thresholds remain for the tax advisor / filing integration.
+- TDS: advisor-set section/rate per party, bill-level deductions reducing payable (current and historical AP reconciliation updated), reversal before deposit, monthly challan by section. Migration 0063 adds two partner fields and two tables. A quarterly 26Q working file (deductee rows with challan, checks for missing PAN / undeposited TDS / challan mismatch, CSV in RPU column order) is built at /tds/return/; online filing through TRACES/RPU, lower-deduction certificates and 194Q turnover thresholds remain for the tax advisor.
 
 - Sampling plans with stage/frequency/parameter rules and a samples-due list on the lab page (trucks on hold, batches missing planned parameters, periodic samples). Migration 0062 adds tables only.
 
@@ -63,7 +63,7 @@ acceptance remain open.
 
 - Scheduled Excel report packs (management / sales / credit / stock & dispatch) rebuilt per subscriber with current permissions and plant scope, scope/period/generation header on every sheet, download audit, `send_report_packs` command. Also fixed the sales dashboard buyer count being overwritten by the top-customer list. Migration 0058 adds a table only.
 
-- Sales commission: approved plans (net sales / collections / per MT, plant, optional TDS), sequential earn-once runs with automatic recovery after credit notes, independent approval excluding beneficiaries, GL posting to commission expense/payable/TDS payable, personal statement. Migration 0057 adds tables only. Agent/distributor beneficiaries with KYC/bank and payroll payout remain pending.
+- Sales commission: approved plans (net sales / collections / per MT, plant, optional TDS), sequential earn-once runs with automatic recovery after credit notes, independent approval excluding beneficiaries, GL posting to commission expense/payable/TDS payable, personal statement. Migration 0057 adds tables only. Channel partners (C&F, promoters, handling agents, distributors) are paid through Channel commission (migration 0067) with payables in Payments; payroll payout for staff remains pending.
 
 - Cost centres and budgets: cost-centre dimension on journal lines (kept on reversals and year reopening), versioned maker-checker FY budgets by account × cost centre × month with CSV import/export, budget vs actual by cost centre/plant. Migration 0056 adds tables and a nullable column only; local row counts unchanged.
 
@@ -90,3 +90,10 @@ acceptance remain open.
 - Extended site approvals include PR/RFQ, inbound/production QC, RMA, beats, supply contracts, incentive rules, AP exceptions and transfers. RFQ proxy makers remain excluded from later PO approval. Sourcing write/read site boundaries are enforced. CRM/freight/service/recognition approvals and unavailable-staff handoff remain pending.
 
 - Approval routing and unavailable-staff handoff: explicit qualified reviewers/backups, bound previews, retained partial/attention receipts, automatic disable/expiry retry and historical maker protection. CRM/beat evidence-bound ownership changes and remaining approval types are still pending. See [work handoff](WORK_HANDOFF.md).
+
+## 25 November 2026 — web backlog closed
+- Channel network (0066), channel commission (0067), dealer order requests (0068), secondary sales (0069), 26Q working file,
+  sales team charts, module launcher and UI consistency pass. Everything in the web scope that does not need an outside
+  provider or a Sistech decision is built. Remaining web items depend on: GSP (IRN / e-way bill), payment gateway,
+  WhatsApp/SMS provider, weighbridge and GPS hardware, AI chatbot provider. Next: REST API and the Android apps.
+

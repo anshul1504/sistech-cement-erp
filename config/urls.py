@@ -144,6 +144,7 @@ urlpatterns += [
     path('collections/', cv.collections, name='collections'),
     path('deposits/', dpv.deposits, name='deposits'),
     path('tds/', tdv.tds, name='tds'),
+    path('tds/return/', tdv.tds_return, name='tds_return'),
     path('tds/<slug:action>/', tdv.tds_action, name='tds_action'),
     path('deposits/<int:pk>/<slug:action>/', dpv.deposit_decide, name='deposit_decide'),
     path('commission/', cmv.plans, name='commission_plans'),

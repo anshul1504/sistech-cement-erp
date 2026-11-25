@@ -53,3 +53,25 @@ def tds_action(request, action):
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
     return redirect('tds')
+
+
+@login_required
+def tds_return(request):
+    """Quarterly 26Q working file: deductee rows, challans and checks; CSV for the return preparation utility."""
+    permitted(request.user, 'view_tdsdeduction')
+    from django.http import HttpResponse
+    fy, q = T.current_quarter()
+    try:
+        fy = int(request.GET.get('fy', fy))
+    except ValueError:
+        pass
+    q = request.GET.get('q', q) if request.GET.get('q') in {x[0] for x in T.QUARTERS} else q
+    data = T.return_data(fy, q)
+    if request.GET.get('export') == 'csv':
+        from .models import AuditEvent
+        AuditEvent.objects.create(actor=request.user, action='TDS return file exported', reference=f'26Q {fy}-{q}', detail=f'{len(data["rows"])} rows')
+        resp = HttpResponse(T.return_csv(data), content_type='text/csv')
+        resp['Content-Disposition'] = f'attachment; filename="sistech-26q-fy{fy}-{fy + 1 - 2000}-{q}.csv"'
+        return resp
+    years = list(range(timezone.localdate().year - 2, timezone.localdate().year + 1))
+    return render(request, 'erp/tds_return.html', {'title': 'TDS return (26Q)', 'data': data, 'fy': fy, 'q': q, 'quarters': T.QUARTERS, 'years': years})

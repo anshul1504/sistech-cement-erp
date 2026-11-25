@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page ins-page">
-  <div class="org-head"><div><div class="eyebrow">FINANCE · TAX</div><h1>TDS</h1><p>Tax deducted on supplier and transporter bills, only for parties whose TDS section and rate your tax advisor has set on the partner. A deduction reduces the bill's payable; the challan deposits the month's tax.</p></div></div>
+  <div class="org-head"><div><div class="eyebrow">FINANCE · TAX</div><h1>TDS</h1><p>Tax deducted on supplier and transporter bills, only for parties whose TDS section and rate your tax advisor has set on the partner. A deduction reduces the bill's payable; the challan deposits the month's tax.</p></div><a class="org-btn is-light" href="{% url 'tds_return' %}">Quarterly return (26Q)</a></div>
   <div class="inf-kpis is-three" role="list">
     <div role="listitem" class="inf-kpi"><span>Deducted in {{ month|date:'M Y' }}</span><strong>{{ month_total|inr_short }}</strong><small>{{ rows|length }} entr{{ rows|length|pluralize:'y,ies' }}</small></div>
     <div role="listitem" class="inf-kpi{% if pending %} is-warn{% endif %}"><span>Not yet deposited</span><strong>{% for p in pending %}{{ p.section }} {{ p.t|inr_short }}{% if not forloop.last %} · {% endif %}{% empty %}—{% endfor %}</strong><small>deposit by the 7th of next month</small></div>

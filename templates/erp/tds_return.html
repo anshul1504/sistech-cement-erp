@@ -1,0 +1,38 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'tds' %}">← TDS</a></div><h1>TDS return (26Q)</h1><p>Quarterly working file for Form 26Q: every deduction with the deductee, section, amount and the challan that deposited it. Clear the checks, download the file and load it in the return preparation utility (RPU) your tax advisor uses.</p></div>
+    <form method="get" class="ins-filter"><select class="form-select" name="fy" aria-label="Financial year" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}"{% if y == fy %} selected{% endif %}>FY {{ y }}-{{ y|add:1|stringformat:'s'|slice:'2:' }}</option>{% endfor %}</select>
+      <select class="form-select" name="q" aria-label="Quarter" onchange="this.form.submit()">{% for code, label, m, due in quarters %}<option value="{{ code }}"{% if code == q %} selected{% endif %}>{{ code }} · {{ label }}</option>{% endfor %}</select></form></div>
+
+  <div class="inf-kpis" role="list">
+    <div class="inf-kpi" role="listitem"><span>Deductions</span><strong>{{ data.rows|length }}</strong><small>{{ data.start|date:'d M' }} – {{ data.end|date:'d M Y' }}</small></div>
+    <div class="inf-kpi" role="listitem"><span>Amount paid / credited</span><strong>{{ data.total_paid|inr_short }}</strong><small>base for TDS</small></div>
+    <div class="inf-kpi" role="listitem"><span>TDS</span><strong>{{ data.total_tds|inr_short }}</strong><small>{{ data.challans|length }} challan{{ data.challans|length|pluralize }}</small></div>
+    <div class="inf-kpi{% if data.checks %} is-warn{% endif %}" role="listitem"><span>Checks</span><strong>{% if data.checks %}{{ data.checks|length }} to fix{% else %}All clear{% endif %}</strong><small>due by {{ data.due }}</small></div>
+  </div>
+
+  {% if data.checks %}
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Fix before filing</h2></div>
+    <ul class="tds-checks">{% for c in data.checks %}<li>{{ c }}</li>{% endfor %}</ul></section>
+  {% endif %}
+
+  <section class="org-card ins-card ins-block">
+    <div class="ins-card-head"><h2>Deductees</h2>{% if data.rows %}<a class="org-btn is-light is-sm" href="?fy={{ fy }}&amp;q={{ q }}&amp;export=csv"><svg><use href="#ic-download"/></svg>Download 26Q file (CSV)</a>{% endif %}</div>
+    {% if data.rows %}
+    <div class="tds-table" role="table">
+      <div class="tds-tr tds-th" role="row"><span>Deductee</span><span>Section</span><span>Date</span><span>Paid / credited</span><span>TDS</span><span>Challan</span></div>
+      {% for r in data.rows %}
+      <div class="tds-tr" role="row"><span><strong>{{ r.name }}</strong><small>{{ r.pan }} · code {{ r.code }} · {{ r.source }}</small></span><span data-label="Section">{{ r.section }} · {{ r.rate|floatformat:'-3' }}%</span><span data-label="Date">{{ r.date|date:'d M Y' }}</span><span data-label="Paid">₹{{ r.paid|indian:2 }}</span><span data-label="TDS"><strong>₹{{ r.tds|indian:2 }}</strong></span><span data-label="Challan">{% if r.challan %}#{{ r.challan.serial }} · {{ r.challan.challan.challan_number }}{% else %}<span class="mst-missing">not deposited</span>{% endif %}</span></div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="ins-empty">No TDS deducted in this quarter.</p>{% endif %}
+  </section>
+
+  {% if data.challans %}
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Challans</h2></div>
+    <ul class="mst-order-list">{% for c in data.challans %}<li><span><strong>#{{ c.serial }} · {{ c.challan.challan_number }}</strong><small>BSR {{ c.challan.bsr_code|default:'—' }} · paid {{ c.challan.paid_on|date:'d M Y' }} · section {{ c.challan.section }}</small></span><span class="mst-qty">₹{{ c.challan.amount|indian:2 }}</span><span class="{% if c.challan.amount != c.deducted %}mst-missing{% endif %}">linked ₹{{ c.deducted|indian:2 }}</span></li>{% endfor %}</ul></section>
+  {% endif %}
+</div>
+{% endblock %}

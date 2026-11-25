@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.25.2'
+ASSET_VERSION = '0.25.3'
 
 def _area(area, label):
     """A module's dashboard (erp.insight_views.AREAS); visible when the dashboard's own check passes."""
@@ -139,7 +139,7 @@ MODULES = [
             _item('supplier_invoices', 'Supplier invoices', 'purchase', 'view_supplierinvoice', match=('sinv_new', 'sinv_detail')),
             _item('debit_notes', 'Debit notes', 'receipt', 'view_debitnote', match=('dn_new', 'dn_detail')),
             _item('payments', 'Payments', 'book', 'view_supplierpayment', match=('payment_new', 'payment_detail')),
-            _item('tds', 'TDS', 'receipt', 'view_tdsdeduction'),
+            _item('tds', 'TDS', 'receipt', 'view_tdsdeduction', match=('tds_return',)),
         ]),
         ('Books', [
             _item('journals', 'Accounts & ledgers', 'book', 'view_journalentry',

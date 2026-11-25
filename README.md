@@ -42,6 +42,15 @@ module they were opened from. A user with only one working module goes straight 
 home KPIs are the *Overview* dashboard (`/dashboards/overview/`). Module definitions: `erp/context.py`
 (`MODULES`). Shared spacing / filter-bar / tab rules: `static/erp/polish.css`.
 
+## TDS quarterly return (26Q working file)
+
+`/tds/return/` (Finance → TDS → *Quarterly return (26Q)*) lists every posted TDS deduction of the chosen quarter with the
+deductee's PAN, deductee code, section, amount paid/credited, TDS and the challan (BSR, date, CIN) that deposited it,
+and the checks to clear before filing: missing or malformed PAN (206AA, shown as PANNOTAVBL), deductions without a
+challan, challans whose amount differs from the deductions linked to them. *Download 26Q file (CSV)* gives the deductee
+annexure in the column order of the return preparation utility; the export is audited. Deductions from supplier
+invoices, freight bills and channel commission all appear.
+
 ## Secondary sales (dealer → retailer)
 
 Dealers note what they sold on to retailers at *My dealer account → Sales to retailers* (only their own retailers from
