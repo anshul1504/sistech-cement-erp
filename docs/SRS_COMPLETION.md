@@ -15,7 +15,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 | Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
 | Schemes (§5.3) | Versioned rules, retained eligibility, accrual, payouts, recognition with routed/delegated reviews and retained delivery actor | Per-unit/margin and progressive scheme rules, budgets/stacking, agent/distributor commission beneficiaries, full automatic reversal lifecycle |
 | Procurement (§5.4) | PR/RFQ/PO, inbound/GRN, matching, returns and AP | Demand/budget planning, deeper supplier verification, hardware/evidence acceptance |
-| Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Full warehouse/bin/lot balances, allocations/reservations, versioned conversions and recall coverage |
+| Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Bin-directed picking, lot balances per bin, versioned conversions and recall coverage |
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Own-plant capacity/MRP, complete cost allocation, rework/write-off, automated quarantine/recall |
 | Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records with independent retained corrections, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry, POD-bound pending approval and reviewed post-approval recovery/vendor credits | Hardware, GPS/ETA, mobile delivery proof, re-delivery of refused loads to another customer and advanced freight |
 | Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, TDS return filing, combined/split matching, beneficiary approval, signed finance reconciliation |
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- Bins & locations: bin master, put-away limited to unbinned stock, bin moves, automatic bin trimming on any site issue (invariant Σ bins ≤ available), audit and one-page desk. Migration 0064 adds tables only. Bin-directed picking on dispatch and lot balances per bin remain pending.
 
 - TDS: advisor-set section/rate per party, bill-level deductions reducing payable (current and historical AP reconciliation updated), reversal before deposit, monthly challan by section. Migration 0063 adds two partner fields and two tables. Form 26Q/TRACES filing, lower-deduction certificates and 194Q turnover thresholds remain for the tax advisor / filing integration.
 

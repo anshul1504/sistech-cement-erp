@@ -3682,3 +3682,46 @@ class TdsDeduction(models.Model):
                                               name='tds_one_bill')]
 
     def __str__(self): return self.number
+
+
+# ---------- Storage bins / locations inside a plant or depot (FR-INV-001) ----------
+
+class StorageBin(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='bins')
+    code = models.CharField(max_length=20)
+    zone = models.CharField('Zone / godown', max_length=60, blank=True)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['site__code', 'code']
+        constraints = [models.UniqueConstraint(fields=['site', 'code'], name='unique_bin_code')]
+        permissions = [('move_binstock', 'Put away and move stock between bins')]
+
+    def __str__(self): return f'{self.site.code}/{self.code}'
+
+
+class BinStock(models.Model):
+    """Quantity of a product held in a bin. The sum over a site's bins never exceeds the site's available stock;
+    issues from the site reduce bins automatically (largest bin first) so locations stay truthful."""
+    bin = models.ForeignKey(StorageBin, on_delete=models.PROTECT, related_name='stock')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='bin_stock')
+    quantity = models.DecimalField(max_digits=16, decimal_places=3, default=0, validators=MONEY)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['bin', 'product'], name='unique_bin_product'),
+                       models.CheckConstraint(condition=models.Q(quantity__gte=0), name='bin_stock_nonnegative')]
+
+
+class BinMove(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='+')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='+')
+    from_bin = models.ForeignKey(StorageBin, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    to_bin = models.ForeignKey(StorageBin, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    quantity = models.DecimalField(max_digits=16, decimal_places=3, validators=POSITIVE)
+    kind = models.CharField(max_length=6, choices=[('put', 'Put away'), ('move', 'Bin to bin'), ('issue', 'Issued from site')])
+    source = models.CharField(max_length=80, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-at', '-pk']

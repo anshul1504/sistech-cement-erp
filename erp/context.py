@@ -55,6 +55,7 @@ NAV_GROUPS = [
         _item('packing', 'Packing', 'package', 'view_packingrun'),
         _item('quality', 'Quality lab', 'flask', 'view_qualitytest', match=('quality_new',)),
         _item('inventory', 'Inventory', 'boxes', 'view_stockbalance', match=('opening', 'stock_card', 'stock_analysis')),
+        _item('bins', 'Bins & locations', 'boxes', 'view_storagebin'),
         _item('counts', 'Stock counts', 'clipboard', 'view_stockcount', match=('count_detail',)),
         _item('transfers', 'Stock transfers', 'truck', 'view_stocktransfer', match=('transfer_new', 'transfer_detail')),
         _item('damages', 'Damaged stock', 'shield', 'view_damagereport', match=('damage_new', 'damage_detail')),

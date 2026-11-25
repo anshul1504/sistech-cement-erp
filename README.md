@@ -289,6 +289,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   deposit held, are blocked while the dealer has overdue invoices unless the reason records the settlement, and are approved
   by a different user with recent identity confirmation. The trial-balance subledger check includes deposits.
 
+## Bins & locations (FR-INV-001)
+- **Plant operations → Bins & locations** (one page per plant/depot): bins with contents, stock not yet put away, put-away
+  and bin-to-bin moves, recent moves. The site stock ledger stays the only source of quantity and value; bins record where
+  it sits. Whenever available stock leaves the site, bins are reduced automatically (largest holding first) so the bins
+  never hold more than the site has. Batches stay traceable through production, dispatch lines and certificates.
+
 ## Quality sampling plan (FR-QC-001)
 - **Quality lab → Sampling plan**: per product (and plant) the stage (incoming truck, in-process, finished batch, dispatch),
   frequency (every truck / batch / shift / day / week), parameters and sample size. **Samples due** lists trucks on quality

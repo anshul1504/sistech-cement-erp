@@ -64,6 +64,9 @@ def move_stock(user, site, product, quantity, source, kind, notes='', status='av
         status=status, uom=product.unit, unit_cost=cost, balance_after=balance.quantity, value_delta=delta)
     from .gl import post_stock
     post_stock(user, movement)
+    if quantity < 0 and status == 'available':
+        from .bins import sync_after_issue
+        sync_after_issue(user, site, product, source)
     return movement
 
 

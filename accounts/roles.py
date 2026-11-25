@@ -57,6 +57,7 @@ MODULES = [
     ('grn', 'Goods receipt (GRN)', {'view': 'view_goodsreceipt', 'create': 'add_goodsreceipt', 'post': 'post_goodsreceipt', 'approve': 'release_goodsreceipt'}),
     ('inventory', 'Inventory', {'view': 'view_stockbalance', 'post': 'post_opening'}),
     ('transfers', 'Stock transfers', {'view': 'view_stocktransfer', 'create': 'add_stocktransfer', 'approve': 'approve_stocktransfer', 'post': 'dispatch_stocktransfer', 'edit': 'receive_stocktransfer'}),
+    ('bins', 'Bins & locations', {'view': 'view_storagebin', 'create': 'add_storagebin', 'post': 'move_binstock'}),
     ('counts', 'Stock counts', {'view': 'view_stockcount', 'create': 'add_stockcount', 'approve': 'approve_stockcount'}),
     ('damage', 'Damaged stock', {'view': 'view_damagereport', 'create': 'add_damagereport', 'approve': 'decide_damagereport'}),
     ('production', 'Production', {'view': 'view_production', 'create': 'add_production', 'post': 'complete_production', 'approve': 'release_production'}),
@@ -161,6 +162,7 @@ PRESETS['Production head'] |= {'view_maintenancejob', 'add_maintenancejob', 'cha
 PRESETS['Quality manager'] |= {'view_samplingplan', 'add_samplingplan', 'change_samplingplan'}
 PRESETS['Accountant'] |= {'view_tdsdeduction', 'add_tdsdeduction', 'add_tdschallan'}
 PRESETS['Finance controller'] |= {'view_tdsdeduction'}
+PRESETS['Warehouse operator'] |= {'view_storagebin', 'add_storagebin', 'move_binstock'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():
