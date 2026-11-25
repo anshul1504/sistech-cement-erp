@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
-  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Inventory</h1><p>Stock by location and state. <b>Free</b> = available − reserved for approved sales orders. Quality hold and in-transit stock are shown but are not available to sell. Value is at weighted-average cost.</p></div>
+  <div class="org-head"><div><div class="eyebrow">PLANT OPERATIONS</div><h1>Inventory</h1><p>Stock by location and state. <b>Free</b> = available − firm sales reservations. Unallocated backorders are separate demand. Quality hold and in-transit stock are shown but are not available to sell. Value is at weighted-average cost.</p></div>
     <div class="doc-head-actions">{% if perms.erp.add_stocktransfer %}<a class="org-btn is-light" href="{% url 'transfer_new' %}">Transfer</a>{% endif %}{% if perms.erp.add_damagereport %}<a class="org-btn is-light" href="{% url 'damage_new' %}">Report damage</a>{% endif %}{% if can_open %}<a class="org-btn is-primary" href="{% url 'opening' %}"><svg><use href="#ic-plus"/></svg>Opening stock</a>{% endif %}</div></div>
   {% include 'erp/_inv_tabs.html' with tab='stock' %}
   <div class="inf-kpis" role="list">
@@ -22,7 +22,7 @@
       {% for r in rows %}<a class="ord-tr" role="row" href="{% url 'stock_card' r.site.pk r.product.pk %}">
         <span class="ord-name"><strong>{{ r.product.name }}</strong><small>{{ r.site.code }} · {{ r.product.code }}{% if r.mt is not None and r.product.unit != 'MT' %} · ≈ {{ r.mt|qty }} MT{% endif %}</small>{% if r.low %}<em class="ord-flag">Below reorder {{ r.product.reorder_level|qty }}</em>{% endif %}</span>
         <span data-label="Available"><strong>{{ r.available|qty }}</strong><small>{{ r.product.unit }}</small></span>
-        <span data-label="Reserved">{{ r.reserved|qty|default:'—' }}</span>
+        <span data-label="Reserved">{{ r.reserved|qty|default:'—' }}{% if r.unallocated %}<small>Unallocated {{ r.unallocated|qty }}</small>{% endif %}{% if r.legacy_demand %}<small>Legacy untracked {{ r.legacy_demand|qty }}</small>{% endif %}</span>
         <span data-label="Free" class="{% if r.free < 0 %}led-late{% endif %}">{{ r.free|qty }}</span>
         <span data-label="Quality hold">{% if r.hold %}{{ r.hold|qty }}{% else %}—{% endif %}</span>
         <span data-label="Damaged">{% if r.damaged %}<span class="led-late">{{ r.damaged|qty }}</span>{% else %}—{% endif %}</span>

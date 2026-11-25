@@ -79,7 +79,19 @@ def plan(user, order, vehicle, driver, quantities, transporter=None, bay='', pla
     problems = vehicle_problems(vehicle)
     if not driver.active: problems.append(f'{driver.name} is inactive.')
     if not driver.licence_valid: problems.append(f"{driver.name}'s licence expired on {driver.licence_valid_until:%d %b %Y}.")
-    picked = {l: Decimal(q) for l, q in quantities.items() if q and Decimal(q) > 0}
+    from .models import OrderLine
+    from decimal import InvalidOperation
+    persisted={row.pk:row for row in order.lines.select_related('product')}
+    picked={}
+    for supplied,raw in quantities.items():
+        if supplied.pk not in persisted:raise ValidationError('Item does not belong to this order.')
+        try:
+            qty=Decimal(str(raw or 0))
+            if not qty.is_finite():raise InvalidOperation
+            if not qty:continue
+            OrderLine._meta.get_field('quantity').clean(qty,persisted[supplied.pk])
+        except (InvalidOperation,TypeError,ValueError,ValidationError):raise ValidationError('Dispatch quantities must be finite positive values with at most three decimal places.') from None
+        picked[persisted[supplied.pk]]=qty
     if not picked: problems.append('Enter a quantity for at least one item.')
     expected = Decimal('0')
     for line, qty in picked.items():
@@ -91,6 +103,11 @@ def plan(user, order, vehicle, driver, quantities, transporter=None, bay='', pla
         problems.append(f'Planned load {expected / 1000:.2f} MT is more than {vehicle} capacity {vehicle.capacity_mt} MT.')
     if problems:
         raise ValidationError(problems)
+    from .reservations import allocate
+    commitments={row.order_line_id:row for row in allocate(user,order,'Reviewed dispatch-advice stock allocation')}
+    for line,qty in picked.items():
+        planned=sum((row.quantity for row in line.dispatch_lines.filter(dispatch__stock_posted=False).exclude(dispatch__status='cancelled')),Decimal(0))
+        if qty>commitments[line.pk].remaining-planned:raise ValidationError(f'{line.product.name}: allocate sufficient free stock before planning this truck.')
     day = planned_for or timezone.localdate()
     token = (Dispatch.objects.filter(site=order.site, planned_for=day).aggregate(m=Max('token'))['m'] or 0) + 1
     d = Dispatch.objects.create(number=next_number('DSP', order.site), token=token, site=order.site, order=order, vehicle=vehicle, driver=driver,
@@ -290,7 +307,7 @@ def post_stock(user, d):
         return
     for l in d.lines.select_related('order_line__product'):
         if l.quantity:
-            move_stock(user, d.site, l.order_line.product, -l.quantity, f'dispatch:{d.pk}:line:{l.pk}', 'Dispatch', f'{d.number} · {d.vehicle}')
+            move_stock(user, d.site, l.order_line.product, -l.quantity, f'dispatch:{d.pk}:line:{l.pk}', 'Dispatch', f'{d.number} · {d.vehicle}',reservation_line=l.order_line)
     d.stock_posted = True
     d.save(update_fields=['stock_posted'])
 
@@ -397,9 +414,13 @@ def cancel(user, pk, reason):
             if l.quantity:
                 out = StockMovement.objects.filter(source=f'dispatch:{d.pk}:line:{l.pk}').first()
                 move_stock(user, d.site, l.order_line.product, l.quantity, f'dispatch:{d.pk}:line:{l.pk}:unload', 'Return', f'{d.number} cancelled', unit_cost=out.unit_cost if out else None, value=abs(out.value) if out else None)
+                from .reservations import restore
+                restore(user,l.order_line,l.quantity,f'dispatch:{d.pk}:line:{l.pk}')
         d.stock_posted = False
     d.status, d.cancel_reason = 'cancelled', reason.strip()[:150]
     d.save()
     refresh_order(d.order)
+    from .reservations import allocate
+    allocate(user,d.order,'Reallocate returned/cancelled dispatch stock')
     _log(user, d, 'Dispatch cancelled', d.cancel_reason)
     return d

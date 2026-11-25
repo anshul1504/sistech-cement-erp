@@ -24,7 +24,7 @@ def scope(queryset, user, field='site'):
     return queryset if user.is_superuser else queryset.filter(**{field + '__siteaccess__user': user})
 
 @transaction.atomic
-def move_stock(user, site, product, quantity, source, kind, notes='', status='available', unit_cost=None, value=None):
+def move_stock(user, site, product, quantity, source, kind, notes='', status='available', unit_cost=None, value=None, reservation_line=None):
     """The stock/GL value is exact currency; rounded average cost is only a display rate.
 
     Explicit incoming value preserves production/transfer cost. Outgoing value is
@@ -39,6 +39,9 @@ def move_stock(user, site, product, quantity, source, kind, notes='', status='av
     if quantity < 0 and balance.quantity < -quantity:
         label = '' if status == 'available' else f' ({status})'
         raise ValidationError(f'Insufficient available stock for {product.name}{label} at {site.code}: {balance.quantity.normalize():f} on hand.')
+    if quantity<0 and status=='available':
+        from .reservations import consume
+        consume(user,balance,-quantity,source,reservation_line)
     before = balance.value
     if quantity > 0:
         cost = Decimal(unit_cost) if unit_cost is not None else balance.avg_cost
@@ -123,7 +126,7 @@ def transition_order(user, pk, action, **data):
         if not order.site.active or not order.partner.active: raise ValidationError('Site and partner must be active.')
         for line in order.lines.select_related('product').order_by('product_id', 'pk'):
             if not line.product.active: raise ValidationError('An order product is inactive.')
-            move_stock(user, order.site, line.product, line.quantity if order.kind == 'Purchase' else -line.quantity, f'order:{order.pk}:line:{line.pk}', 'Receipt' if order.kind == 'Purchase' else 'Dispatch')
+            move_stock(user, order.site, line.product, line.quantity if order.kind == 'Purchase' else -line.quantity, f'order:{order.pk}:line:{line.pk}', 'Receipt' if order.kind == 'Purchase' else 'Dispatch',reservation_line=line if order.kind=='Sale' else None)
         order.status = 'Completed'
     elif action == 'cancel':
         if order.status in ('Part dispatched', 'Part received'): raise ValidationError('Part of this order has already moved — short-close it instead.')
@@ -144,6 +147,9 @@ def transition_order(user, pk, action, **data):
         order.status, order.short_close_reason = 'Completed', reason[:200]
         fields.append('short_close_reason')
     else: raise ValidationError('Unknown action.')
+    if order.kind=='Sale' and action in ['cancel','close']:
+        from .reservations import release
+        release(user,order,reason or action)
     order.save(update_fields=fields)
     if order.kind == 'Purchase' and action in ('approve', 'cancel', 'close'):
         from .procurement import refresh_requests

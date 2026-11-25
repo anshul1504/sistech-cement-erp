@@ -116,6 +116,8 @@ Collection promises enter the collections desk only after independent finance re
 history, sent-quote and approved-order stage gates, atomic project quotation handoff, source-family attribution,
 manager reopening and estimates separated from actual invoice/credit totals. See [Project pipeline](PROJECT_PIPELINE.md).
 
+✅ Firm stock reservations per sales order line with immutable reserve/consume/release/restore events and a read-only `audit_reservations` rollout check.
+
 Remaining in Step 8: bulk contact/project migration and merging, forecast calibration, recurring/optimized visits,
 cash pickup/receipting routes, dealer portal (with Step 10 apps).
 

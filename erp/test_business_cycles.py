@@ -137,7 +137,7 @@ class BusinessCycleTests(TestCase):
         self.site.save()
         other_bag = Product.objects.create(code='QA-BAG2', name='Second bag', category='Cement', unit='BAG', bag_weight_kg=50)
         move_stock(self.maker, self.site, self.bag, D(10), 'qa:bag1', 'Opening', unit_cost=100)
-        move_stock(self.maker, self.site, other_bag, D(2), 'qa:bag2', 'Opening', unit_cost=100)
+        move_stock(self.maker, self.site, other_bag, D(10), 'qa:bag2', 'Opening', unit_cost=100)
         sale = Order.objects.create(site=self.site, partner=self.customer, kind='Sale', created_by=self.maker, status='Approved')
         first = OrderLine.objects.create(order=sale, product=self.bag, quantity=10, rate=200)
         second = OrderLine.objects.create(order=sale, product=other_bag, quantity=10, rate=200)
@@ -149,8 +149,14 @@ class BusinessCycleTests(TestCase):
         L.gate_in(self.maker, dispatch.pk, {k: True for k, _ in L.GATE_CHECKS})
         L.weigh(self.maker, dispatch.pk, 'tare', 9000, 'scale')
         L.start_loading(self.maker, dispatch.pk)
-        with self.assertRaises(ValidationError):
-            L.complete_loading(self.maker, dispatch.pk, {l.pk: 10 for l in dispatch.lines.all()})
+        from unittest.mock import patch
+        original=L.move_stock
+        def fail_second(user,site,product,*args,**kwargs):
+            if product.pk==other_bag.pk:raise ValidationError('Simulated stock issue failure after advice')
+            return original(user,site,product,*args,**kwargs)
+        with patch('erp.logistics.move_stock',side_effect=fail_second):
+            with self.assertRaises(ValidationError):
+                L.complete_loading(self.maker, dispatch.pk, {l.pk: 10 for l in dispatch.lines.all()})
         dispatch.refresh_from_db()
         self.assertEqual(dispatch.status, 'loading')
         self.assertEqual(StockBalance.objects.get(site=self.site, product=self.bag).quantity, 10)

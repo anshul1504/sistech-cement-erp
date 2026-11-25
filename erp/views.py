@@ -29,6 +29,16 @@ def order_action(request, pk, action):
     get_object_or_404(scope(Order.objects.all(), request.user), pk=pk)
     P = request.POST
     try:
+        if action=='release_stock':
+            from .reservations import release_order
+            release_order(request.user,pk,P.get('reason',''))
+            messages.success(request,'Stock commitments released; approved demand remains unallocated.')
+            return redirect('order_detail',pk=pk)
+        if action=='allocate':
+            from .reservations import allocate_order
+            allocate_order(request.user,pk)
+            messages.success(request,'Available stock firmly allocated; any shortage remains unallocated.')
+            return redirect('order_detail',pk=pk)
         if action == 'revise':
             from .sales import revise
             new = revise(request.user, pk)

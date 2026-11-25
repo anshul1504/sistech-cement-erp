@@ -49,7 +49,7 @@ def position(sites, product_filter=None):
     """One row per site × product: real balances by state plus derived reserved / quality hold / in transit."""
     site_ids = [s.pk for s in sites]
     rows = defaultdict(lambda: {'available': ZERO, 'damaged': ZERO, 'blocked': ZERO, 'reserved': ZERO, 'hold': ZERO, 'transit': ZERO,
-                                'cost': ZERO, 'value': ZERO})
+                                'legacy_demand':ZERO,'unallocated':ZERO,'cost': ZERO, 'value': ZERO})
     bal = StockBalance.objects.filter(site_id__in=site_ids).select_related('site', 'product')
     if product_filter is not None:
         bal = bal.filter(product__in=product_filter)
@@ -59,9 +59,14 @@ def position(sites, product_filter=None):
         r['value'] += b.value
         if b.status == 'available':
             r['cost'] = b.avg_cost
-    for l in OrderLine.objects.filter(order__kind='Sale', order__status__in=['Approved', 'Part dispatched', 'On hold'], order__site_id__in=site_ids).select_related('order'):
+    for l in OrderLine.objects.filter(order__kind='Sale', order__status__in=['Approved', 'Part dispatched', 'On hold'], order__site_id__in=site_ids).select_related('order','stock_reservation'):
         if product_filter is None or l.product_id in {p.pk for p in product_filter}:
-            rows[(l.order.site_id, l.product_id)]['reserved'] += l.pending_quantity
+            r=rows[(l.order.site_id,l.product_id)]
+            reservation=getattr(l,'stock_reservation',None)
+            if reservation:
+                r['reserved']+=reservation.remaining
+                r['unallocated']+=max(l.quantity-l.dispatched_quantity()-reservation.remaining,ZERO)
+            else:r['legacy_demand']+=l.pending_quantity
     for l in GRNLine.objects.filter(grn__status='posted', hold__gt=0, qc_at__isnull=True, grn__site_id__in=site_ids).select_related('grn'):
         rows[(l.grn.site_id, l.product_id)]['hold'] += l.hold
     from .models import ReturnLine

@@ -33,14 +33,15 @@ def _q(x):
 
 def atp(order):
     """Per line: available stock at the plant, reserved by other open orders, free, and shortage for this order's pending quantity."""
-    rows = []
+    rows = [];budgets={}
     for l in order.lines.select_related('product'):
         available = StockBalance.objects.filter(site=order.site, product=l.product, status='available').aggregate(q=Sum('quantity'))['q'] or ZERO
-        reserved = ZERO
-        for o in OrderLine.objects.filter(order__kind='Sale', order__site=order.site, order__status__in=OPEN, product=l.product).exclude(order=order):
-            reserved += o.pending_quantity
-        need = l.pending_quantity if order.status in OPEN else l.quantity
-        free = available - reserved
+        from .reservations import reserved as firm_reserved
+        reserved = firm_reserved(order.site,l.product,exclude_order=order.pk)
+        for o in OrderLine.objects.filter(order__kind='Sale',order__site=order.site,order__status__in=OPEN,product=l.product,stock_reservation__isnull=True).exclude(order=order):reserved+=o.pending_quantity
+        need = max(l.quantity-l.dispatched_quantity(),ZERO) if order.status in OPEN else l.quantity
+        free = budgets.get(l.product_id,available-reserved)
+        budgets[l.product_id]=free-need
         rows.append({'line': l, 'available': available, 'reserved': reserved, 'free': free, 'need': need, 'short': max(need - max(free, ZERO), ZERO)})
     return rows
 
@@ -141,7 +142,8 @@ def approve(user, order, override_reason='', override_until=None, backorder_reas
     if not order.partner.active:
         raise ValidationError('The partner is inactive.')
     Partner.objects.select_for_update().get(pk=order.partner_id)            # serialise credit decisions per dealer
-    list(StockBalance.objects.select_for_update().filter(site=order.site, product__in=order.lines.values('product')))  # and stock per plant
+    from .reservations import lock_balances
+    lock_balances(order)  # and stock per plant
     today = timezone.localdate()
     checks = {'at': timezone.now().isoformat(timespec='seconds'), 'by': user.get_username()}
     credit = credit_problems(order)
@@ -171,6 +173,8 @@ def approve(user, order, override_reason='', override_until=None, backorder_reas
         checks['backorder'] = {'lines': text, 'reason': backorder_reason.strip()[:200]}
     order.approval_checks = checks
     order.status, order.approved_by = 'Approved', user
+    from .reservations import allocate
+    allocate(user,order,respect_legacy=True)
 
 
 def hold(user, order, reason):
@@ -224,6 +228,8 @@ def revise(user, pk):
         l.pk = l.id = None
         l.order = new
         l.save()
+    from .reservations import release
+    release(user,order,'Order superseded by a new draft revision')
     order.status = 'Revised'
     order.save(update_fields=['status'])
     audit(user, 'Order revised', order, f'Revision {new.revision}: {new.number}')

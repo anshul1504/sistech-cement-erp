@@ -114,7 +114,7 @@ def sensitive(request, match):
         'journal_action': {'approve', 'reject', 'reverse','approve_reversal','reject_reversal','cancel_reversal'},
         'period_action': {'reopen'},
         'year_action': {'approve', 'request_reopen', 'approve_reopen'},
-        'order_action': {'approve'},
+        'order_action': {'approve','allocate','release_stock'},
         'quotation_action': {'approve'},
         'count_action': {'approve'},
         'transfer_action': {'resolve'},

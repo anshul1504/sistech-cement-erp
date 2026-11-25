@@ -3326,3 +3326,28 @@ class CRMLeadMerge(models.Model):
         ordering=['-created_at','-pk']
         constraints=[models.UniqueConstraint(fields=['source'],condition=models.Q(status='requested'),name='one_pending_crm_merge')]
     def __str__(self):return f'Merge {self.pk} · {self.source.number} → {self.target.number}'
+
+
+class StockReservation(models.Model):
+    order_line = models.OneToOneField(OrderLine,on_delete=models.PROTECT,related_name='stock_reservation')
+    quantity = models.DecimalField(max_digits=20,decimal_places=3,default=0,validators=MONEY)
+    consumed = models.DecimalField(max_digits=20,decimal_places=3,default=0,validators=MONEY)
+    released = models.DecimalField(max_digits=20,decimal_places=3,default=0,validators=MONEY)
+    updated_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(quantity__gte=0,consumed__gte=0,released__gte=0)&models.Q(quantity__gte=models.F('consumed')+models.F('released')),name='reservation_nonnegative_balance')]
+    @property
+    def remaining(self):return self.quantity-self.consumed-self.released
+
+
+class StockReservationEvent(models.Model):
+    reservation = models.ForeignKey(StockReservation,on_delete=models.PROTECT,related_name='events')
+    action = models.CharField(max_length=8,choices=[('reserve','Reserved'),('consume','Consumed'),('release','Released'),('restore','Restored')])
+    quantity = models.DecimalField(max_digits=20,decimal_places=3,validators=POSITIVE)
+    remaining_after = models.DecimalField(max_digits=20,decimal_places=3,validators=MONEY)
+    source = models.CharField(max_length=160,unique=True)
+    reason = models.CharField(max_length=200)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering=['created_at','pk']

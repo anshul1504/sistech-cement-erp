@@ -90,7 +90,9 @@ class StockTests(TestCase):
         OrderLine.objects.create(order=o, product=self.opc, quantity=120, rate=350, gst_rate=28)
         transition_order(self.a, o.pk, 'submit'); transition_order(self.b, o.pk, 'approve', backorder_reason='Partner supply due')
         r = ST.position([self.plant])[0]
-        self.assertEqual((r['available'], r['reserved'], r['free'], r['mt']), (D(100), D(120), D(-20), D('5.000')))
+        self.assertEqual((r['available'], r['reserved'], r['free'], r['mt']), (D(100), D(100), D(0), D('5.000')))
+        self.assertEqual(r['unallocated'],D(20))
+        move_stock(self.a,self.plant,self.opc,D(20),'count-free-capacity','Opening',unit_cost=D(300))
         c = ST.start_count(self.a, self.plant)
         with self.assertRaisesMessage(ValidationError, 'already open'):
             ST.start_count(self.a, self.plant, 'Cement')
@@ -98,15 +100,15 @@ class StockTests(TestCase):
         move_stock(self.a, self.plant, self.opc, D(-10), 'd1', 'Dispatch')  # sale during the count
         with self.assertRaisesMessage(ValidationError, 'Enter a count'):
             ST.save_count(self.a, c.pk, {line.pk: None}, {}, submit=True)
-        ST.save_count(self.a, c.pk, {line.pk: D(97)}, {line.pk: 'Torn bags'}, submit=True)
+        ST.save_count(self.a, c.pk, {line.pk: D(117)}, {line.pk: 'Torn bags'}, submit=True)
         with self.assertRaisesMessage(ValidationError, 'maker-checker'):
             ST.review_count(self.a, c.pk, 'approve', note='ok')
         ST.review_count(self.b, c.pk, 'recount', [line.pk])
-        ST.save_count(self.a, c.pk, {line.pk: D(98)}, {}, submit=True)
+        ST.save_count(self.a, c.pk, {line.pk: D(118)}, {}, submit=True)
         with self.assertRaisesMessage(ValidationError, 'Record why'):
             ST.review_count(self.b, c.pk, 'approve')
         ST.review_count(self.b, c.pk, 'approve', note='Bag breakage in stacking')
-        self.assertEqual(bal(self.plant, self.opc), D(88))  # 100 − 10 sold − 2 variance against the frozen 100
+        self.assertEqual(bal(self.plant, self.opc), D(108))  # 120 − 10 unreserved sold − 2 variance against frozen 120
         self.assertEqual(StockCount.objects.get(pk=c.pk).status, 'posted')
         flags = ST.analysis([self.plant])[0]
         self.assertFalse(flags['slow'])

@@ -196,7 +196,10 @@ def order_detail(request, pk):
         u = request.user
         credit = sales.credit_problems(order) if order.status == 'Submitted' else []
         short = [r for r in sales.atp(order) if r['short'] > 0] if order.status == 'Submitted' else []
-        sale = {'progress': prog, 'stage': st, 'credit': credit, 'short': short,
+        from .models import StockReservation,StockReservationEvent
+        reservation_rows=StockReservation.objects.filter(order_line__order=order).select_related('order_line__product')
+        reservation_events=StockReservationEvent.objects.filter(reservation__order_line__order=order).select_related('actor').order_by('-pk')[:30]
+        sale = {'reservations':reservation_rows,'reservation_events':reservation_events,'can_allocate':actions.get('can_post',False) and order.status in ['Approved','Part dispatched'], 'progress': prog, 'stage': st, 'credit': credit, 'short': short,
                 'below': any(l.below_list for l in lines) and order.status == 'Submitted',
                 'can_override': can_approve(u, 'override_credit_sales_order', order.site, makers=(order.created_by_id,)), 'can_price': can_approve(u, 'approve_price_exception', order.site, makers=(order.created_by_id,)),
                 'can_hold': u.has_perm('erp.hold_sales_order') and order.status in ('Submitted', 'Approved', 'Part dispatched'),
