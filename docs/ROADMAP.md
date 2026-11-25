@@ -194,3 +194,10 @@ budgets, document/report PDFs, scheduled Excel packs, delegation/routing and rev
 consolidation are implemented. The current milestone adds People groups, dealer read-only dashboard/
 invoice register/filtered CSV+PDF statements, reasoned access-link management, and CRM/project board/
 health/forecast/handoff improvements. Their advanced extensions and production acceptance remain open.
+
+## 25 November 2026 — channel network, module launcher, UI consistency
+- ✅ Channel network: C&F → promoter/agent/transporter → dealer → retailer → mason upline, audited changes, People tree, network sales.
+- ✅ Module launcher home; module-scoped sidebar and dashboard tabs; top-bar module switcher.
+- ✅ UI consistency layer (filter bars, list headers, stage strips, view switches, accounts tabs); 93 pages × 6 widths audited clean.
+- Next: C&F / agent commission contracts on network sales, dealer order requests from the dealer login, retailer secondary sales.
+

@@ -54,15 +54,16 @@ def ticket_new(request):
 def screen_name(path):
     """'/orders/12/' → 'Sales orders' using the sidebar labels, so the support team sees which screen the user was on."""
     from django.urls import resolve, Resolver404
-    from .context import NAV_GROUPS
+    from .context import MODULES
     try:
         name = resolve(path).url_name
     except Resolver404:
         return ''
-    for _, items in NAV_GROUPS:
-        for i in items:
-            if name in i['match']:
-                return i['label']
+    for m in MODULES:
+        for _, items in m['sections']:
+            for i in items:
+                if name in i['match']:
+                    return f"{m['label']} · {i['label']}"
     return ''
 
 

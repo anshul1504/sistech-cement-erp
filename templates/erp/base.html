@@ -15,6 +15,7 @@
 <link href="{% static 'erp/brand.css' %}?v={{ asset_version }}" rel="stylesheet">
 <link href="{% static 'erp/shell.css' %}?v={{ asset_version }}" rel="stylesheet">
 {% block extra_head %}{% endblock %}
+<link href="{% static 'erp/polish.css' %}?v={{ asset_version }}" rel="stylesheet">
 {% if org_icon_url %}<link rel="icon" href="{{ org_icon_url }}">{% else %}<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">{% endif %}
 </head>
 <body class="{% if user.is_authenticated %}app-body{% endif %}">
@@ -66,6 +67,8 @@
 <symbol id="ic-power" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/></symbol>
 <symbol id="ic-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
 <symbol id="ic-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+<symbol id="ic-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></symbol>
+<symbol id="ic-back" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol>
 </svg>
 
 <div class="app">
@@ -78,18 +81,24 @@
       <button class="sb-close" type="button" data-sidebar-close aria-label="Close menu"><svg><use href="#ic-close"/></svg></button>
     </div>
     <nav class="sb-nav">
+      {% if nav_module %}
+      <div class="sb-module">
+        <a class="sb-link sb-back" href="{% url 'dashboard' %}" data-tip="All modules"><svg><use href="#ic-back"/></svg><span class="sb-text">All modules</span></a>
+        <a class="sb-module-name" href="{{ nav_module.url }}" data-tip="{{ nav_module.label }}"><span class="sb-module-icon"><svg><use href="#ic-{{ nav_module.icon }}"/></svg></span><span class="sb-text">{{ nav_module.label }}</span></a>
+      </div>
+      {% endif %}
       {% for group in nav_groups %}
       <div class="sb-group{% if not group.live %} is-roadmap{% endif %}">
         <div class="sb-group-label">{{ group.label }}</div>
         <ul>
           {% for item in group.items %}
-          <li>{% if item.soon %}<span class="sb-link is-soon" aria-disabled="true" data-tip="{{ item.label }} · planned"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span><span class="sb-badge">Soon</span></span>{% else %}<a href="{{ item.url }}" class="sb-link{% if item.active %} is-active{% endif %}"{% if item.active %} aria-current="page"{% endif %} data-tip="{{ item.label }}" data-nav-item data-group="{{ group.label }}"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span></a>{% endif %}</li>
+          <li>{% if item.soon %}<span class="sb-link is-soon" aria-disabled="true" data-tip="{{ item.label }} · planned"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span><span class="sb-badge">Soon</span></span>{% else %}<a href="{{ item.url }}" class="sb-link{% if item.active %} is-active{% endif %}"{% if item.active %} aria-current="page"{% endif %} data-tip="{{ item.label }}"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span></a>{% endif %}</li>
           {% endfor %}
         </ul>
       </div>
       {% endfor %}
     </nav>
-
+    <div hidden>{% for m in nav_modules %}{% for sec in m.sections %}{% for item in sec.items %}<a href="{{ item.url }}" data-nav-item data-group="{{ m.label }}"><svg><use href="#ic-{{ item.icon }}"/></svg><span class="sb-text">{{ item.label }}</span></a>{% endfor %}{% endfor %}{% endfor %}</div>
   </aside>
   <div class="sb-backdrop" data-sidebar-close hidden></div>
 
@@ -101,13 +110,24 @@
       <nav class="hd-breadcrumb" aria-label="Breadcrumb">
         <ol>
           <li class="bc-home"><a href="{% url 'dashboard' %}">{{ org.display_name|title }} ERP</a></li>
-          {% if nav_current and nav_current.group != 'Overview' %}<li class="bc-group"><span>{{ nav_current.group }}</span></li>{% endif %}
+          {% if nav_module %}<li class="bc-group"><a href="{{ nav_module.url }}">{{ nav_module.label }}</a></li>{% endif %}
           {% if nav_current and nav_current.label != title %}<li class="bc-section"><a href="{{ nav_current.url }}">{{ nav_current.label }}</a></li>{% endif %}
           <li aria-current="page"><span>{{ title|default:'Dashboard' }}</span></li>
         </ol>
       </nav>
 
       <div class="hd-actions">
+        {% if nav_modules|length > 1 %}
+        <div class="dropdown hd-modules">
+          <button class="hd-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Switch module" title="Modules"><svg><use href="#ic-grid"/></svg></button>
+          <div class="dropdown-menu dropdown-menu-end hd-menu hd-module-menu">
+            <div class="hd-menu-label">Modules</div>
+            <div class="hd-module-grid">{% for m in nav_modules %}<a class="hd-module{% if nav_module.key == m.key %} is-active{% endif %}" href="{{ m.url }}"><span><svg><use href="#ic-{{ m.icon }}"/></svg></span>{{ m.label }}</a>{% endfor %}</div>
+            <div class="hd-menu-sep"></div>
+            <a class="hd-menu-item" href="{% url 'dashboard' %}"><svg><use href="#ic-grid"/></svg>All modules home</a>
+          </div>
+        </div>
+        {% endif %}
         <button class="hd-search" type="button" data-palette-open aria-haspopup="dialog" aria-label="Search menu">
           <svg><use href="#ic-search"/></svg><span class="hd-search-text">Search menu…</span><kbd>⌘K</kbd>
         </button>

@@ -364,3 +364,25 @@ a.sb-link.is-active:hover, a.sb-link.is-active:focus-visible { background: #f4f7
 .hd-bell-item.is-danger b { background: #fee4e2; color: #b42318; }
 .hd-bell-item small { display: block; color: #6b778a; font-size: 11.5px; }
 .hd-bell-empty { margin: 0; padding: 10px 14px; color: #6b778a; font-size: 13px; }
+
+/* ---------------- Modules: sidebar header inside a module, top-bar module switcher ---------------- */
+.sb-module { padding: 10px 0 12px; border-bottom: 1px solid var(--sb-line); }
+.sb-back { min-height: 34px; font-size: 12.5px; color: var(--sb-muted); }
+.sb-back svg { width: 16px; height: 16px; }
+.sb-module-name { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.06);
+  color: #fff; font-size: 15px; font-weight: 700; text-decoration: none; line-height: 1.25; }
+.sb-module-name:hover { background: rgba(255,255,255,.1); color: #fff; }
+.sb-module-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--gold); color: #082859; }
+.sb-module-icon svg { width: 18px; height: 18px; }
+@media (min-width: 1024px) {
+  .sb-collapsed .sb-module-name { justify-content: center; padding: 8px 0; background: transparent; }
+}
+.hd-module-menu { width: min(440px, calc(100vw - 24px)); padding-bottom: 6px; }
+.hd-module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px 8px 6px; }
+.hd-module { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 10px; color: var(--ink, #10213a);
+  font-size: 12px; font-weight: 500; line-height: 1.25; text-align: center; text-decoration: none; }
+.hd-module span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: #eef3fb; color: var(--brand, #082859); }
+.hd-module svg { width: 19px; height: 19px; }
+.hd-module:hover, .hd-module.is-active { background: #f3f6fb; }
+.hd-module.is-active span { background: var(--brand, #082859); color: #fff; }
+@media (max-width: 420px) { .hd-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

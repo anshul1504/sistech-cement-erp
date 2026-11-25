@@ -28,6 +28,20 @@ Replace `your-email@your-company.com` with your real mailbox, configure SMTP in 
 
 Use `admin` for master data and the **Access control** workspace at `/accounts/access/` to create team members, edit role matrices and assign sites. Use `operator` to create and submit an order, then sign in as `approver` to approve it. The creator cannot approve their own order, including when the creator is a superuser. Each non-superuser needs both role permissions and a SiteAccess assignment. Super administrator accounts are managed separately at `/admin/`.
 
+## Modules and navigation
+
+After sign-in, `/` shows **one tile per module** the user may open — Sales & CRM, People & network,
+Procurement, Plant & quality, Stock & warehouse, Logistics, Finance & accounts, Dashboards & reports,
+Setup & admin (and *My dealer account* for linked dealers) — each with the number of approvals and tasks
+waiting in it, plus the *Waiting for you* list. Opening a module (`/m/<key>/`) lands on that module's
+dashboard; the sidebar then lists **only that module's pages** (with *All modules* to go back) and the
+dashboard tabs show only that module's dashboards. The grid button in the top bar switches module from
+anywhere, and ⌘K search still finds every page the user may open. Opening a page of another module (for
+example an invoice from an order) moves the sidebar to that module; pages outside the menu keep the
+module they were opened from. A user with only one working module goes straight into it. The former
+home KPIs are the *Overview* dashboard (`/dashboards/overview/`). Module definitions: `erp/context.py`
+(`MODULES`). Shared spacing / filter-bar / tab rules: `static/erp/polish.css`.
+
 ## Authentication and access control
 
 - Poppins fonts are hosted locally with their SIL Open Font License. Authentication pages share a responsive interface, keyboard focus states, field errors and password visibility toggles.

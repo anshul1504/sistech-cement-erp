@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page ins-page">
-  <div class="ins-hello"><div><div class="eyebrow">{{ today|date:'l, d F Y'|upper }}</div><h1>{{ greeting }}, {{ user.first_name|default:user.username }}</h1><p>{% if queue %}{{ queue|length }} kind{{ queue|length|pluralize }} of work waiting for you{% else %}Nothing is waiting for your action{% endif %} · figures for {{ period.label|lower }}{% if site %} at {{ site.code }}{% endif %}.</p></div>
+  <div class="ins-hello"><div><div class="eyebrow">DASHBOARD · {{ today|date:'d F Y'|upper }}</div><h1>Overview</h1><p>{% if queue %}{{ queue|length }} kind{{ queue|length|pluralize }} of work waiting for you{% else %}Nothing is waiting for your action{% endif %} · figures for {{ period.label|lower }}{% if site %} at {{ site.code }}{% endif %}.</p></div>
     {% include 'erp/_insight_filter.html' %}</div>
   {% include 'erp/_insight_tabs.html' %}
 

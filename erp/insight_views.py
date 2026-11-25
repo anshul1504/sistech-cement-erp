@@ -47,20 +47,75 @@ def _sites(request):
 def _ctx(request, title, area=None):
     period = I.parse_period(request.GET)
     sites, all_sites, chosen = _sites(request)
-    return period, sites, {'title': title, 'period': period, 'periods': I.PERIODS, 'all_sites': all_sites, 'site': chosen, 'area': area,
-                           'areas': areas_for(request.user), 'fin': I.company_finance(request.user),
+    from .context import AREA_MODULE
+    scope = AREA_MODULE.get(area, 'insights') if area else 'insights'
+    areas = [a for a in areas_for(request.user) if scope == 'insights' or AREA_MODULE.get(a['key']) == scope]
+    return period, sites, {'tab_scope': scope, 'title': title, 'period': period, 'periods': I.PERIODS, 'all_sites': all_sites, 'site': chosen, 'area': area,
+                           'areas': areas if scope == 'insights' or len(areas) > 1 else [], 'fin': I.company_finance(request.user),
                            'site_q': f'&site={chosen.pk}' if chosen else '', 'generated': timezone.localtime()}
+
+
+def _dealer_only(u):
+    from .models import DealerLedgerAccess
+    return not u.is_superuser and DealerLedgerAccess.objects.filter(user=u, active=True, partner__active=True, partner__kind='Dealer').exists()
+
+
+def _module_of(path):
+    from django.urls import resolve, Resolver404
+    from .context import ROUTE_MODULE, AREA_MODULE
+    try:
+        m = resolve(path.split('?')[0])
+    except Resolver404:
+        return None
+    return AREA_MODULE.get(m.kwargs.get('area')) if m.url_name == 'insight_area' else ROUTE_MODULE.get(m.url_name)
+
+
+@login_required
+def launcher(request):
+    """Home after sign-in: one tile per module the user may open, each with the work waiting in it. A user with a single
+    module goes straight into it."""
+    u = request.user
+    if _dealer_only(u):
+        return redirect('dealer_dashboard')
+    from .context import navigation
+    modules = navigation(request)['nav_modules']
+    common = {'tickets', 'profile', 'overview'}          # everyone has these; they don't make a module "theirs"
+    working = [m for m in modules if any(i['route'] not in common for sec in m['sections'] for i in sec['items'])]
+    if len(working) == 1:
+        return redirect(working[0]['first'])
+    queue = I.my_queue(u)
+    counts = {}
+    for item in queue:
+        k = _module_of(item['url'])
+        counts[k] = counts.get(k, 0) + item['count']
+    for m in modules:
+        m['pending'] = counts.get(m['key'], 0)
+        m['pages'] = [i for sec in m['sections'] for i in sec['items'] if not i.get('area')][:4]
+        m['count'] = sum(len(sec['items']) for sec in m['sections'])
+    hour = timezone.localtime().hour
+    return render(request, 'erp/launcher.html', {
+        'title': 'Home', 'modules': modules, 'queue': queue[:6], 'queue_total': sum(i['count'] for i in queue), 'queue_more': max(len(queue) - 6, 0),
+        'greeting': 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening', 'today': timezone.localdate()})
+
+
+@login_required
+def module_home(request, key):
+    """Open a module at its first page (its dashboard when the user may see it)."""
+    from .context import navigation
+    m = next((m for m in navigation(request)['nav_modules'] if m['key'] == key), None)
+    if m is None:
+        raise Http404
+    request.session['erp_module'] = key
+    return redirect(m['first'])
 
 
 @login_required
 def home(request):
-    """Role-based home: what is waiting for me, then the headline numbers of every dashboard I may open."""
+    """Overview dashboard: what is waiting for me, then the headline numbers of every dashboard I may open."""
     u = request.user
-    from .models import DealerLedgerAccess
-    if not u.is_superuser and DealerLedgerAccess.objects.filter(user=u, active=True, partner__active=True, partner__kind='Dealer').exists():
-        from django.shortcuts import redirect
+    if _dealer_only(u):
         return redirect('dealer_dashboard')
-    period, sites, ctx = _ctx(request, 'Home')
+    period, sites, ctx = _ctx(request, 'Overview')
     ctx['queue'] = I.my_queue(u, sites)
     ok = {a['key'] for a in ctx['areas']}
     if 'sales' in ok or 'executive' in ok:
@@ -333,4 +388,4 @@ def report_packs(request):
         return resp
     subs = {s.pack: s for s in ReportSubscription.objects.filter(user=u)}
     return render(request, 'erp/report_packs.html', {'title': 'Report packs', 'packs': [(k, l, subs.get(k)) for k, l in packs], 'frequencies': REPORT_FREQUENCIES,
-                                                     'periods': I.PERIODS, 'period': I.parse_period(request.GET), 'areas': areas_for(u)})
+                                                     'periods': I.PERIODS, 'period': I.parse_period(request.GET), 'areas': areas_for(u), 'tab_scope': 'insights'})

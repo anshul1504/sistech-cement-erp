@@ -17,13 +17,15 @@ class AppShellTests(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get(reverse('dashboard'))
         labels = [g['label'] for g in response.context['nav_groups']]
-        self.assertEqual(labels[:3], ['Overview', 'Sales', 'Procurement'])
+        self.assertEqual(labels, ['Start', 'Modules'])
+        modules = [m['key'] for m in response.context['nav_modules']]
+        self.assertEqual(modules[:3], ['sales', 'people', 'procurement'])
         self.assertContains(response, 'href="/accounts/access/"')
         self.assertContains(response, 'Design &amp; developed by')
 
     def test_viewer_only_gets_permitted_links_and_no_create_actions(self):
         self.client.force_login(self.viewer)
-        response = self.client.get(reverse('dashboard'))
+        response = self.client.get(reverse('dashboard'), follow=True)   # a one-module user lands inside that module
         self.assertContains(response, 'href="/sales/"')
         for hidden in ['/purchases/', '/inventory/', '/accounts/access/', '/admin/']:
             self.assertNotContains(response, f'href="{hidden}"')
@@ -31,8 +33,8 @@ class AppShellTests(TestCase):
 
     def test_roadmap_modules_are_listed_without_links(self):
         self.client.force_login(self.viewer)
-        response = self.client.get(reverse('dashboard'))
-        soon = [i for g in response.context['nav_groups'] for i in g['items'] if i['soon']]
+        response = self.client.get(reverse('dashboard'), follow=True)   # a one-module user lands inside that module
+        soon = [i for m in response.context['nav_modules'] for g in m['sections'] for i in g['items'] if i['soon']]
         self.assertTrue(all(i['url'] is None for i in soon))  # placeholders, if any, never link anywhere
 
     def test_breadcrumb_marks_active_section_for_sub_pages(self):

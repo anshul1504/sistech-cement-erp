@@ -83,7 +83,7 @@ class InsightTests(TestCase):
 
     def test_screens_permissions_and_drill(self):
         self.client.force_login(self.checker)
-        for url in [reverse('dashboard'), reverse('dashboard') + '?p=ytd', reverse('my_work')] + \
+        for url in [reverse('dashboard'), reverse('overview'), reverse('overview') + '?p=ytd', reverse('my_work')] + \
                    [reverse('insight_area', args=[a]) + '?p=ytd' for a in ['executive', 'sales', 'credit', 'stock', 'dispatch', 'supply', 'plant', 'quality', 'finance']] + \
                    [reverse('insight_drill', args=[k]) for k in ['sales', 'collections', 'overdue', 'orders', 'dispatches', 'supply', 'production', 'complaints']]:
             self.assertEqual(self.client.get(url).status_code, 200, url)
@@ -98,7 +98,7 @@ class InsightTests(TestCase):
         rep.user_permissions.set(perms('view_sales_order', 'create_sales_order', 'view_crmlead', 'add_crmlead'))
         SiteAccess.objects.create(user=rep, site=self.site)
         self.client.force_login(rep)
-        home = self.client.get(reverse('dashboard'))
+        home = self.client.get(reverse('overview'))
         self.assertContains(home, 'My sales')
         self.assertNotContains(home, 'Overdue receivable')
         for a in ['executive', 'sales', 'credit', 'finance']:

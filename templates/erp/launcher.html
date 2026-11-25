@@ -1,0 +1,38 @@
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}<link href="{% static 'erp/launcher.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="lx-page">
+  <header class="lx-hero">
+    <div>
+      <div class="lx-eyebrow">{{ today|date:'l, d F Y' }}</div>
+      <h1>{{ greeting }}, {{ user.first_name|default:user.username }}</h1>
+      <p>Choose a module to start. Each module opens with its own dashboard and only its own pages.</p>
+    </div>
+    <a class="lx-work{% if queue_total %} has-work{% endif %}" href="{% url 'my_work' %}">
+      <strong>{{ queue_total|indian }}</strong><span>{% if queue_total %}item{{ queue_total|pluralize }} waiting for you{% else %}Nothing waiting for you{% endif %}</span>
+    </a>
+  </header>
+
+  <ul class="lx-grid" aria-label="Modules">
+    {% for m in modules %}
+    <li class="lx-card is-{{ m.key }}">
+      <a class="lx-card-main" href="{{ m.url }}">
+        <span class="lx-icon"><svg><use href="#ic-{{ m.icon }}"/></svg></span>
+        <span class="lx-text"><strong>{{ m.label }}</strong><small>{{ m.blurb }}</small></span>
+        {% if m.pending %}<span class="lx-badge" title="Waiting for you">{{ m.pending }}</span>{% endif %}
+      </a>
+      {% if m.pages %}<div class="lx-pages">{% for p in m.pages %}<a href="{{ p.url }}">{{ p.label }}</a>{% endfor %}</div>{% endif %}
+      <a class="lx-open" href="{{ m.url }}">Open module<svg><use href="#ic-arrow"/></svg></a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <section class="lx-queue">
+    <header><h2>Waiting for you</h2><a href="{% url 'my_work' %}">Open My work</a></header>
+    {% if queue %}
+    <ul>{% for i in queue %}<li><a class="is-{{ i.tone }}" href="{{ i.url }}"><b>{{ i.count }}</b><span>{{ i.label }}<small>{{ i.hint }}</small></span><em>Open</em></a></li>{% endfor %}</ul>
+    {% if queue_more %}<p class="lx-more"><a href="{% url 'my_work' %}">{{ queue_more }} more kind{{ queue_more|pluralize }} of work…</a></p>{% endif %}
+    {% else %}<p class="lx-clear">All clear — no approvals, deliveries or follow-ups are waiting for you.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

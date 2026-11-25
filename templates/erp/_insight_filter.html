@@ -1,6 +1,6 @@
 <form method="get" class="ins-filter" aria-label="Period and plant">
-  <select class="form-select" name="p" aria-label="Period" onchange="this.form.querySelector('.ins-custom').classList.toggle('is-on', this.value === 'custom'); if (this.value !== 'custom') this.form.submit()">
+  {% if periods %}<select class="form-select" name="p" aria-label="Period" onchange="this.form.querySelector('.ins-custom').classList.toggle('is-on', this.value === 'custom'); if (this.value !== 'custom') this.form.submit()">
     {% for k, l in periods %}<option value="{{ k }}"{% if period.key == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
-  <span class="ins-custom{% if period.key == 'custom' %} is-on{% endif %}"><input class="form-control" type="date" name="from" value="{{ period.start|date:'Y-m-d' }}" aria-label="From"><input class="form-control" type="date" name="to" value="{{ period.end|date:'Y-m-d' }}" aria-label="To"><button class="org-btn is-light is-sm" type="submit">Apply</button></span>
+  <span class="ins-custom{% if period.key == 'custom' %} is-on{% endif %}"><input class="form-control" type="date" name="from" value="{{ period.start|date:'Y-m-d' }}" aria-label="From"><input class="form-control" type="date" name="to" value="{{ period.end|date:'Y-m-d' }}" aria-label="To"><button class="org-btn is-light is-sm" type="submit">Apply</button></span>{% endif %}
   {% if all_sites|length > 1 and not hide_site %}<select class="form-select" name="site" aria-label="Plant or depot" onchange="this.form.submit()"><option value="">All my plants &amp; depots</option>{% for s in all_sites %}<option value="{{ s.pk }}"{% if site.pk == s.pk %} selected{% endif %}>{{ s.code }} · {{ s.name }}</option>{% endfor %}</select>{% endif %}
 </form>

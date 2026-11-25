@@ -1,0 +1,64 @@
+/* Home after sign-in: module launcher. */
+.lx-page { display: grid; gap: 24px; }
+.lx-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.lx-eyebrow { color: var(--ink-3, #6b778a); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.lx-hero h1 { margin: 6px 0 6px; color: var(--brand, #082859); font-size: clamp(26px, 3vw, 34px); font-weight: 800; letter-spacing: -.01em; }
+.lx-hero p { margin: 0; color: var(--ink-2, #34465f); font-size: 15px; max-width: 620px; }
+.lx-work { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 14px; border: 1px solid var(--line, #e4e8ef); background: #fff;
+  color: var(--ink-2, #34465f); text-decoration: none; }
+.lx-work strong { font-size: 24px; color: var(--ink-3, #6b778a); }
+.lx-work.has-work { border-color: #f4d27a; background: #fffaf0; }
+.lx-work.has-work strong { color: #a86b00; }
+.lx-work:hover { box-shadow: 0 8px 20px -14px rgba(8,40,89,.5); }
+
+.lx-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.lx-card { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 20px; border: 1px solid var(--line, #e4e8ef); border-radius: 16px;
+  background: #fff; transition: box-shadow .15s, border-color .15s, transform .15s; }
+.lx-card:hover { border-color: #c9d5e8; box-shadow: 0 14px 30px -20px rgba(8,40,89,.45); transform: translateY(-1px); }
+.lx-card-main { display: flex; align-items: flex-start; gap: 14px; color: inherit; text-decoration: none; min-width: 0; }
+.lx-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #eef3fb; color: var(--brand, #082859); }
+.lx-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lx-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.lx-text strong { color: var(--ink, #10213a); font-size: 16.5px; font-weight: 700; line-height: 1.3; }
+.lx-text small { color: var(--ink-3, #6b778a); font-size: 13px; line-height: 1.45; }
+.lx-badge { flex: none; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; display: grid; place-items: center; background: #d93a2b; color: #fff;
+  font-size: 12.5px; font-weight: 700; }
+.lx-pages { display: flex; flex-wrap: wrap; gap: 6px; }
+.lx-pages a { padding: 4px 10px; border-radius: 999px; background: #f3f6fb; color: var(--ink-2, #34465f); font-size: 12px; text-decoration: none; white-space: nowrap; }
+.lx-pages a:hover { background: #e6edf8; color: var(--brand, #082859); }
+.lx-open { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--brand, #082859); font-size: 13px; font-weight: 600; text-decoration: none; }
+.lx-open svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }
+.lx-card:hover .lx-open svg { transform: translateX(3px); }
+.lx-card.is-sales .lx-icon { background: #e8f0fd; color: #1d5fbf; }
+.lx-card.is-people .lx-icon, .lx-card.is-dealer .lx-icon { background: #fff4d6; color: #a86b00; }
+.lx-card.is-procurement .lx-icon { background: #eef0ff; color: #4b4fc2; }
+.lx-card.is-plant .lx-icon { background: #e9f6f1; color: #1f7a5a; }
+.lx-card.is-stock .lx-icon { background: #f3eefc; color: #6b3fb4; }
+.lx-card.is-logistics .lx-icon { background: #fdecec; color: #b93a2f; }
+.lx-card.is-finance .lx-icon { background: #e7f5f7; color: #19717f; }
+.lx-card.is-insights .lx-icon { background: var(--brand, #082859); color: #fff; }
+.lx-card.is-admin .lx-icon { background: #eef1f5; color: #4a5668; }
+
+.lx-queue { padding: 20px; border: 1px solid var(--line, #e4e8ef); border-radius: 16px; background: #fff; }
+.lx-queue header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.lx-queue h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--ink, #10213a); }
+.lx-queue header a, .lx-more a { color: var(--brand, #082859); font-size: 13px; font-weight: 600; text-decoration: none; }
+.lx-queue ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.lx-queue li a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #f8fafc; color: inherit; text-decoration: none; }
+.lx-queue li a:hover { background: #eef3fb; }
+.lx-queue b { flex: none; min-width: 36px; height: 36px; padding: 0 6px; border-radius: 10px; display: grid; place-items: center; background: #fff4d6; color: #8a5a00; font-size: 15px; }
+.lx-queue a.is-danger b { background: #fdecec; color: #b93a2f; }
+.lx-queue span { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink, #10213a); }
+.lx-queue small { display: block; font-weight: 400; color: var(--ink-3, #6b778a); font-size: 12px; }
+.lx-queue em { font-style: normal; color: var(--brand, #082859); font-size: 12.5px; font-weight: 600; }
+.lx-clear, .lx-more { margin: 4px 0 0; color: var(--ink-3, #6b778a); font-size: 13.5px; }
+
+@media (max-width: 760px) {
+  .lx-page { gap: 18px; }
+  .lx-grid { grid-template-columns: 1fr; gap: 12px; }
+  .lx-card { padding: 16px; gap: 12px; }
+  .lx-work { width: 100%; }
+  .lx-queue { padding: 16px; }
+  .lx-queue ul { grid-template-columns: 1fr; }
+  .lx-queue em { display: none; }
+}

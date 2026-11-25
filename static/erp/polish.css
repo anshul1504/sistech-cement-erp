@@ -1,0 +1,59 @@
+/* Consistency layer, loaded last on every signed-in page: one spacing rhythm, one filter-bar pattern, no orphan tiles.
+   Page-specific CSS keeps its look; this file only aligns the shared building blocks. */
+
+/* ---------- Page rhythm ---------- */
+.app-content > .org-page > .org-head,
+.app-content > div > .org-head { margin-bottom: 20px; }
+.org-head p { line-height: 1.55; }
+.org-page > .org-card + .org-card,
+.org-page > section + section { margin-top: 16px; }
+.org-page > .inf-kpis, .org-page > .project-kpis { margin-bottom: 16px; }
+
+/* ---------- Filter bars (CRM, projects, beats, schemes, territories) ---------- */
+.crm-filters, .crm-filters.is-short, .project-page .crm-filters {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  align-items: end; gap: 12px; padding: 14px 16px;
+}
+.crm-filters > button, .crm-filters > .org-btn { align-self: end; height: 42px; white-space: nowrap; }
+.crm-filters > .project-actions { display: flex; flex-wrap: nowrap; gap: 8px; align-self: end; grid-column: span 2; }
+.crm-filters > .project-actions .org-btn { flex: 1 1 0; height: 42px; white-space: nowrap; justify-content: center; }
+.crm-filters label { margin-bottom: 0; }
+
+/* ---------- List headers: when the filter has four or more controls it gets its own full row ---------- */
+.doc-list-head:has(.doc-filter > :nth-child(4)) { flex-direction: column; align-items: stretch; gap: 12px; }
+.doc-list-head:has(.doc-filter > :nth-child(4)) .doc-filter { flex: 1 1 auto; justify-content: flex-start; flex-wrap: wrap; width: 100%; }
+.doc-list-head:has(.doc-filter > :nth-child(4)) .doc-filter .form-control { flex: 2 1 220px; max-width: none; width: auto; }
+.doc-list-head:has(.doc-filter > :nth-child(4)) .doc-filter .form-select { flex: 1 1 160px; max-width: 260px; width: auto; min-width: 0; }
+.doc-list-head:has(.doc-filter > :nth-child(4)) .doc-filter input[type="date"] { flex: 1 1 150px; max-width: 190px; }
+
+/* ---------- Stage strips and tile grids never leave a single orphan tile ---------- */
+.crm-stage-strip { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+.ins-queue { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+
+/* ---------- View switches (List view / Pipeline board) as a segmented control ---------- */
+.project-actions:has(> a[href*="view="]) { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px; margin-bottom: 14px;
+  border: 1px solid var(--o-line, #e1e6ee); border-radius: 12px; background: #fff; }
+.project-actions:has(> a[href*="view="]) > a.org-btn { min-height: 36px; height: 36px; padding: 0 14px; border: 0; background: transparent; box-shadow: none; font-size: 13px; }
+.project-actions:has(> a[href*="view="]) > a.org-btn[aria-current="page"] { background: var(--o-brand, #073777); color: #fff; }
+.project-actions:has(> a[href*="view="]) > span { padding: 0 10px; color: var(--o-ink-3, #6b778a); font-size: 12.5px; }
+
+/* ---------- Accounts sub-navigation: compact wrapping pills instead of a heavy tile grid ---------- */
+.acc-navigation { border: 0; background: transparent; margin-bottom: 18px; }
+.acc-navigation .acc-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; }
+.acc-tabs .org-tab { flex: 0 0 auto; min-height: 36px; padding: 7px 14px; border: 1px solid var(--o-line, #e1e6ee); border-radius: 999px; background: #fff; font-size: 13px; }
+.acc-tabs .org-tab.is-active { border-color: var(--o-brand, #073777); }
+
+/* ---------- Phones ---------- */
+@media (max-width: 767.98px) {
+  .crm-filters, .crm-filters.is-short, .project-page .crm-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
+  .crm-filters > .project-actions { grid-column: 1 / -1; }
+  .doc-list-head:has(.doc-filter > :nth-child(4)) .doc-filter > * { flex: 1 1 100%; max-width: none; }
+  .project-actions:has(> a[href*="view="]) { display: flex; }
+  .project-actions:has(> a[href*="view="]) > a.org-btn { flex: 1 1 0; justify-content: center; }
+  .acc-navigation { border: 1px solid var(--o-line, #e1e6ee); background: #fff; }
+}
+.acc-tabs .org-tab.is-active, .acc-tabs .org-tab[aria-current="page"] { background: var(--o-brand, #073777); border-color: var(--o-brand, #073777); color: #fff; }
+@media (max-width: 575.98px) {
+  .pipeline-forecast .table { table-layout: fixed; width: 100%; }
+  .pipeline-forecast .table th, .pipeline-forecast .table td { white-space: normal; overflow-wrap: anywhere; padding: 8px 6px; font-size: 12px; }
+}
