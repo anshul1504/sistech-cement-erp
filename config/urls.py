@@ -4,7 +4,7 @@ from django.urls import path, include
 from erp import views as v
 from erp import order_views as ov
 from erp import insight_views as iv
-from erp import pdf_views as pdv
+from erp import pdf_views as pdfv
 from erp import support_views as spv
 from erp import collect_views as cv
 from erp import return_views as rtv
@@ -26,8 +26,8 @@ urlpatterns = [
     path('dashboards/report-packs/', iv.report_packs, name='report_packs'),
     path('dashboards/<slug:area>/', iv.dashboard_area, name='insight_area'),
     path('my-work/', iv.my_work, name='my_work'),
-    path('pdf/report/<slug:kind>/', pdv.report_pdf, name='report_pdf'),
-    path('pdf/<slug:kind>/<int:pk>/', pdv.document_pdf, name='document_pdf'),
+    path('pdf/report/<slug:kind>/', pdfv.report_pdf, name='report_pdf'),
+    path('pdf/<slug:kind>/<int:pk>/', pdfv.document_pdf, name='document_pdf'),
     path('support/', spv.tickets, name='tickets'),
     path('support/new/', spv.ticket_new, name='ticket_new'),
     path('support/<int:pk>/', spv.ticket_detail, name='ticket_detail'),

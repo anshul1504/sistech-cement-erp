@@ -2,6 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}<link href="{% static 'erp/invoice.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page inv-page">
+  {% include 'erp/_pdf_bar.html' with kind='coa' pk=p.pk %}
   <div class="ord-workflow inv-noprint"><div><a href="{% url 'production_detail' p.pk %}">← {{ p.batch }}</a></div>
     <form method="get" class="ord-buttons"><input class="form-control" name="for" value="{{ customer }}" placeholder="Customer / project (optional)" style="max-width:260px"><button class="org-btn is-light" type="submit">Set</button><button class="org-btn is-primary" type="button" onclick="window.print()">Print</button></form></div>
   <article class="inv-sheet lg-slip">

@@ -55,3 +55,24 @@ class PdfTests(TestCase):
         rows = [[i, f'Item {i}', '1', '2'] for i in range(200)]
         data = pdf.render({'title': 'Test', 'sections': [{'headers': ['#', 'Item', 'A', 'B'], 'rows': rows, 'numeric': {2, 3}}]})
         self.assertGreater(data.count(b'/Type /Page\n') + data.count(b'/Type /Page>>') + data.count(b'/Type /Page '), 1)
+
+
+@override_settings(EMAIL_OTP_ENABLED=False)
+class SlipPdfTests(TestCase):
+    def test_weighment_gate_and_coa(self):
+        from .test_logistics import LogisticsTests
+        from . import logistics as L
+        from .models import Production, Product
+        t = LogisticsTests('test_full_trip_partial_supply_and_stock_once')
+        LogisticsTests.setUpTestData.__func__(LogisticsTests)
+        t.setUp()
+        dsp = t.run_to_weighed(qty=100)
+        self.client.force_login(LogisticsTests.admin)
+        r = self.client.get(reverse('document_pdf', args=['weighment-slip', dsp.pk]))
+        self.assertTrue(r.content.startswith(b'%PDF'))
+        self.assertEqual(self.client.get(reverse('document_pdf', args=['gate-pass', dsp.pk])).status_code, 403)   # before invoice
+        L.invoice(LogisticsTests.acct, dsp.pk)
+        self.assertTrue(self.client.get(reverse('document_pdf', args=['gate-pass', dsp.pk])).content.startswith(b'%PDF'))
+        p = Production.objects.create(site=LogisticsTests.site, product=LogisticsTests.cement, planned_quantity=10, actual_quantity=10, batch='B-PDF-1', shift='A',
+                                      status='Released', created_by=LogisticsTests.admin, released_at=timezone.now())
+        self.assertTrue(self.client.get(reverse('document_pdf', args=['coa', p.pk])).content.startswith(b'%PDF'))

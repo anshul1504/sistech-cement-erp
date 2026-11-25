@@ -363,3 +363,76 @@ def budget_vs_actual(user, params):
 DOCS = {'invoice': invoice, 'credit-note': credit_note, 'order': order, 'quotation': quotation, 'receipt': receipt, 'statement': statement, 'return': return_request,
         'grn': grn, 'debit-note': debit_note, 'payment': payment, 'journal': journal, 'commission': commission_run}
 REPORTS = {'trial-balance': trial_balance, 'profit-loss': profit_loss, 'balance-sheet': balance_sheet, 'outstanding': outstanding, 'budget-vs-actual': budget_vs_actual}
+
+
+# ---------- Gate, weighbridge and quality documents ----------
+
+def _weigh_rows(ws):
+    return [[w.get_kind_display(), f'{w.weight_kg:,} kg', w.get_source_display(), w.scale_id, timezone.localtime(w.captured_at).strftime('%d-%m-%Y %H:%M'),
+             (w.captured_by.get_full_name() or w.captured_by.username), 'Superseded' if w.superseded_by_id else 'Current', w.reason] for w in ws]
+
+
+def _dispatch(user, pk):
+    from .models import Dispatch
+    permitted(user, 'view_dispatch')
+    return get_object_or_404(scope(Dispatch.objects.select_related('order__partner', 'vehicle', 'driver', 'site', 'transporter'), user), pk=pk)
+
+
+def weighment_slip(user, pk):
+    dsp = _dispatch(user, pk)
+    if not dsp.gross:
+        raise PermissionDenied
+    lines = [[l.order_line.product.name, f'{q(l.quantity)} {l.order_line.product.unit}', l.batch.batch if l.batch_id else ''] for l in dsp.lines.select_related('order_line__product', 'batch')]
+    spec = {'title': 'Weighment slip', 'number': dsp.number, 'date': d(timezone.localtime(dsp.gross.captured_at).date()),
+            'meta': [('Vehicle', dsp.vehicle.registration), ('Driver', dsp.driver.name), ('Token', dsp.token), ('Plant', dsp.site.code), ('Scale', dsp.site.scale_id),
+                     ('Tare', f'{dsp.tare.weight_kg:,} kg' if dsp.tare else ''), ('Gross', f'{dsp.gross.weight_kg:,} kg'), ('Net', f'{dsp.net_kg:,} kg' if dsp.net_kg else ''),
+                     ('Expected', f'{dsp.expected_kg:,} kg' if dsp.expected_kg else ''), ('Variance', f'{dsp.variance_kg} kg' if dsp.variance_kg is not None else '')],
+            'parties': [('Customer', [dsp.order.partner.name, dsp.order.number]), ('Transporter', [dsp.transporter.name if dsp.transporter_id else 'Own / customer vehicle', dsp.lr_number and f'LR {dsp.lr_number}'])],
+            'sections': [{'title': 'Readings', 'headers': ['Reading', 'Weight', 'Source', 'Scale', 'Time', 'Operator', 'Status', 'Reweigh reason'], 'widths': [.09, .11, .1, .1, .15, .15, .1, .2],
+                          'numeric': {1}, 'rows': _weigh_rows(dsp.weighments.select_related('captured_by'))},
+                         {'title': 'Load', 'headers': ['Product', 'Loaded', 'Batch'], 'widths': [.5, .25, .25], 'numeric': {1}, 'rows': lines}],
+            'notes': [f'Weight exception: {dsp.exception}' if dsp.exception else ''], 'signatures': ['Driver', 'Weighbridge operator', 'Supervisor']}
+    return spec, f'weighment-{dsp.number.replace("/", "-")}.pdf'
+
+
+def gate_pass(user, pk):
+    dsp = _dispatch(user, pk)
+    inv = getattr(dsp, 'invoice', None)
+    if inv is None:
+        raise PermissionDenied
+    lines = [[l.order_line.product.name, f'{q(l.quantity)} {l.order_line.product.unit}', l.batch.batch if l.batch_id else ''] for l in dsp.lines.select_related('order_line__product', 'batch')]
+    spec = {'title': 'Gate pass', 'number': dsp.number, 'date': d(timezone.localdate()),
+            'meta': [('Vehicle', dsp.vehicle.registration), ('Driver', f'{dsp.driver.name} {dsp.driver.mobile}'), ('Invoice', inv.number), ('E-way bill', inv.eway_bill),
+                     ('Seal', dsp.seal_number), ('Net weight', f'{dsp.net_kg:,} kg' if dsp.net_kg else ''), ('LR / GR', dsp.lr_number), ('Plant', dsp.site.code)],
+            'parties': [('Consignee', [inv.buyer_name, inv.ship_to or inv.buyer_address])],
+            'sections': [{'headers': ['Product', 'Quantity', 'Batch'], 'widths': [.5, .25, .25], 'numeric': {1}, 'rows': lines}],
+            'notes': ['Vehicle allowed to leave only with this pass, the tax invoice and the e-way bill.'], 'signatures': ['Driver', 'Dispatch in-charge', 'Security']}
+    return spec, f'gatepass-{dsp.number.replace("/", "-")}.pdf'
+
+
+def grn_slip(user, pk):
+    return grn(user, pk)
+
+
+def coa(user, pk):
+    from .models import Production
+    from . import quality as QC
+    permitted(user, 'view_production')
+    p = get_object_or_404(scope(Production.objects.select_related('site', 'product', 'released_by'), user), pk=pk)
+    if p.status != 'Released':
+        raise PermissionDenied
+    org = _org()
+    ev = QC.evidence(p)
+    rows = [[r['spec'].parameter, r['spec'].method, r['spec'].unit, r['spec'].limit_text, q(r['result'].value) if r['result'] else '—',
+             ('Conforms' if r['result'].ok else 'Deviation') if r['result'] else f'Result at {r["spec"].age_days} days'] for r in ev['rows']]
+    lic = org.bis_cement_licence if p.product.category == 'Cement' else org.bis_tmt_licence if p.product.category == 'TMT' else ''
+    spec = {'title': 'Mill test certificate' if p.product.category == 'TMT' else 'Test certificate', 'number': p.batch, 'date': d(p.released_at.date() if p.released_at else None),
+            'meta': [('Product', p.product.name), ('Grade', p.product.grade or ''), ('Standard', p.product.standard or ''), ('Quantity', f'{q(p.actual_quantity)} {p.product.unit}'),
+                     ('Produced', d(p.completed_at.date() if p.completed_at else None)), ('Plant', p.site.name), ('BIS licence', lic)],
+            'sections': [{'headers': ['Parameter', 'Method', 'Unit', 'Requirement', 'Result', 'Remark'], 'widths': [.24, .16, .1, .18, .12, .2], 'numeric': {4}, 'rows': rows}],
+            'notes': [f'Released under deviation: {p.disposition_note}' if p.disposition == 'deviation' else 'The batch conforms to the requirements tested above.'],
+            'signatures': ['Chemist / analyst', 'Quality manager']}
+    return spec, f'coa-{p.batch}.pdf'
+
+
+DOCS.update({'weighment-slip': weighment_slip, 'gate-pass': gate_pass, 'grn-slip': grn_slip, 'coa': coa})
