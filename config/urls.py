@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/v1/auth/bridge/<str:key>/', apa.bridge, name='api_bridge'),
     path('api/v1/me/', apv.me, name='api_me'),
     path('api/v1/modules/', apv.modules, name='api_modules'),
+    path('api/v1/work/', apv.work, name='api_work'),
     path('api/v1/dealer/summary/', apv.dealer_summary, name='api_dealer_summary'),
     path('api/v1/dealer/invoices/', apv.dealer_invoices, name='api_dealer_invoices'),
     path('api/v1/dealer/ledger/', apv.dealer_ledger, name='api_dealer_ledger'),

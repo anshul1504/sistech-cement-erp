@@ -235,3 +235,11 @@ def sales_dealer_requests(request):
 def modules(request):
     from .context import modules_for
     return ok(modules=modules_for(request.user))
+
+
+@api()
+def work(request):
+    """Everything waiting for this user (same list as the web bell / My work); each item opens its web page."""
+    items = I.my_queue(request.user)
+    return ok(total=sum(i['count'] for i in items),
+              items=[{'label': i['label'], 'count': i['count'], 'hint': i['hint'], 'tone': i.get('tone', 'warn'), 'path': i['url']} for i in items])

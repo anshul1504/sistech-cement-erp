@@ -80,8 +80,8 @@ def launcher(request):
         return redirect('dealer_dashboard')
     from .context import navigation
     modules = navigation(request)['nav_modules']
-    common = {'tickets', 'profile', 'overview'}          # everyone has these; they don't make a module "theirs"
-    working = [m for m in modules if any(i['route'] not in common for sec in m['sections'] for i in sec['items'])]
+    from .context import COMMON_ROUTES                    # everyone has these; they don't make a module "theirs"
+    working = [m for m in modules if any(i['route'] not in COMMON_ROUTES for sec in m['sections'] for i in sec['items'])]
     if len(working) == 1:
         return redirect(working[0]['first'])
     queue = I.my_queue(u)

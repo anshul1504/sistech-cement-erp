@@ -92,6 +92,7 @@ class ApiTests(TestCase):
         t = self.token('api-rep')
         self.assertEqual(get(self.client, reverse('api_me'), t).json()['apps'], ['sales'])
         self.assertTrue(get(self.client, reverse('api_sales_summary'), t).json()['ok'])
+        self.assertIn('items', get(self.client, reverse('api_work'), t).json())
         found = get(self.client, reverse('api_sales_customers'), t, q=self.customer.name[:5]).json()['customers']
         self.assertEqual(found[0]['id'], self.customer.pk)
         self.assertTrue(get(self.client, reverse('api_sales_orders'), t).json()['ok'])

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sistech roof mark (gold + navy peaks) centred in the adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="24" android:translateY="38" android:scaleX="0.24" android:scaleY="0.24">
+        <path android:fillColor="#F4BD18" android:pathData="M0,90 L88,8 Q92,4 96,8 L186,90 H150 L92,38 L34,90 Z" />
+        <path android:fillColor="#082859" android:pathData="M117,20 L136,4 Q140,0 144,4 L240,82 L214,91 L140,30 L133,36 Z" />
+    </group>
+</vector>

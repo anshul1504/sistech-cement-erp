@@ -13,6 +13,7 @@ quantities are **strings** (exact decimals — parse as BigDecimal); dates are `
    after 30 days, when the password changes, or when the account is disabled/expired. Only a SHA-256 hash is stored.
 
 ## Common
+- `GET work/` → everything waiting for this user (same as the web bell), each with a web `path`.
 - `GET me/` → user, roles, `apps` (`dealer`, `sales`), linked dealer, `can` flags.
 
 ## Dealer app (login linked to a dealer account)
