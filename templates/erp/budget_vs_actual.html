@@ -1,0 +1,27 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Budget vs actual</h1><p>Budget for the months up to the selected date against posted entries. Variance is favourable (+) when income is above budget or expense below it.</p></div></div>
+  {% include 'erp/_acc_tabs.html' %}
+  <form method="get" class="ins-filter" style="margin-bottom:16px">
+    <select class="form-select" name="budget" aria-label="Budget">{% for x in budgets %}<option value="{{ x.pk }}"{% if budget.pk == x.pk %} selected{% endif %}>{{ x }} · {{ x.get_status_display }}</option>{% endfor %}</select>
+    <input class="form-control" type="date" name="upto" value="{{ upto|date:'Y-m-d' }}" aria-label="Up to">
+    <select class="form-select" name="cc" aria-label="Cost centre"><option value="">All cost centres</option>{% for c in centres %}<option value="{{ c.pk }}"{% if cc.pk == c.pk %} selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+    <select class="form-select" name="site" aria-label="Plant"><option value="">All plants</option>{% for s in sites %}<option value="{{ s.pk }}"{% if site.pk == s.pk %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select>
+    <button class="org-btn is-light is-sm">Show</button></form>
+  {% if not budget %}<section class="org-card ins-card"><p class="ins-empty">No approved budget yet. <a href="{% url 'budgets' %}">Create one</a>.</p></section>{% else %}
+  <div class="inf-kpis" role="list">
+    <div role="listitem" class="inf-kpi"><span>Income to date</span><strong>{{ data.summary.actual.income|inr_short }}</strong><small>budget {{ data.summary.budget.income|inr_short }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Expense to date</span><strong>{{ data.summary.actual.expense|inr_short }}</strong><small>budget {{ data.summary.budget.expense|inr_short }}</small></div>
+    <div role="listitem" class="inf-kpi{% if data.summary.actual.profit < data.summary.budget.profit %} is-warn{% else %} is-good{% endif %}"><span>Profit to date</span><strong>{{ data.summary.actual.profit|inr_short }}</strong><small>budget {{ data.summary.budget.profit|inr_short }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Full-year budget profit</span><strong>{{ data.summary.year.profit|inr_short }}</strong><small>{{ data.months|length }} of 12 months elapsed</small></div>
+  </div>
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>{{ budget }}{% if cc %} · {{ cc }}{% endif %}{% if site %} · {{ site.code }}{% endif %}</h2><small>to {{ upto|date:'d M Y' }}</small></div>
+    {% if data.groups %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Account</th><th class="n">Budget to date</th><th class="n">Actual</th><th class="n">Variance</th><th class="n is-optional">Used</th><th class="n is-optional">Full year</th></tr></thead><tbody>
+      {% for g in data.groups %}<tr><td colspan="6"><strong>{{ g.group }}</strong> <small class="acc-muted">{{ g.type|capfirst }}</small></td></tr>
+        {% for r in g.rows %}<tr><td><a href="{% url 'account_ledger' r.account.pk %}">{{ r.account.code }} · {{ r.account.name }}</a></td><td class="n">{{ r.budget|rupees }}</td><td class="n">{{ r.actual|rupees }}</td><td class="n"><span class="ins-pill{% if r.variance < 0 %} is-danger{% elif r.variance > 0 %} is-good{% endif %}">{{ r.variance|rupees }}</span></td><td class="n is-optional">{% if r.pct is not None %}{{ r.pct }}%{% else %}—{% endif %}</td><td class="n is-optional">{{ r.year|rupees }}</td></tr>{% endfor %}
+        <tr><td><em>Total {{ g.group }}</em></td><td class="n"><em>{{ g.budget|rupees }}</em></td><td class="n"><em>{{ g.actual|rupees }}</em></td><td class="n"><em>{{ g.variance|rupees }}</em></td><td class="is-optional"></td><td class="n is-optional"><em>{{ g.year|rupees }}</em></td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No budget or posted income/expense in this selection.</p>{% endif %}</section>{% endif %}
+</div>
+{% endblock %}

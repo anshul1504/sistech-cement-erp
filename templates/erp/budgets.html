@@ -1,0 +1,15 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Budgets</h1><p>One approved budget per financial year, by account, cost centre and month. Changes are made in a new version, approved by a different user; the earlier version is kept as superseded.</p></div></div>
+  {% include 'erp/_acc_tabs.html' %}
+  {% if can_add %}<section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>New budget version</h2></div>
+    <form method="post" class="ord-inline">{% csrf_token %}<select class="form-select" name="fy_start" aria-label="Financial year" style="max-width:200px">{% for y in years %}<option value="{{ y|date:'Y-m-d' }}"{% if forloop.counter == 2 %} selected{% endif %}>FY {{ y|date:'Y' }}-{{ y|date:'Y'|add:1|stringformat:'s'|slice:'2:' }}</option>{% endfor %}</select>
+      <input class="form-control" name="name" maxlength="80" value="Annual budget" aria-label="Name"><select class="form-select" name="copy_from" aria-label="Copy from"><option value="">Start empty</option>{% for b in rows %}{% if b.status == 'approved' or b.status == 'superseded' %}<option value="{{ b.pk }}">Copy {{ b }}</option>{% endif %}{% endfor %}</select><button class="org-btn is-primary">Create draft</button></form></section>{% endif %}
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>Versions</h2></div>
+    {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Budget</th><th>Name</th><th>Status</th><th class="is-optional">Prepared by</th><th class="is-optional">Decided by</th></tr></thead><tbody>
+      {% for b in rows %}<tr><td><a href="{% url 'budget_detail' b.pk %}">{{ b }}</a></td><td>{{ b.name }}</td><td><span class="ins-pill{% if b.status == 'approved' %} is-good{% elif b.status == 'submitted' %} is-warn{% elif b.status == 'rejected' %} is-danger{% endif %}">{{ b.get_status_display }}</span></td><td class="is-optional">{{ b.created_by|who }}</td><td class="is-optional">{{ b.decided_by|who|default:'—' }}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No budget yet. Create a draft for the financial year.</p>{% endif %}</section>
+</div>
+{% endblock %}

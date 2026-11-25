@@ -259,6 +259,14 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
 - **Fulfilment** per line: ordered, truck planned, dispatched, invoiced, delivered, balance; stage Draft → Approval pending →
   Approved → Dispatch planned / Part dispatched → Dispatched → Invoiced → Delivered (or Closed).
 
+## Cost centres & budgets (FR-FIN-001 / FR-FIN-015)
+- **Accounts & ledgers → Cost centres**: departments, plants or projects; journal-voucher lines can carry one (reversals keep it).
+- **Budgets**: one approved version per financial year, by income/expense account × cost centre × month; grid entry or CSV
+  import/export (account code, cost centre code, Apr … Mar). Draft → submitted → approved by a different user; a new
+  approved version supersedes the old one, which is kept.
+- **Budget vs actual**: budget for months to date against posted entries, by cost centre and plant, with favourable/adverse
+  variance and drill-down to the account ledger. Roles: Accountant prepares, Finance controller approves.
+
 ## Collections desk (FR-AR-007)
 - **Finance → Collections desk**: today's chase list — payment promises due or broken, follow-ups due, open disputes and
   overdue customers with no contact in 7 days. Log calls, visits, reminders, promises (amount + date) and disputes (reason).

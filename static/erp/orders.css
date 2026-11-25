@@ -306,7 +306,7 @@ a.ord-tr:hover { background: #fafbfd; }
 .coa-table .ord-tr > span:nth-child(2), .coa-table .ord-tr > span:nth-child(3) { text-align: left; }
 .coa-table, .tb-table, .led-gl { padding: 0 24px 12px; }
 .ord-tr.is-total { border-top: 2px solid #c7d2e3; }
-.jv-line { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); }
+.jv-line { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
 .fs-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .fs-group { padding: 8px 0; border-top: 1px solid #edf1f7; }
 .fs-head, .fs-row, .fs-total { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }

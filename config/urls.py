@@ -7,6 +7,7 @@ from erp import insight_views as iv
 from erp import support_views as spv
 from erp import collect_views as cv
 from erp import return_views as rtv
+from erp import budget_views as bdv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -224,6 +225,11 @@ from erp import accounts_views as acv
 urlpatterns += [
     path('accounts-ledger/', acv.journals, name='journals'),
     path('accounts-ledger/voucher/new/', acv.voucher_new, name='voucher_new'),
+    path('accounts-ledger/cost-centres/', bdv.cost_centres, name='cost_centres'),
+    path('accounts-ledger/budgets/', bdv.budgets, name='budgets'),
+    path('accounts-ledger/budgets/<int:pk>/', bdv.budget_detail, name='budget_detail'),
+    path('accounts-ledger/budgets/<int:pk>/<slug:action>/', bdv.budget_action, name='budget_action'),
+    path('accounts-ledger/budget-vs-actual/', bdv.budget_vs_actual, name='budget_vs_actual'),
     path('accounts-ledger/journal/<int:pk>/', acv.journal_detail, name='journal_detail'),
     path('accounts-ledger/journal/<int:pk>/<str:action>/', acv.journal_action, name='journal_action'),
     path('accounts-ledger/trial-balance/', acv.trial_balance, name='trial_balance'),

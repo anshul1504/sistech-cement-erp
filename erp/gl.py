@@ -154,20 +154,22 @@ def set_period(user, start, close, reason=''):
 # ---------- Posting ----------
 
 def _clean(lines):
-    """lines: [(account, debit, credit, partner, narration)] → merged, rounded, non-zero, one-sided lines."""
+    """lines: [(account, debit, credit, partner, narration[, cost_centre])] → merged, rounded, non-zero, one-sided lines."""
     merged = defaultdict(lambda: [ZERO, ZERO, ''])
-    for a, dr, cr, partner, narr in lines:
+    for line in lines:
+        a, dr, cr, partner, narr = line[:5]
+        cc = line[5] if len(line) > 5 else None
         if not all(Decimal(v or 0).is_finite() for v in (dr, cr)):
             raise ValidationError('Journal amounts must be finite numbers.')
-        k = (a.pk, partner.pk if partner else None)
+        k = (a.pk, partner.pk if partner else None, cc.pk if cc else None)
         merged[k][0] += Decimal(dr or 0)
         merged[k][1] += Decimal(cr or 0)
         merged[k][2] = merged[k][2] or (narr or '')
     out = []
-    for (aid, pid), (dr, cr, narr) in merged.items():
+    for (aid, pid, ccid), (dr, cr, narr) in merged.items():
         net = (dr - cr).quantize(CENT)
         if net:
-            out.append((aid, pid, net if net > 0 else ZERO, -net if net < 0 else ZERO, narr[:150]))
+            out.append((aid, pid, net if net > 0 else ZERO, -net if net < 0 else ZERO, narr[:150], ccid))
     return out
 
 
@@ -196,8 +198,8 @@ def post(user, source, on, site, narration, lines, kind='auto', status='posted',
     period_for(on)
     je = JournalEntry.objects.create(number=next_number('JV', site, on), date=on, site=site, source=source, kind=kind, status=status, narration=narration[:250],
                                      reversal_of=reversal_of, year_close=year_close, created_by=user, approved_by=user if kind in ('auto', 'yearend') else None)
-    for aid, pid, d, c, narr in clean:
-        JournalLine.objects.create(entry=je, account_id=aid, partner_id=pid, debit=d, credit=c, narration=narr)
+    for aid, pid, d, c, narr, ccid in clean:
+        JournalLine.objects.create(entry=je, account_id=aid, partner_id=pid, debit=d, credit=c, narration=narr, cost_centre_id=ccid)
     return je
 
 
@@ -218,7 +220,7 @@ def _reverse_entry(user, entry, on=None, reason=''):
         raise ValidationError('Only posted vouchers can be reversed.')
     if hasattr(entry, 'reversed_by'):
         raise ValidationError(f'{entry.number} has already been reversed by {entry.reversed_by.number}.')
-    lines = [(l.account, l.credit, l.debit, l.partner, l.narration) for l in entry.lines.select_related('account', 'partner')]
+    lines = [(l.account, l.credit, l.debit, l.partner, l.narration, l.cost_centre) for l in entry.lines.select_related('account', 'partner', 'cost_centre')]
     return post(user, f'rev:{entry.pk}', on or timezone.localdate(), entry.site, f'Reversal of {entry.number}' + (f' — {reason}' if reason else ''), lines,
                 kind=entry.kind, reversal_of=entry)
 
@@ -355,7 +357,11 @@ def create_voucher(user, on, site, narration, lines):
     problems = []
     if not (narration or '').strip():
         problems.append('Write the narration (why this entry is passed).')
-    for a, d, c, p, n in lines:
+    for line in lines:
+        a, d, c, p, n = line[:5]
+        cc = line[5] if len(line) > 5 else None
+        if cc is not None and not cc.active:
+            problems.append(f'Cost centre {cc} is inactive.')
         if not all(Decimal(v or 0).is_finite() for v in (d, c)):
             raise ValidationError('Amounts must be finite numbers.')
         if not a.active:

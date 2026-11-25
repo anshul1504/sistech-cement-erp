@@ -111,15 +111,17 @@ def voucher_new(request):
     accounts = list(Account.objects.filter(active=True, is_control=False).order_by('code'))
     partners = list(Partner.objects.filter(active=True).order_by('name'))
     P, errors = request.POST, []
-    rows = [{k: P.get(f'{k}_{i}', '') for k in ('account', 'partner', 'debit', 'credit', 'narr')} for i in range(10)]
+    from .models import CostCentre
+    centres = list(CostCentre.objects.filter(active=True).order_by('code'))
+    rows = [{k: P.get(f'{k}_{i}', '') for k in ('account', 'partner', 'cc', 'debit', 'credit', 'narr')} for i in range(10)]
     if request.method == 'POST':
-        amap, pmap = {str(a.pk): a for a in accounts}, {str(p.pk): p for p in partners}
+        amap, pmap, cmap = {str(a.pk): a for a in accounts}, {str(p.pk): p for p in partners}, {str(c.pk): c for c in centres}
         try:
             on = date.fromisoformat(P.get('date', ''))
             lines = []
             for r in rows:
                 if r['account'] in amap and (r['debit'] or r['credit']):
-                    lines.append((amap[r['account']], Decimal(r['debit'] or 0), Decimal(r['credit'] or 0), pmap.get(r['partner']), r['narr']))
+                    lines.append((amap[r['account']], Decimal(r['debit'] or 0), Decimal(r['credit'] or 0), pmap.get(r['partner']), r['narr'], cmap.get(r['cc'])))
             je = gl.create_voucher(request.user, on, Site.objects.filter(pk=P.get('site') or 0).first(), P.get('narration', ''), lines)
         except (ValueError, InvalidOperation):
             errors.append('Enter a valid date and amounts.')
@@ -128,7 +130,7 @@ def voucher_new(request):
         else:
             messages.success(request, f'{je.number} saved for approval. A different user approves it.')
             return redirect('journal_detail', pk=je.pk)
-    return render(request, 'erp/voucher_new.html', _ctx(request, title='Journal voucher', accounts=accounts, partners=partners, rows=rows, errors=errors, post=P,
+    return render(request, 'erp/voucher_new.html', _ctx(request, title='Journal voucher', accounts=accounts, partners=partners, centres=centres, rows=rows, errors=errors, post=P,
                                                         today=timezone.localdate().isoformat()))
 
 

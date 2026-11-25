@@ -2060,6 +2060,20 @@ class JournalEntry(models.Model):
         return sum((l.debit for l in self.lines.all()), Decimal('0'))
 
 
+class CostCentre(models.Model):
+    """Analysis dimension for income/expense (FR-FIN-001): department, plant or project. Optional on journal lines."""
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=10, choices=[('department', 'Department'), ('plant', 'Plant / depot'), ('project', 'Project / activity')], default='department')
+    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, related_name='cost_centres')
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['code']
+
+    def __str__(self): return f'{self.code} · {self.name}'
+
+
 class JournalLine(models.Model):
     entry = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name='lines')
     account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='lines')
@@ -2067,6 +2081,7 @@ class JournalLine(models.Model):
     debit = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     credit = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     narration = models.CharField(max_length=150, blank=True)
+    cost_centre = models.ForeignKey(CostCentre, null=True, blank=True, on_delete=models.PROTECT, related_name='lines')
 
     class Meta:
         ordering = ['pk']
@@ -3351,3 +3366,41 @@ class StockReservationEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         ordering=['created_at','pk']
+
+
+# ---------- Budgets (FR-FIN-015) ----------
+
+class Budget(models.Model):
+    """Financial-year budget, versioned. Draft → submitted → approved by a different user; approving a new version supersedes the old one."""
+    fy_start = models.DateField(help_text='1 April of the financial year.')
+    name = models.CharField(max_length=80, default='Annual budget')
+    version = models.PositiveSmallIntegerField(default=1, editable=False)
+    status = models.CharField(max_length=10, default='draft', choices=[('draft', 'Draft'), ('submitted', 'Waiting approval'), ('approved', 'Approved'),
+                                                                        ('superseded', 'Superseded'), ('rejected', 'Sent back')])
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-fy_start', '-version']
+        permissions = [('approve_budget', 'Approve budgets')]
+        constraints = [models.UniqueConstraint(fields=['fy_start', 'version'], name='unique_budget_version'),
+                       models.UniqueConstraint(fields=['fy_start'], condition=models.Q(status='approved'), name='one_approved_budget_per_fy')]
+
+    def __str__(self): return f'Budget FY {self.fy_start.year}-{str(self.fy_start.year + 1)[2:]} v{self.version}'
+
+
+class BudgetLine(models.Model):
+    budget = models.ForeignKey(Budget, on_delete=models.CASCADE, related_name='lines')
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='budget_lines')
+    cost_centre = models.ForeignKey(CostCentre, null=True, blank=True, on_delete=models.PROTECT, related_name='budget_lines')
+    month = models.DateField(help_text='First day of the month.')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, validators=MONEY)
+
+    class Meta:
+        ordering = ['account__code', 'month']
+        constraints = [models.UniqueConstraint(fields=['budget', 'account', 'cost_centre', 'month'], name='unique_budget_cell'),
+                       models.UniqueConstraint(fields=['budget', 'account', 'month'], condition=models.Q(cost_centre__isnull=True), name='unique_budget_cell_no_cc')]

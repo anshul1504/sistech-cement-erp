@@ -12,6 +12,9 @@
   {% if perms.erp.view_bankstatementline %}<a class="org-tab{% if tab == 'bank' %} is-active{% endif %}"{% if tab == 'bank' %} aria-current="page"{% endif %} href="{% url 'bank_rec' %}">Bank reconciliation</a>{% endif %}
   {% if perms.erp.view_financials %}<a class="org-tab{% if tab == 'gst' %} is-active{% endif %}"{% if tab == 'gst' %} aria-current="page"{% endif %} href="{% url 'gst_summary' %}">GST summary</a>{% endif %}
   {% if perms.erp.view_fixedasset %}<a class="org-tab{% if tab == 'assets' %} is-active{% endif %}"{% if tab == 'assets' %} aria-current="page"{% endif %} href="{% url 'fixed_assets' %}">Fixed assets</a>{% endif %}
+  {% if perms.erp.view_budget %}<a class="org-tab{% if tab == 'budget' %} is-active{% endif %}"{% if tab == 'budget' %} aria-current="page"{% endif %} href="{% url 'budgets' %}">Budgets</a>
+  <a class="org-tab{% if tab == 'bva' %} is-active{% endif %}"{% if tab == 'bva' %} aria-current="page"{% endif %} href="{% url 'budget_vs_actual' %}">Budget vs actual</a>{% endif %}
+  {% if perms.erp.view_costcentre %}<a class="org-tab{% if tab == 'cc' %} is-active{% endif %}"{% if tab == 'cc' %} aria-current="page"{% endif %} href="{% url 'cost_centres' %}">Cost centres</a>{% endif %}
   {% if perms.erp.view_financialyearclose %}<a class="org-tab{% if tab == 'year' %} is-active{% endif %}"{% if tab == 'year' %} aria-current="page"{% endif %} href="{% url 'year_closes' %}">Year-end close</a>{% endif %}
 </nav>
 </details>

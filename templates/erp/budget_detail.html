@@ -1,0 +1,24 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow"><a href="{% url 'budgets' %}">← Budgets</a></div><h1>{{ b }}</h1><p>{{ b.name }} · <span class="ins-pill{% if b.status == 'approved' %} is-good{% elif b.status == 'submitted' %} is-warn{% elif b.status == 'rejected' %} is-danger{% endif %}">{{ b.get_status_display }}</span>{% if b.decision_note %} · {{ b.decision_note }}{% endif %}</p></div>
+    <div class="doc-head-actions"><a class="org-btn is-light" href="?export=csv"><svg><use href="#ic-download"/></svg>Export CSV</a><a class="org-btn is-light" href="{% url 'budget_vs_actual' %}?budget={{ b.pk }}">Budget vs actual</a></div></div>
+  {% include 'erp/_acc_tabs.html' %}
+  <section class="org-card ins-card ins-block"><div class="sup-actions">
+    <form method="get" class="ord-inline"><select class="form-select" name="cc" aria-label="Cost centre" onchange="this.form.submit()"><option value="">Company (no cost centre)</option>{% for c in centres %}<option value="{{ c.pk }}"{% if cc.pk == c.pk %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></form>
+    {% if editable %}<form method="post" enctype="multipart/form-data" class="ord-inline">{% csrf_token %}<input class="form-control" type="file" name="file" accept=".csv" required aria-label="CSV file"><button class="org-btn is-light">Import CSV</button><small class="acc-muted">Columns: account code, cost centre code (blank = company), Apr … Mar</small></form>{% endif %}
+    {% if can_submit %}<form method="post" action="{% url 'budget_action' b.pk 'submit' %}">{% csrf_token %}<button class="org-btn is-primary">Submit for approval</button></form>{% endif %}
+    {% if can_decide %}<form method="post" action="{% url 'budget_action' b.pk 'approve' %}" class="ord-inline">{% csrf_token %}<input class="form-control" name="note" maxlength="200" placeholder="Note (required to send back)" aria-label="Note"><button class="org-btn is-primary">Approve</button><button class="org-btn is-light is-danger" formaction="{% url 'budget_action' b.pk 'reject' %}">Send back</button></form>{% endif %}
+  </div></section>
+  <form method="post">{% csrf_token %}{% if cc %}<input type="hidden" name="cc" value="{{ cc.pk }}">{% endif %}
+  <section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>{% if cc %}{{ cc }}{% else %}Company budget{% endif %}</h2><small>₹ before GST · income and expense accounts</small></div>
+    <ul class="bud-list">
+      {% for r in rows %}<li><div class="bud-head"><span><strong>{{ r.account.code }}</strong> {{ r.account.name }} <small class="acc-muted">{{ r.account.get_type_display }}</small></span><span class="bud-total">Year {{ r.total|indian }}</span></div>
+        <div class="bud-months">{% for i, v in r.cells %}<label><span>{% cycle 'Apr' 'May' 'Jun' 'Jul' 'Aug' 'Sep' 'Oct' 'Nov' 'Dec' 'Jan' 'Feb' 'Mar' %}</span>{% if editable %}<input class="form-control" inputmode="decimal" name="c_{{ r.account.pk }}_{{ i }}" value="{% if v %}{{ v|floatformat:'-2' }}{% endif %}" aria-label="{{ r.account.code }} month {{ i|add:1 }}">{% else %}<b>{% if v %}{{ v|indian }}{% else %}—{% endif %}</b>{% endif %}</label>{% endfor %}</div></li>{% endfor %}
+      <li class="bud-sum"><div class="bud-head"><span><strong>Total by month</strong></span></div><div class="bud-months">{% for t in totals %}<label><span>{% cycle 'Apr' 'May' 'Jun' 'Jul' 'Aug' 'Sep' 'Oct' 'Nov' 'Dec' 'Jan' 'Feb' 'Mar' %}</span><b>{{ t|indian }}</b></label>{% endfor %}</div></li>
+    </ul>
+    {% if editable %}<div style="margin-top:12px"><button class="org-btn is-primary">Save {% if cc %}{{ cc.code }}{% else %}company{% endif %} budget</button></div>{% endif %}</section></form>
+  {% if history %}<section class="org-card ins-card"><div class="ins-card-head"><h2>History</h2></div><ul class="mst-order-list">{% for e in history %}<li><span><strong>{{ e.action }}</strong><small>{{ e.detail }}</small></span><small>{{ e.actor|who }}</small><small>{{ e.created_at|date:'d M Y, H:i' }}</small></li>{% endfor %}</ul></section>{% endif %}
+</div>
+{% endblock %}

@@ -382,7 +382,7 @@ def approve_year_reopen(user, pk, approve, reason=''):
             raise ValidationError('Reopen later closed years first.')
         for entry in row.entries.filter(reversal_of__isnull=True, reversed_by__isnull=True).prefetch_related('lines__account'):
             gl.post(user, f'yearreopen:{entry.pk}', row.end, entry.site, f'Year reopened: {row.reopen_reason}'[:250],
-                    [(line.account, line.credit, line.debit, line.partner, line.narration) for line in entry.lines.all()],
+                    [(line.account, line.credit, line.debit, line.partner, line.narration, line.cost_centre) for line in entry.lines.all()],
                     kind='yearend', year_close=row, reversal_of=entry)
         row.status = 'reopened'
     else:

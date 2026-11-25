@@ -18,7 +18,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 | Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Full warehouse/bin/lot balances, allocations/reservations, versioned conversions and recall coverage |
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Demand/capacity/MRP, complete cost allocation, rework/write-off, sampling schedules, automated quarantine/recall |
 | Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records with independent retained corrections, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry, POD-bound pending approval and reviewed post-approval recovery/vendor credits | Hardware, GPS/ETA, mobile delivery proof, full failure/diversion/return states and advanced freight |
-| Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, budgets/dimensions, tax scope, combined/split matching, beneficiary approval, signed finance reconciliation |
+| Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, tax scope, combined/split matching, beneficiary approval, signed finance reconciliation |
 | Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, deposit/refund lifecycle, channel ingestion and all downstream corrections |
 | API / Android (§6) | Responsive web only | Versioned API, employee/dealer/driver apps, token/device controls, encrypted offline sync and conflicts |
 | Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | Scheduled PDF/Excel packs, saved filters, complete dimensional analytics |
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- Cost centres and budgets: cost-centre dimension on journal lines (kept on reversals and year reopening), versioned maker-checker FY budgets by account × cost centre × month with CSV import/export, budget vs actual by cost centre/plant. Migration 0056 adds tables and a nullable column only; local row counts unchanged.
 
 - Firm sales stock reservations: approval and truck planning allocate free stock per order line under the stock-row lock; issues consume the allocation, cancellations/short-close/revision release it, dispatch cancellation restores it; every reserve/consume/release/restore is an immutable event. Manual allocate/release on the order page needs dispatch authority and recent identity confirmation. `audit_reservations` reports legacy untracked lines without writing. Migration 0055 adds the tables only (row counts unchanged on the local database). Lot/bin-level reservation remains pending.
 

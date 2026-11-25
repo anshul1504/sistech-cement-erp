@@ -42,6 +42,8 @@ MODULES = [
     ('financials', 'Financial statements', {'view': 'view_financials', 'post': 'close_period'}),
     ('period_review', 'Month-end review', {'create': 'prepare_periodclose', 'approve': 'close_period'}),
     ('year_close', 'Year-end carry-forward', {'view': 'view_financialyearclose', 'create': 'prepare_yearclose', 'approve': 'approve_yearclose'}),
+    ('cost_centres', 'Cost centres', {'view': 'view_costcentre', 'create': 'add_costcentre', 'edit': 'change_costcentre'}),
+    ('budgets', 'Budgets', {'view': 'view_budget', 'create': 'add_budget', 'edit': 'change_budget', 'approve': 'approve_budget'}),
     ('chart', 'Chart of accounts', {'view': 'view_account', 'create': 'add_account'}),
     ('payments', 'Supplier payments', {'view': 'view_supplierpayment', 'create': 'add_supplierpayment', 'approve': 'approve_supplierpayment', 'post': 'release_supplierpayment'}),
     ('bank', 'Bank reconciliation', {'view': 'view_bankstatementline', 'create': 'add_bankstatementline', 'edit': 'change_bankstatementline'}),
@@ -136,6 +138,9 @@ PRESETS['Internal auditor'] |= {'view_team_projects','export_salesproject'}
 PRESETS['Management'] |= {'view_team_projects'}
 PRESETS['Support desk'] = {'handle_supportticket'}
 
+# Budgets & cost centres (FR-FIN-001/015): accountant prepares, finance controller approves.
+PRESETS['Accountant'] |= {'view_costcentre', 'add_costcentre', 'change_costcentre', 'view_budget', 'add_budget', 'change_budget'}
+PRESETS['Finance controller'] |= {'view_costcentre', 'view_budget', 'approve_budget'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():

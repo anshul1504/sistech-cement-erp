@@ -1,0 +1,20 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE</div><h1>Cost centres</h1><p>Departments, plants or projects used to analyse income and expense on journal vouchers and budgets. Codes used on posted entries cannot change; deactivate instead of deleting.</p></div></div>
+  {% include 'erp/_acc_tabs.html' %}
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if perms.erp.add_costcentre %}<section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>{% if edit %}Edit {{ edit.code }}{% else %}Add cost centre{% endif %}</h2>{% if edit %}<a href="{% url 'cost_centres' %}">Cancel edit</a>{% endif %}</div>
+    <form method="post" class="ord-inline">{% csrf_token %}{% if edit %}<input type="hidden" name="pk" value="{{ edit.pk }}">{% endif %}
+      <input class="form-control" name="code" required maxlength="20" placeholder="Code e.g. ADMIN" value="{{ form.code }}" aria-label="Code" style="max-width:150px">
+      <input class="form-control" name="name" required maxlength="100" placeholder="Name" value="{{ form.name }}" aria-label="Name">
+      <select class="form-select" name="kind" aria-label="Kind" style="max-width:170px">{% for k, l in kinds %}<option value="{{ k }}"{% if edit.kind == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <select class="form-select" name="site" aria-label="Plant" style="max-width:150px"><option value="">Any plant</option>{% for s in sites %}<option value="{{ s.pk }}"{% if edit.site_id == s.pk %} selected{% endif %}>{{ s.code }}</option>{% endfor %}</select>
+      <label class="ord-checkline"><input type="checkbox" name="active" value="1"{% if not edit or edit.active %} checked{% endif %}> Active</label><button class="org-btn is-primary">Save</button></form></section>{% endif %}
+  <section class="org-card ins-card"><div class="ins-card-head"><h2>{{ rows|length }} cost centre{{ rows|length|pluralize }}</h2></div>
+    {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Code</th><th>Name</th><th class="is-optional">Type</th><th class="is-optional">Plant</th><th>Status</th><th></th></tr></thead><tbody>
+      {% for c in rows %}<tr><td><strong>{{ c.code }}</strong></td><td>{{ c.name }}</td><td class="is-optional">{{ c.get_kind_display }}</td><td class="is-optional">{{ c.site.code|default:'—' }}</td><td>{% if c.active %}<span class="ins-pill is-good">Active</span>{% else %}<span class="ins-pill">Inactive</span>{% endif %}</td><td>{% if perms.erp.change_costcentre %}<a href="?edit={{ c.pk }}">Edit</a>{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ins-empty">No cost centres yet.</p>{% endif %}</section>
+</div>
+{% endblock %}
