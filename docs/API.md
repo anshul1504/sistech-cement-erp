@@ -29,3 +29,9 @@ quantities are **strings** (exact decimals — parse as BigDecimal); dates are `
 - `GET sales/customers/?q=` customers with credit limit, available and overdue.
 - `GET sales/orders/?mine=0|1` recent sales orders (plant-scoped).
 - `GET sales/dealer-requests/` dealer order requests waiting (for users who may create sales orders).
+
+## Full ERP inside the app
+- `GET modules/` modules (and their pages) this user may open — same rules as the web launcher.
+- `POST auth/web-session/` `{"next": "/m/finance/"}` → `{"url": "/api/v1/auth/bridge/…?next=…"}`. Open that URL in the app's
+  web view within 60 seconds: it signs the user into the web ERP once (single use) and redirects to `next` (same-site paths
+  only). Inside the app the web footer and web sign-out are hidden; the app signs out with `auth/logout/`.

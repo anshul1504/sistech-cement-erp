@@ -54,6 +54,9 @@ class ApiTests(TestCase):
         self.assertFalse(ApiToken.objects.filter(key_hash=t).exists())        # only the hash is stored
         me = get(self.client, reverse('api_me'), t).json()
         self.assertEqual(me['apps'], ['dealer'])
+        mods = [m['key'] for m in get(self.client, reverse('api_modules'), t).json()['modules']]
+        self.assertIn('dealer', mods)
+        self.assertNotIn('finance', mods)
         self.assertEqual(me['dealer']['code'], self.customer.code)
         self.assertEqual(self.client.get(reverse('api_me')).status_code, 401)  # no token
         post(self.client, reverse('api_logout'), {}, t)
@@ -106,3 +109,21 @@ class ApiOtpTests(TestCase):
         self.assertEqual(post(self.client, reverse('api_verify'), {'code': '000000' if code != '000000' else '111111'}).status_code, 401)
         ok = post(self.client, reverse('api_verify'), {'code': code})
         self.assertTrue(ok.json()['token'].startswith('sst_'))
+
+
+@override_settings(EMAIL_OTP_ENABLED=True, EMAIL_OTP_SKIP_FOR_USERNAME=False)
+class ApiWebBridgeTests(TestCase):
+    def test_one_time_link_opens_full_erp(self):
+        from accounts.api_auth import issue_token
+        u = User.objects.create_superuser('bridge-user', 'bridge@sistech-qa.in', PASS)
+        token = issue_token(u, 'QA')
+        r = post(self.client, reverse('api_web_session'), {'next': '/m/finance/'}, token)
+        url = r.json()['url']
+        web = self.client.get(url)
+        self.assertRedirects(web, '/m/finance/', fetch_redirect_response=False)
+        self.assertEqual(self.client.get('/').status_code, 200)          # signed in, OTP middleware satisfied
+        other = self.client_class()
+        self.assertRedirects(other.get(url), reverse('login'), fetch_redirect_response=False)   # single use
+        evil = post(self.client, reverse('api_web_session'), {'next': 'https://evil.example/'}, token).json()['url']
+        self.assertTrue(evil.endswith('next=/'))
+        self.assertEqual(self.client_class().post(reverse('api_web_session'), '{}', content_type='application/json').status_code, 401)

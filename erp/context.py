@@ -342,3 +342,14 @@ def navigation(request):
 
     context.update(nav_groups=groups, nav_current=current, nav_modules=modules, nav_module=module, quick_create=quick_create, quick_create_label=quick_create_label, user_role_label=role_label)
     return context
+
+
+def modules_for(user):
+    """Modules this user may open, for the mobile app's 'Full ERP' grid (same rules as the web launcher)."""
+    out = []
+    for m in MODULES:
+        pages = [i for _, items in m['sections'] for i in items if _can_see(user, i)]
+        if pages:
+            out.append({'key': m['key'], 'label': m['label'], 'icon': m['icon'], 'blurb': m['blurb'], 'path': reverse('module_home', args=[m['key']]),
+                        'pages': [{'label': i['label'], 'path': reverse(i['route'], args=i.get('args') or [])} for i in pages]})
+    return out

@@ -144,3 +144,49 @@ def logout(request):
     ApiToken.objects.filter(pk=request.api_token.pk).update(revoked_at=timezone.now())
     AuditEvent.objects.create(actor=request.user, action='App signed out', reference=f'user:{request.user.pk}')
     return JsonResponse({'ok': True})
+
+
+# ---------- Full ERP inside the app: token → one-time web session ----------
+
+def _safe_next(url):
+    from django.utils.http import url_has_allowed_host_and_scheme
+    url = url or '/'
+    return url if url.startswith('/') and not url.startswith('//') and url_has_allowed_host_and_scheme(url, allowed_hosts=None) else '/'
+
+
+@api(methods=('POST',))
+def web_session(request):
+    """Returns a one-time URL (valid 60 s) that signs this user into the web ERP in the app's browser view."""
+    from .models import ApiWebTicket
+    raw = secrets.token_urlsafe(32)
+    ApiWebTicket.objects.create(user=request.user, token=request.api_token, key_hash=_hash(raw), expires_at=timezone.now() + timedelta(seconds=60))
+    from django.urls import reverse
+    from urllib.parse import quote
+    return JsonResponse({'ok': True, 'url': reverse('api_bridge', args=[raw]) + '?next=' + quote(_safe_next(body(request).get('next')))})
+
+
+def bridge(request, key):
+    from django.contrib.auth import login as web_login
+    from django.db import transaction
+    from django.shortcuts import redirect
+    from .models import ApiWebTicket
+    now = timezone.now()
+    with transaction.atomic():
+        t = ApiWebTicket.objects.select_for_update().select_related('user', 'token').filter(key_hash=_hash(key)).first()
+        valid = (t is not None and not t.used_at and t.expires_at > now and not t.token.revoked_at and t.token.expires_at > now
+                 and access_allowed(t.user) and t.token.credential_hash == fingerprint(t.user.password, 'password'))
+        if t is not None and not t.used_at:
+            t.used_at = now
+            t.save(update_fields=['used_at'])
+    if not valid:
+        return redirect('login')
+    user = t.user
+    web_login(request, user, backend='accounts.backends.EmailOrUsernameBackend')
+    # The app already passed password (+ email code when it applied); mark the session the way the web sign-in does.
+    request.session['email_otp_verified_user'] = str(user.pk)
+    request.session['email_otp_verified_email'] = user.email.strip().casefold()
+    request.session['password_login_user'] = str(user.pk)
+    request.session['in_app'] = True
+    request.session.set_expiry(8 * 60 * 60)
+    AuditEvent.objects.create(actor=user, action='App opened full ERP', reference=f'user:{user.pk}')
+    return redirect(_safe_next(request.GET.get('next')))

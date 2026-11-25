@@ -18,7 +18,7 @@
 <link href="{% static 'erp/polish.css' %}?v={{ asset_version }}" rel="stylesheet">
 {% if org_icon_url %}<link rel="icon" href="{{ org_icon_url }}">{% else %}<link rel="icon" type="image/svg+xml" href="{% static 'brand/favicon.svg' %}">{% endif %}
 </head>
-<body class="{% if user.is_authenticated %}app-body{% endif %}">
+<body class="{% if user.is_authenticated %}app-body{% endif %}{% if request.session.in_app %} is-in-app{% endif %}">
 {% if user.is_authenticated %}
 <a class="app-skip" href="#main-content">Skip to content</a>
 <svg class="app-icons" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

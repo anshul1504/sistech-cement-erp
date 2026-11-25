@@ -229,3 +229,9 @@ def sales_dealer_requests(request):
     from . import dealer_orders as DO
     qs = DO.queue().filter(status='submitted').prefetch_related('lines__product')[:50]
     return ok(requests=[dict(_request_json(r), dealer=r.partner.name) for r in qs])
+
+
+@api()
+def modules(request):
+    from .context import modules_for
+    return ok(modules=modules_for(request.user))

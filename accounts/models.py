@@ -187,3 +187,12 @@ class ApiToken(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class ApiWebTicket(models.Model):
+    """One-time, 60-second link that turns a valid app token into a web session inside the app (full ERP screens)."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+    token = models.ForeignKey(ApiToken, on_delete=models.CASCADE, related_name='web_tickets')
+    key_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
