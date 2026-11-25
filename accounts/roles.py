@@ -44,6 +44,7 @@ MODULES = [
     ('year_close', 'Year-end carry-forward', {'view': 'view_financialyearclose', 'create': 'prepare_yearclose', 'approve': 'approve_yearclose'}),
     ('commission', 'Sales commission', {'view': 'view_commissionplan', 'create': 'add_commissionplan', 'edit': 'change_commissionplan', 'approve': 'approve_commissionplan'}),
     ('commission_runs', 'Commission runs', {'view': 'view_commissionrun', 'create': 'add_commissionrun', 'approve': 'approve_commissionrun'}),
+    ('deposits', 'Dealer security deposits', {'view': 'view_depositentry', 'create': 'add_depositentry', 'approve': 'approve_depositentry'}),
     ('cost_centres', 'Cost centres', {'view': 'view_costcentre', 'create': 'add_costcentre', 'edit': 'change_costcentre'}),
     ('budgets', 'Budgets', {'view': 'view_budget', 'create': 'add_budget', 'edit': 'change_budget', 'approve': 'approve_budget'}),
     ('chart', 'Chart of accounts', {'view': 'view_account', 'create': 'add_account'}),
@@ -147,6 +148,8 @@ PRESETS['Finance controller'] |= {'view_costcentre', 'view_budget', 'approve_bud
 PRESETS['Sales manager'] |= {'view_commissionplan', 'add_commissionplan', 'change_commissionplan'}
 PRESETS['Accountant'] |= {'view_commissionplan', 'view_commissionrun', 'add_commissionrun'}
 PRESETS['Finance controller'] |= {'view_commissionplan', 'view_commissionrun', 'approve_commissionplan', 'approve_commissionrun'}
+PRESETS['Accountant'] |= {'view_depositentry', 'add_depositentry'}
+PRESETS['Finance controller'] |= {'view_depositentry', 'approve_depositentry'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():

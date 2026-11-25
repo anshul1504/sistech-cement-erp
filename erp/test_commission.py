@@ -77,8 +77,9 @@ class CommissionTests(TestCase):
         self.client.force_login(self.checker)
         for url in [reverse('commission_plans'), reverse('commission_plan_new'), reverse('commission_plan', args=[coll.pk]), reverse('commission_run', args=[run.pk])]:
             self.assertEqual(self.client.get(url).status_code, 200, url)
-        self.client.post(reverse('commission_run_action', args=[run.pk, 'approve']))
-        self.assertEqual(CommissionRun.objects.get(pk=run.pk).status, 'approved')
+        r = self.client.post(reverse('commission_run_action', args=[run.pk, 'approve']))
+        self.assertEqual(CommissionRun.objects.get(pk=run.pk).status, 'draft')      # sensitive: needs recent identity confirmation
+        C.decide_run(self.checker, run.pk, True)
         self.client.force_login(self.rep)
         r = self.client.get(reverse('my_commission'))
         self.assertContains(r, 'Collected')

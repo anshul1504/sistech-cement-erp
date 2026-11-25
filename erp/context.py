@@ -69,6 +69,7 @@ NAV_GROUPS = [
         _item('credit_notes', 'Credit notes', 'receipt', 'view_creditnote', match=('credit_note_detail', 'credit_note_new')),
         _item('outstanding', 'Outstanding & ageing', 'chart', 'view_receipt', match=('partner_ledger',)),
         _item('collections', 'Collections desk', 'phone', 'view_receipt'),
+        _item('deposits', 'Security deposits', 'book', 'view_depositentry'),
         _item('supplier_invoices', 'Supplier invoices', 'purchase', 'view_supplierinvoice', match=('sinv_new', 'sinv_detail')),
         _item('debit_notes', 'Debit notes', 'receipt', 'view_debitnote', match=('dn_new', 'dn_detail')),
         _item('journals', 'Accounts & ledgers', 'book', 'view_journalentry',
@@ -99,7 +100,7 @@ NAV_GROUPS = [
 
 
 def _can_see(user, item):
-    if item['route'] in ('journals', 'payments', 'receipts', 'outstanding', 'collections') and not user.has_perm('erp.access_company_finance'):
+    if item['route'] in ('journals', 'payments', 'receipts', 'outstanding', 'collections', 'deposits') and not user.has_perm('erp.access_company_finance'):
         return False
     if item['soon']:
         return True

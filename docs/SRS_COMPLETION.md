@@ -19,7 +19,7 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Demand/capacity/MRP, complete cost allocation, rework/write-off, sampling schedules, automated quarantine/recall |
 | Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records with independent retained corrections, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry, POD-bound pending approval and reviewed post-approval recovery/vendor credits | Hardware, GPS/ETA, mobile delivery proof, full failure/diversion/return states and advanced freight |
 | Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, tax scope, combined/split matching, beneficiary approval, signed finance reconciliation |
-| Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, deposit/refund lifecycle, channel ingestion and all downstream corrections |
+| Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, customer advance refunds, channel ingestion and all downstream corrections |
 | API / Android (§6) | Responsive web only | Versioned API, employee/dealer/driver apps, token/device controls, encrypted offline sync and conflicts |
 | Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | PDF packs, saved filters, complete dimensional analytics |
 | Integrations (§12) | Email implementation and selected web sharing | GSP/IRP/EWB, bank/gateway, WhatsApp/SMS/push, bridge/GPS/scanners/PLC/LIMS, legacy connectors |
@@ -37,6 +37,8 @@ Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked impl
 8. Keep the active goal open until required implementation and acceptance are genuinely complete.
 
 ## Latest verified milestones
+
+- Dealer security deposits: separate ledger and control account, posted receipts, capped and overdue-guarded refunds with independent reauthenticated approval, subledger reconciliation. Commission run approval also requires recent identity confirmation. Migration 0059 adds a table only. Deposit adjustment against invoices at dealer exit remains a manual journal + receipt process.
 
 - Scheduled Excel report packs (management / sales / credit / stock & dispatch) rebuilt per subscriber with current permissions and plant scope, scope/period/generation header on every sheet, download audit, `send_report_packs` command. Also fixed the sales dashboard buyer count being overwritten by the top-customer list. Migration 0058 adds a table only.
 

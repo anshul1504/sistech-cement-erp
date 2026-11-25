@@ -771,7 +771,7 @@ class InfluencerActivity(models.Model):
 
 # ---------- Number series & price list (Step 2a) ----------
 
-DOC_SERIES = [('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
+DOC_SERIES = [('DEP', 'Security deposit'), ('COM', 'Commission run'), ('PRJ', 'Sales project'), ('BEAT', 'Daily beat plan'), ('RMA', 'Customer return'), ('HLP', 'Support ticket'), ('CMP', 'Complaint'), ('QT', 'Quotation'), ('SCH', 'Scheme payout'), ('PAY', 'Supplier payment'), ('JV', 'Journal'), ('PCK', 'Packing run'), ('TRF', 'Stock transfer'), ('DMG', 'Damage report'), ('CNT', 'Stock count'), ('SO', 'Sales order'), ('PO', 'Purchase order'), ('INV', 'Tax invoice'), ('RCT', 'Receipt'), ('CN', 'Credit note'),
               ('PR', 'Purchase request'), ('RFQ', 'Request for quotation'), ('GRN', 'Goods receipt'), ('DN', 'Debit note'), ('SINV', 'Supplier invoice')]
 
 
@@ -3488,3 +3488,28 @@ class ReportSubscription(models.Model):
         constraints = [models.UniqueConstraint(fields=['user', 'pack'], name='one_subscription_per_pack')]
 
     def __str__(self): return f'{self.user} · {self.get_pack_display()} · {self.get_frequency_display()}'
+
+
+# ---------- Dealer security deposits (FR-AR-008) ----------
+
+class DepositEntry(models.Model):
+    """Separate ledger for refundable dealer security deposits (not mixed with trade receivables or advances).
+    A receipt posts when recorded (money is in the bank); a refund is proposed, approved by a different user and then posted."""
+    number = models.CharField(max_length=20, unique=True, editable=False)
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, related_name='deposit_entries')
+    kind = models.CharField(max_length=7, choices=[('receipt', 'Deposit received'), ('refund', 'Deposit refunded')])
+    date = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, validators=POSITIVE)
+    bank = models.ForeignKey('Account', on_delete=models.PROTECT, related_name='+', limit_choices_to={'is_bank': True})
+    reference = models.CharField('UTR / cheque no.', max_length=40)
+    note = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=9, default='posted', choices=[('proposed', 'Waiting approval'), ('posted', 'Posted'), ('rejected', 'Rejected')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+
+    class Meta:
+        ordering = ['-date', '-pk']
+        permissions = [('approve_depositentry', 'Approve dealer deposit refunds')]
+
+    def __str__(self): return self.number

@@ -1,0 +1,31 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_insight_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page ins-page">
+  <div class="org-head"><div><div class="eyebrow">FINANCE · CREDIT</div><h1>Security deposits</h1><p>Refundable deposits from dealers, kept in their own ledger — never adjusted silently against invoices. Receipts post when recorded; refunds need a reason and approval by a different user.</p></div></div>
+  <div class="inf-kpis is-three" role="list"><div role="listitem" class="inf-kpi"><span>Deposits held</span><strong>{{ total|inr_short }}</strong><small>{{ holders|length }} dealer{{ holders|length|pluralize }}</small></div>
+    <div role="listitem" class="inf-kpi"><span>{% if partner %}{{ partner.name }}{% else %}Choose a dealer{% endif %}</span><strong>{% if partner %}{{ partner_held|rupees }}{% else %}—{% endif %}</strong><small>{% if partner %}agreed ₹{{ partner.security_deposit|indian }}{% else %}to see their deposit{% endif %}</small></div>
+    <div role="listitem" class="inf-kpi"><span>Entries shown</span><strong>{{ rows|length }}</strong><small>latest first</small></div></div>
+  {% if errors %}<ul class="ord-checks">{% for e in errors %}<li class="is-danger">{{ e }}</li>{% endfor %}</ul>{% endif %}
+  {% if can_add %}<section class="org-card ins-card ins-block"><div class="ins-card-head"><h2>Record</h2></div>
+    <form method="post" class="org-grid">{% csrf_token %}
+      <div class="org-field"><label class="form-label" for="d-p">Dealer</label><select id="d-p" class="form-select" name="partner" required><option value="">Choose</option>{% for c in customers %}<option value="{{ c.pk }}"{% if partner.pk == c.pk %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="d-k">Entry</label><select id="d-k" class="form-select" name="kind"><option value="receipt">Deposit received</option><option value="refund"{% if post.kind == 'refund' %} selected{% endif %}>Refund (needs approval)</option></select></div>
+      <div class="org-field"><label class="form-label" for="d-a">Amount (₹)</label><input id="d-a" class="form-control" type="number" step="0.01" min="0" name="amount" required value="{{ post.amount }}"></div>
+      <div class="org-field"><label class="form-label" for="d-b">Bank</label><select id="d-b" class="form-select" name="bank">{% for b in banks %}<option value="{{ b.pk }}">{{ b.code }} · {{ b.name }}</option>{% endfor %}</select></div>
+      <div class="org-field"><label class="form-label" for="d-r">UTR / cheque no.</label><input id="d-r" class="form-control" name="reference" required maxlength="40" value="{{ post.reference }}"></div>
+      <div class="org-field"><label class="form-label" for="d-d">Date</label><input id="d-d" class="form-control" type="date" name="date" value="{{ post.date|default:today }}"></div>
+      <div class="org-field is-wide"><label class="form-label" for="d-n">Note / refund reason</label><input id="d-n" class="form-control" name="note" maxlength="200" value="{{ post.note }}" placeholder="e.g. Dealership closed, all invoices settled"></div>
+      <div class="org-field is-wide"><div><button class="org-btn is-primary" type="submit">Save</button></div></div>
+    </form></section>{% endif %}
+  <div class="ins-grid">
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>{% if partner %}{{ partner.name }} — entries{% else %}Recent entries{% endif %}</h2>{% if partner %}<a href="?">All dealers</a>{% endif %}</div>
+      {% if rows %}<div class="ins-scroll"><table class="ins-table"><thead><tr><th>Entry</th><th>Dealer</th><th class="n">Amount</th><th>Status</th></tr></thead><tbody>
+        {% for e in rows %}<tr><td>{{ e.number }}<br><small class="acc-muted">{{ e.date|date:'d M Y' }} · {{ e.get_kind_display }} · {{ e.reference }}</small></td><td><a href="?partner={{ e.partner_id }}">{{ e.partner.name }}</a>{% if e.note %}<br><small class="acc-muted">{{ e.note }}</small>{% endif %}</td><td class="n">{% if e.kind == 'refund' %}−{% endif %}{{ e.amount|rupees }}</td>
+          <td>{% if e.status == 'proposed' %}{% if can_approve and e.created_by_id != user.pk %}<form method="post" action="{% url 'deposit_decide' e.pk 'approve' %}" class="ord-inline">{% csrf_token %}<button class="org-btn is-primary is-sm">Approve</button><button class="org-btn is-light is-sm is-danger" formaction="{% url 'deposit_decide' e.pk 'reject' %}">Reject</button></form>{% else %}<span class="ins-pill is-warn">Waiting approval</span>{% endif %}{% elif e.status == 'posted' %}<span class="ins-pill is-good">Posted</span>{% else %}<span class="ins-pill is-danger">Rejected</span>{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<p class="ins-empty">No deposit entries yet.</p>{% endif %}</section>
+    <section class="org-card ins-card"><div class="ins-card-head"><h2>Deposits held</h2></div>
+      {% if holders %}<dl class="ins-facts">{% for h in holders %}<dt><a href="?partner={{ h.partner.pk }}">{{ h.partner.name }}</a></dt><dd>{{ h.held|rupees }}</dd>{% endfor %}<dt class="is-total">Total</dt><dd class="is-total">{{ total|rupees }}</dd></dl>{% else %}<p class="ins-empty">No deposits held.</p>{% endif %}</section>
+  </div>
+</div>
+{% endblock %}

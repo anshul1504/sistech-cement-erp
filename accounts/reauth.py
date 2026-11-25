@@ -115,6 +115,8 @@ def sensitive(request, match):
         'period_action': {'reopen'},
         'year_action': {'approve', 'request_reopen', 'approve_reopen'},
         'order_action': {'approve','allocate','release_stock'},
+        'deposit_decide': {'approve'},
+        'commission_run_action': {'approve'},
         'quotation_action': {'approve'},
         'count_action': {'approve'},
         'transfer_action': {'resolve'},

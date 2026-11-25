@@ -9,6 +9,7 @@ from erp import collect_views as cv
 from erp import return_views as rtv
 from erp import budget_views as bdv
 from erp import commission_views as cmv
+from erp import deposit_views as dpv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
@@ -121,6 +122,8 @@ urlpatterns += [
     path('invoices/<int:pk>/credit-note/', fv.credit_note_new, name='credit_note_new'),
     path('outstanding/', fv.outstanding, name='outstanding'),
     path('collections/', cv.collections, name='collections'),
+    path('deposits/', dpv.deposits, name='deposits'),
+    path('deposits/<int:pk>/<slug:action>/', dpv.deposit_decide, name='deposit_decide'),
     path('commission/', cmv.plans, name='commission_plans'),
     path('commission/new/', cmv.plan_form, name='commission_plan_new'),
     path('commission/mine/', cmv.my_commission, name='my_commission'),

@@ -283,6 +283,12 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   **broken** when the date passes. Promises due and follow-ups due appear in the owner's My work bell; the credit dashboard
   shows promises kept %, due/broken and open disputes.
 
+## Dealer security deposits (FR-AR-008)
+- **Finance → Security deposits**: refundable deposits in their own ledger (GL control account 2340, never netted into trade
+  receivables). Receipts post on entry (Dr Bank / Cr Dealer security deposits); refunds need a reason, cannot exceed the
+  deposit held, are blocked while the dealer has overdue invoices unless the reason records the settlement, and are approved
+  by a different user with recent identity confirmation. The trial-balance subledger check includes deposits.
+
 ## Help & support tickets
 - Any user raises a ticket from **Help & support** in the sidebar or *Get help / report a problem* in the account menu (the
   screen they were on is attached). Priority sets the target time: urgent 4 h, high 1 day, normal 3 days, low 5 days.

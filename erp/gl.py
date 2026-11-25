@@ -63,6 +63,7 @@ CHART = [
     ('2310', 'Scheme incentives payable', 'liability', 'Other current liabilities', 'scheme_payable', True, False),
     ('2320', 'Sales commission payable', 'liability', 'Other current liabilities', 'commission_payable', False, False),
     ('2330', 'TDS payable', 'liability', 'Duties and taxes', 'tds_payable', False, False),
+    ('2340', 'Dealer security deposits', 'liability', 'Other current liabilities', 'security_deposits', True, False),
     ('3100', 'Share capital', 'equity', 'Equity share capital', 'capital', False, False),
     ('3200', 'Opening balance equity', 'equity', 'Other equity', 'opening_equity', False, False),
     ('3300', 'Retained earnings', 'equity', 'Other equity', 'retained', False, False),
@@ -494,4 +495,8 @@ def subledger_check(as_of=None):
     freight_billed -= FreightRecoveryAdjustment.objects.filter(status='approved').aggregate(t=Sum('amount'))['t'] or ZERO
     freight_paid = PaymentAllocation.objects.filter(freight_bill__isnull=False, payment__status='paid').aggregate(t=Sum('amount'))['t'] or ZERO
     out.append(('Transporter payables', (freight['c'] or ZERO) - (freight['d'] or ZERO), freight_billed - freight_paid))
+    from .deposits import held
+    dep = _posted().filter(account__system_key='security_deposits').aggregate(d=Sum('debit'), c=Sum('credit'))
+    if dep['d'] or dep['c']:
+        out.append(('Dealer security deposits', (dep['c'] or ZERO) - (dep['d'] or ZERO), held()))
     return [{'name': n, 'gl': g, 'sub': s, 'diff': g - s} for n, g, s in out]
