@@ -92,6 +92,34 @@ class LogisticsTests(TestCase):
         self.assertEqual(self.order.status, 'Completed')
         self.assertEqual(Invoice.objects.filter(order=self.order).count(), 2)
 
+    def test_trip_exceptions_diversion_and_refusal(self):
+        from erp import incidents as X
+        from erp.models import DispatchIncident, ReturnRequest
+        d = self.run_to_weighed(qty=100)
+        with self.assertRaisesMessage(ValidationError, 'in transit'):
+            X.report(self.planner, d.pk, 'delay', 'Late start')
+        L.invoice(self.acct, d.pk); L.gate_out(self.gate, d.pk)
+        b = X.report(self.pod, d.pk, 'breakdown', 'Clutch failure', 'Rewa bypass')
+        with self.assertRaisesMessage(ValidationError, 'how it was resolved'):
+            X.resolve(self.pod, b.pk, '')
+        X.resolve(self.pod, b.pk, 'Repaired, moving')
+        with self.assertRaisesMessage(ValidationError, 'new delivery address'):
+            X.report(self.pod, d.pk, 'diversion', 'Dealer asks other godown')
+        div = X.report(self.pod, d.pk, 'diversion', 'Dealer asks other godown', new_ship_to='Godown 2, Satna')
+        with self.assertRaisesMessage(ValidationError, 'already waiting'):
+            X.report(self.pod, d.pk, 'refused', 'x')
+        X.decide(self.admin, div.pk, True, 'EWB Part-B updated')
+        ref = X.report(self.pod, d.pk, 'refused', 'Dealer refused: wrong grade ordered')
+        with self.assertRaises(PermissionDenied):
+            X.decide(self.pod, ref.pk, True)
+        X.decide(self.admin, ref.pk, True)
+        d.refresh_from_db(); ref.refresh_from_db()
+        self.assertEqual(d.status, 'returned')
+        rma = ReturnRequest.objects.get(pk=ref.return_request_id)
+        self.assertEqual((rma.status, rma.lines.get().quantity), ('requested', 100))
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('dispatch_detail', args=[d.pk])), rma.number)
+
     def test_documents_checklist_and_segregation(self):
         Vehicle.objects.filter(pk=self.truck.pk).update(puc_valid_until=timezone.localdate() - timedelta(days=1))
         with self.assertRaisesMessage(ValidationError, 'PUC expired'):

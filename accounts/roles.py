@@ -72,6 +72,7 @@ MODULES = [
     ('weighbridge', 'Weighbridge readings', {'post': 'weigh_dispatch', 'approve': 'approve_weight_exception'}),
     ('loading', 'Truck loading', {'post': 'load_dispatch'}),
     ('pod', 'Proof of delivery', {'post': 'pod_dispatch', 'approve': 'approve_pod_correction'}),
+    ('trip_exceptions', 'Diversions & refused loads', {'approve': 'decide_dispatchincident'}),
     ('freight_rates', 'Freight rates', {'view': 'view_freightrate', 'create': 'add_freightrate', 'edit': 'change_freightrate'}),
     ('freight_bills', 'Freight bills', {'view': 'view_freightbill', 'create': 'add_freightbill', 'approve': 'approve_freightbill'}),
     ('pricing', 'Price list', {'view': 'view_pricerule', 'create': 'add_pricerule', 'edit': 'change_pricerule'}),
@@ -150,6 +151,7 @@ PRESETS['Accountant'] |= {'view_commissionplan', 'view_commissionrun', 'add_comm
 PRESETS['Finance controller'] |= {'view_commissionplan', 'view_commissionrun', 'approve_commissionplan', 'approve_commissionrun'}
 PRESETS['Accountant'] |= {'view_depositentry', 'add_depositentry'}
 PRESETS['Finance controller'] |= {'view_depositentry', 'approve_depositentry'}
+PRESETS['Logistics manager'] |= {'decide_dispatchincident', 'add_returnrequest', 'view_returnrequest'}
 
 def initialize_roles(update=False):
     for name, codes in PRESETS.items():

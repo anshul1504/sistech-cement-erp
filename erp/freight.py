@@ -50,7 +50,7 @@ def review_state(bill,ignore_recovery=False):
         recovery=shortage_value(trip)
         extra=allowed_extra(trip,line.detention_days,line.extra)
         if trip.pod_corrections.filter(status='requested').exists():issues.append(f'{trip.number}: a POD correction is pending independent review.')
-        if trip.transporter_id!=bill.transporter_id or trip.freight_payable_by!='company' or trip.status not in ['gate_out','delivered']:
+        if trip.transporter_id!=bill.transporter_id or trip.freight_payable_by!='company' or trip.status not in ['gate_out','delivered','returned']:
             issues.append(f'{trip.number}: this trip is no longer billable on this claim.')
         if trip.freight_amount!=line.contracted:issues.append(f'{trip.number}: contracted freight changed after entry.')
         if recovery!=line.shortage_recovery and not ignore_recovery:
@@ -124,7 +124,7 @@ def snapshot(dispatch):
 
 
 def billable_trips(transporter):
-    return Dispatch.objects.filter(transporter=transporter, status__in=['gate_out', 'delivered'], freight_payable_by='company', freight_line__isnull=True) \
+    return Dispatch.objects.filter(transporter=transporter, status__in=['gate_out', 'delivered', 'returned'], freight_payable_by='company', freight_line__isnull=True) \
         .select_related('order__partner', 'vehicle', 'freight_rate', 'invoice').order_by('gate_out_at')
 
 
@@ -186,7 +186,7 @@ def create_bill(user, transporter, bill_number, bill_date, rows, advance=0, note
         dispatch=locked.get(supplied.pk)
         if dispatch is None:raise ValidationError('A selected trip no longer exists.')
         require_site(user,dispatch.site)
-        if dispatch.transporter_id!=transporter.pk or dispatch.status not in ['gate_out','delivered'] or dispatch.freight_payable_by!='company' or dispatch.pk in billed:
+        if dispatch.transporter_id!=transporter.pk or dispatch.status not in ['gate_out','delivered','returned'] or dispatch.freight_payable_by!='company' or dispatch.pk in billed:
             raise ValidationError(f'{dispatch.number} is not billable for {transporter.name}.')
         if dispatch.freight_amount is None:
             raise ValidationError(f'{dispatch.number}: no freight rate for {dispatch.site.code} → {destination_of(dispatch) or "district not set"}. Add the lane rate first.')

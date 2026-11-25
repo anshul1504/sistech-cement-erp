@@ -289,6 +289,13 @@ SISTECH cement and TMT are made by manufacturing partners (sistech.co.in): Abhir
   deposit held, are blocked while the dealer has overdue invoices unless the reason records the settlement, and are approved
   by a different user with recent identity confirmation. The trial-balance subledger check includes deposits.
 
+## Trip exceptions (FR-LOG-015)
+- On a truck in transit (dispatch page → Trip exceptions): report a **breakdown** or **delay** (resolved with a note), a
+  **diversion** (new delivery point, approved by a different user; update the e-way bill Part-B with your GSP) or a
+  **refused load**. Approving a refusal opens a customer return (RMA) for the trip quantity and marks the trip *Returned to
+  origin*; stock and receivable are corrected only through the RMA inspection and credit note. Returned trips remain
+  eligible for freight bills.
+
 ## Help & support tickets
 - Any user raises a ticket from **Help & support** in the sidebar or *Get help / report a problem* in the account menu (the
   screen they were on is attached). Priority sets the target time: urgent 4 h, high 1 day, normal 3 days, low 5 days.

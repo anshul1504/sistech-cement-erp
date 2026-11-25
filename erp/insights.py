@@ -614,6 +614,10 @@ def my_queue(user, sites=None):
         from .pod import can_decide as can_review_pod
         ids=[item.pk for item in PODCorrection.objects.filter(dispatch__site__in=sites,status='requested').select_related('dispatch__site') if can_review_pod(user,item)]
         add('POD corrections to review',PODCorrection.objects.filter(pk__in=ids),reverse('dispatch_board'),'Independent delivery evidence review')
+    if has('decide_dispatchincident'):
+        from .models import DispatchIncident
+        add('Diversions / refused loads to decide', DispatchIncident.objects.filter(status='open', kind__in=['diversion', 'refused'], dispatch__site__in=sites).exclude(reported_by=user),
+            reverse('dispatch_board'), 'Trucks on the road', 'danger')
     if has('pod_dispatch'):
         add('Deliveries awaiting POD', Dispatch.objects.filter(site__in=sites, status='gate_out'), reverse('dispatch_board'), 'Trucks out of the gate')
     if fin and has('view_freightbill'):

@@ -1085,7 +1085,7 @@ class Driver(models.Model):
 
 
 DISPATCH_STATUSES = [('planned', 'Planned'), ('gate_in', 'At gate · tare due'), ('tared', 'Tared · waiting to load'), ('loading', 'Loading'),
-                     ('loaded', 'Loaded · gross due'), ('weighed', 'Weighed'), ('gate_out', 'In transit'), ('delivered', 'Delivered'), ('cancelled', 'Cancelled')]
+                     ('loaded', 'Loaded · gross due'), ('weighed', 'Weighed'), ('gate_out', 'In transit'), ('delivered', 'Delivered'), ('returned', 'Returned to origin'), ('cancelled', 'Cancelled')]
 
 
 class Dispatch(models.Model):
@@ -3513,3 +3513,32 @@ class DepositEntry(models.Model):
         permissions = [('approve_depositentry', 'Approve dealer deposit refunds')]
 
     def __str__(self): return self.number
+
+
+# ---------- Trip exceptions in transit (FR-LOG-015) ----------
+
+INCIDENT_KINDS = [('breakdown', 'Breakdown / accident'), ('delay', 'Delay'), ('diversion', 'Diversion to another delivery point'),
+                  ('refused', 'Refused by customer — return to origin')]
+
+
+class DispatchIncident(models.Model):
+    """Exception reported while a truck is on the road. Breakdown/delay are logged and resolved; a diversion and a refused load
+    need a decision by a different user. An approved refusal opens a customer return (RMA) for the trip and marks it returned."""
+    dispatch = models.ForeignKey(Dispatch, on_delete=models.PROTECT, related_name='incidents')
+    kind = models.CharField(max_length=9, choices=INCIDENT_KINDS)
+    note = models.CharField(max_length=300)
+    location = models.CharField(max_length=120, blank=True)
+    new_ship_to = models.CharField('New delivery address', max_length=300, blank=True)
+    status = models.CharField(max_length=9, default='open', choices=[('open', 'Open'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('resolved', 'Resolved')])
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    reported_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=200, blank=True)
+    return_request = models.OneToOneField('ReturnRequest', null=True, blank=True, on_delete=models.PROTECT, related_name='incident')
+
+    class Meta:
+        ordering = ['-reported_at']
+        permissions = [('decide_dispatchincident', 'Approve diversions and refused-load returns')]
+
+    def __str__(self): return f'{self.dispatch} · {self.get_kind_display()}'

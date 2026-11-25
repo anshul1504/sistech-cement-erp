@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 
 from . import logistics as L
 from .forms import normalise_mobile
-from .models import (Vehicle, Driver, Dispatch, Order, Partner, Site, AuditEvent, Organization, VEHICLE_TYPES, DISPATCH_STATUSES, INDIAN_STATES)
+from .models import (Vehicle, Driver, Dispatch, Order, Partner, Site, AuditEvent, Organization, VEHICLE_TYPES, DISPATCH_STATUSES, INDIAN_STATES, INCIDENT_KINDS)
 from .services import permitted, scope
 
 
@@ -235,7 +235,10 @@ def dispatch_detail(request, pk):
         'can': {'gate': u.has_perm('erp.gate_dispatch'), 'weigh': u.has_perm('erp.weigh_dispatch'), 'load': u.has_perm('erp.load_dispatch'),
                 'approve': L.can_approve_exception(u,d), 'invoice': u.has_perm('erp.post_invoice'), 'pod': u.has_perm('erp.pod_dispatch'),
                 'cancel': u.has_perm('erp.add_dispatch') or u.has_perm('erp.gate_dispatch')},
-        'history': AuditEvent.objects.filter(reference=d.number).select_related('actor').order_by('-created_at')[:12]})
+        'history': AuditEvent.objects.filter(reference=d.number).select_related('actor').order_by('-created_at')[:12],
+        'incidents': d.incidents.select_related('reported_by', 'decided_by', 'return_request'), 'incident_kinds': INCIDENT_KINDS,
+        'can_incident': d.status == 'gate_out' and (u.has_perm('erp.pod_dispatch') or u.has_perm('erp.add_dispatch')),
+        'can_decide_incident': u.has_perm('erp.decide_dispatchincident')})
 
 
 POD_TYPES = {b'%PDF': 'application/pdf', b'\x89PNG': 'image/png', b'\xff\xd8\xff': 'image/jpeg', b'RIFF': 'image/webp'}
@@ -275,6 +278,18 @@ def dispatch_action(request, pk, action):
             msg = 'Delivery recorded.'
         elif action == 'cancel':
             L.cancel(u, pk, P.get('reason', '')); msg = 'Dispatch cancelled.'
+        elif action == 'incident':
+            from . import incidents as X
+            x = X.report(u, pk, P.get('kind', ''), P.get('note', ''), P.get('location', ''), P.get('new_ship_to', ''))
+            msg = f'{x.get_kind_display()} recorded.' + (' A different user must decide.' if x.kind in ('diversion', 'refused') else '')
+        elif action in ('incident_resolve', 'incident_approve', 'incident_reject'):
+            from . import incidents as X
+            x = d.incidents.get(pk=int(P.get('incident') or 0))
+            if action == 'incident_resolve':
+                X.resolve(u, x.pk, P.get('note', '')); msg = 'Marked resolved.'
+            else:
+                x = X.decide(u, x.pk, action == 'incident_approve', P.get('note', ''))
+                msg = f'Return {x.return_request.number} opened; trip marked returned to origin.' if x.return_request_id else 'Decision recorded.'
         else:
             raise Http404
         messages.success(request, msg)

@@ -62,7 +62,7 @@ def freight_rates(request):
     today = timezone.localdate()
     if request.GET.get('state', 'current') == 'current':
         qs = qs.filter(active=True).filter(Q(valid_to__isnull=True) | Q(valid_to__gte=today))
-    unpriced = sorted({F.destination_of(d) or '—' for d in Dispatch.objects.filter(status__in=['gate_out', 'delivered'], freight_payable_by='company', freight_amount__isnull=True)
+    unpriced = sorted({F.destination_of(d) or '—' for d in Dispatch.objects.filter(status__in=['gate_out', 'delivered', 'returned'], freight_payable_by='company', freight_amount__isnull=True)
                        .select_related('order__partner')})
     return render(request, 'erp/freight_rates.html', {'title': 'Freight rates', 'rates': qs[:300], 'q': q, 'state': request.GET.get('state', 'current'), 'unpriced': unpriced,
                                                       'can_edit': request.user.has_perm('erp.change_freightrate'), 'can_add': request.user.has_perm('erp.add_freightrate'), 'today': today})
@@ -106,7 +106,7 @@ def freight_bills(request):
     qs = base
     status = request.GET.get('status', '')
     if status in ('submitted', 'approved', 'rejected'): qs = qs.filter(status=status)
-    pending = Dispatch.objects.filter(status__in=['gate_out', 'delivered'], freight_payable_by='company', freight_line__isnull=True, transporter__isnull=False)
+    pending = Dispatch.objects.filter(status__in=['gate_out', 'delivered', 'returned'], freight_payable_by='company', freight_line__isnull=True, transporter__isnull=False)
     pending = scope(pending, request.user)
     by_transporter = pending.values('transporter', 'transporter__name').annotate(n=Count('id'), amount=Sum('freight_amount')).order_by('transporter__name')
     return render(request, 'erp/freight_bills.html', {'title': 'Freight bills', 'bills': qs[:200], 'status': status, 'unbilled': by_transporter,
