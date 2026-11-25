@@ -1,5 +1,5 @@
 {% extends 'erp/base.html' %}{% load erp_format %}
-{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% load static %}<link href="{% static 'erp/network.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page">
   <div class="org-head adm-crumb"><div class="eyebrow"><a href="{% url 'partners' %}?group={% if partner.is_customer %}customers{% else %}vendors{% endif %}">← Dealers &amp; suppliers</a></div></div>
@@ -74,7 +74,48 @@
     </section>
     {% endif %}
 
-    <section class="org-card org-view acc-wide">
+    {% if channel %}
+    <section class="org-card org-view net-card{% if channel.below or channel.sales %} acc-wide{% endif %}" id="network">
+      <header class="acc-card-head"><h2>Channel network</h2>{% if channel.direct_total %}<a href="{% url 'partners' %}?upline={{ partner.pk }}&amp;status=active">All {{ channel.direct_total }} directly under</a>{% endif %}</header>
+      <div class="net-card-body">
+        <div>
+          <p class="net-label">Upline</p>
+          <ol class="net-chain">
+            <li>Sistech</li>{% for p in channel.chain reversed %}<li><a href="{% url 'partner_detail' p.pk %}">{{ p.name }}</a><small>{{ p.get_kind_display }}</small></li>{% endfor %}<li class="is-self">{{ partner.name }}<small>{{ partner.get_kind_display }}</small></li>
+          </ol>
+          {% if not channel.allowed %}<p class="acc-muted">A {{ partner.get_kind_display }} works directly with the company.</p>
+          {% elif channel.choices %}
+          <form class="net-upline-form" method="post" action="{% url 'partner_upline' partner.pk %}" data-confirm="Change who {{ partner.name }} sits under? Network reports follow the new upline from now.">{% csrf_token %}
+            <label class="form-label" for="net-parent">{% if partner.parent %}Move under{% else %}Set upline{% endif %}</label>
+            <div class="net-upline-row">
+              <select class="form-select" id="net-parent" name="parent"><option value="">Directly with the company</option>{% regroup channel.choices by get_kind_display as groups %}{% for g in groups %}<optgroup label="{{ g.grouper }}">{% for c in g.list %}<option value="{{ c.pk }}"{% if c.pk == partner.parent_id %} selected{% endif %}>{{ c.name }}{% if c.city %} · {{ c.city }}{% endif %}</option>{% endfor %}</optgroup>{% endfor %}</select>
+              <input class="form-control" name="note" maxlength="120" placeholder="Reason (optional)" aria-label="Reason">
+              <button class="org-btn is-light" type="submit">Save</button>
+            </div>
+          </form>
+          {% elif channel.allowed and can_change %}<p class="acc-muted">No active {{ channel.allowed|join:' / ' }} to choose yet.</p>{% endif %}
+        </div>
+        <div>
+          <p class="net-label">Below {{ partner.name|truncatechars:24 }}</p>
+          {% if channel.below or channel.masons %}
+          <div class="net-chips">{% for label, n in channel.counts %}<span class="org-chip">{{ n|indian }} {{ label }}</span>{% endfor %}{% if channel.masons %}<span class="org-chip">{{ channel.masons|indian }} masons / contractors</span>{% endif %}</div>
+          {% if channel.direct %}<ul class="mst-stock-list net-direct">{% for d in channel.direct %}<li><span><strong><a href="{% url 'partner_detail' d.pk %}">{{ d.name }}</a></strong><small>{{ d.get_kind_display }}{% if d.city %} · {{ d.city }}{% endif %}</small></span></li>{% endfor %}</ul>{% endif %}
+          {% else %}<div class="acc-empty-mini"><strong>Nobody below yet</strong><span>Set this partner as the upline on a {% if partner.kind == 'CF' %}promoter, agent or dealer{% elif partner.is_customer %}retailer{% else %}dealer{% endif %} page.</span></div>{% endif %}
+        </div>
+        {% if channel.sales %}
+        <div class="net-sales">
+          <p class="net-label">Net sales since {{ channel.sales.since|date:'d M' }} <small>excl. GST</small></p>
+          <dl>
+            {% if partner.is_customer %}<div><dt>Own purchases</dt><dd>{{ channel.sales.own.value|inr_short }}<small>{{ channel.sales.own.mt|mt }}</small></dd></div>{% endif %}
+            <div><dt>Network below</dt><dd>{{ channel.sales.network.value|inr_short }}<small>{{ channel.sales.network.mt|mt }}</small></dd></div>
+            <div><dt>Total</dt><dd>{{ channel.sales.total_value|inr_short }}<small>{{ channel.sales.total_mt|mt }}</small></dd></div>
+          </dl>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+    <section class="org-card org-view acc-wide net-full">
       <header class="acc-card-head"><h2>Recent orders</h2>{% if can_orders %}<a href="{% if partner.is_customer %}{% url 'sales' %}{% else %}{% url 'purchases' %}{% endif %}?q={{ partner.name|urlencode }}">All orders</a>{% endif %}</header>
       {% if not can_orders %}<p class="acc-muted">You don't have permission to see {% if partner.is_customer %}sales{% else %}purchase{% endif %} orders.</p>
       {% elif orders %}<ul class="mst-order-list">{% for o in orders %}<li><a href="{% url 'order_detail' o.pk %}"><strong>{{ o.number }}</strong><small>{{ o.created_at|date:'d M Y' }} · {{ o.site.code }} · due {{ o.due_date|date:'d M' }}</small></a><span class="mst-qty">₹{{ o.total|indian:2 }}</span><span class="doc-badge{% if o.status == 'Completed' %} is-ok{% elif o.status == 'Cancelled' %} is-danger{% elif o.status == 'Submitted' %} is-warning{% endif %}">{{ o.status }}</span></li>{% endfor %}</ul>

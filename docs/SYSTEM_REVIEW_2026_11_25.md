@@ -59,7 +59,7 @@ Priority P0 = production/access acceptance; P1 = next operational milestone; P2 
 | Identity and access | Password + email OTP (including admin), roles/sites, expiry, reauthentication, delegated/routed approvals, work handoff, dealer link controls | Cross-module permission inventory, explicit external-portal role policy, production SMTP delivery/expiry/security acceptance, deployed cleanup scheduling | P0 |
 | Production deployment | Local Django/SQLite server; production-oriented HTTPS settings exist | PostgreSQL configuration/migration and race/load tests; real host/TLS/static serving; monitoring; tested backup/restore and retention; deployment automation | P0 |
 | Business readiness | Audited workflows and fictional-data regressions | Real opening-data mapping/import, reconciliation, role-policy sign-off, finance/plant UAT, training and cutover acceptance | P0 |
-| Company / masters | Company identity, GST fields, sites, product grades, local assets/fonts, People groups | Multiple legal entities/GST hierarchy, parent C&F → agent → dealer → retailer relationships, versioned alternate units and deeper dimensions | P1 |
+| Company / masters | Company identity, GST fields, sites, product grades, local assets/fonts, People groups, audited C&F → agent → dealer → retailer → mason upline network with tree and network sales | Multiple legal entities/GST hierarchy, versioned alternate units and deeper dimensions | P1 |
 | CRM / sales pipeline | Leads/onboarding, territories, beats, projects, stage evidence, read-only boards, follow-up health and forecast | Master/contact deduplication, recurring/optimized visits, product/phase schedules, configurable forecasts and fuller collaboration | P1 |
 | Dealer / retailer portal | Linked dealer dashboard/invoice register/ledger PDF+CSV | Dealer-originated order requests with price/credit checks, own document downloads, disputes and acknowledgements; retailer-specific account policy and secondary sales | P1 |
 | C&F and agents | Distinct master classifications, contact/tax/bank/KYC fields | Company-approved contracts, handling/commission basis, beneficiaries and independent accrual/payout/reversal workflow; classification alone is not an implemented agent accounting engine | P1 |
@@ -116,7 +116,7 @@ must come from the company/environment and cannot be fabricated by code.
 ## Execution order
 
 1. Finish this access + People + sales visibility milestone and retain test/browser evidence.
-2. Complete channel hierarchy and company-approved C&F/agent commercial workflows, then dealer order
+2. ✅ Channel hierarchy (upline network) done 25 Nov. Next: company-approved C&F/agent commercial workflows, then dealer order
    requests and secondary sales, with independent reviews and reconciliation tests.
 3. Finish lot/bin operational controls and own-plant capacity/MRP in separate verified milestones.
 4. Harden PostgreSQL/hosting/restore/monitoring and conduct load/race/UAT checks before rollout.

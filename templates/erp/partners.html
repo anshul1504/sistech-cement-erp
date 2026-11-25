@@ -3,7 +3,7 @@
 {% block content %}
 <div class="org-page acc-page adm-page mst-page">
   <div class="org-head">
-    <div><div class="eyebrow"><a href="{% url 'people' %}">PEOPLE</a> · MASTERS</div><h1>{{ list_title }}</h1><p>Customers who buy cement and TMT, and the suppliers and transporters you buy from — with GST, credit and KYC.</p></div>
+    <div><div class="eyebrow"><a href="{% url 'people' %}">PEOPLE</a> · {% if upline_obj %}<a href="{% url 'partner_detail' upline_obj.pk %}">{{ upline_obj.get_kind_display|upper }}</a>{% else %}MASTERS{% endif %}</div><h1>{{ list_title }}</h1><p>Customers who buy cement and TMT, and the suppliers and transporters you buy from — with GST, credit and KYC.</p></div>
     {% if people_group == 'Dealer' or people_group == 'Retailer' %}{% if perms.erp.add_crmlead %}<a class="org-btn is-primary" href="{% url 'crm_lead_new' %}">Start customer onboarding</a>{% endif %}{% elif can_add %}<a class="org-btn is-primary" href="{% url 'partners_new' %}{% if people_group %}?kind={{ people_group }}{% endif %}"><svg><use href="#ic-plus"/></svg>Add partner</a>{% endif %}
   </div>
   <nav class="org-tabs mst-cat-tabs" aria-label="Partner groups">
@@ -15,6 +15,7 @@
       <form method="get" class="doc-filter">
         {% if people_group %}<input type="hidden" name="people_group" value="{{ people_group }}">{% endif %}
         {% if filters.group %}<input type="hidden" name="group" value="{{ filters.group }}">{% endif %}
+        {% if upline %}<input type="hidden" name="upline" value="{{ upline }}">{% endif %}
         <input class="form-control" type="search" name="q" value="{{ filters.q }}" placeholder="Search name, code, city, GSTIN, phone…" aria-label="Search partners">
         <select class="form-select" name="kind" aria-label="Type" onchange="this.form.submit()"><option value="">All types</option>{% for code, label in kinds %}<option value="{{ code }}"{% if filters.kind == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
         <select class="form-select" name="status" aria-label="Status" onchange="this.form.submit()"><option value="active"{% if filters.status == 'active' %} selected{% endif %}>Active</option><option value="inactive"{% if filters.status == 'inactive' %} selected{% endif %}>Inactive</option><option value="all"{% if filters.status == 'all' %} selected{% endif %}>All statuses</option></select>
@@ -27,7 +28,7 @@
       <li class="{% if not p.active %}is-inactive{% endif %}">
         <a class="mst-main" href="{% url 'partner_detail' p.pk %}">
           <span class="mst-icon is-{{ p.kind|slugify }}">{{ p.name|first|upper }}</span>
-          <span><strong>{{ p.name }}</strong><small>{{ p.code }}{% if p.city %} · {{ p.city }}{% endif %}{% if p.territory %} · {{ p.territory }}{% endif %}</small></span>
+          <span><strong>{{ p.name }}</strong><small>{{ p.code }}{% if p.city %} · {{ p.city }}{% endif %}{% if p.territory %} · {{ p.territory }}{% endif %}{% if p.parent %} · under {{ p.parent.name }}{% endif %}</small></span>
         </a>
         <div class="mst-cell"><span class="org-chip mst-cat is-{{ p.kind|slugify }}">{{ p.get_kind_display }}</span></div>
         <div class="mst-cell mst-tax"><small>GSTIN</small>{% if p.gstin %}{{ p.gstin }}{% else %}<span class="mst-missing">not set</span>{% endif %}</div>

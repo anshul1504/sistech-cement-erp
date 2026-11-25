@@ -1,0 +1,7 @@
+{% load erp_format %}<li class="net-node is-{{ n.kind|slugify }}">{% if n.children %}<details{% if open %} open{% endif %}><summary>{% endif %}
+  {% if not n.children %}<div class="net-leaf">{% endif %}<span class="net-dot"></span>
+  <a class="net-name" href="{% url 'partner_detail' n.pk %}"><strong>{{ n.name }}</strong><small>{{ n.label }} · {{ n.code }}{% if n.city %} · {{ n.city }}{% endif %}</small></a>
+  <span class="net-counts">{% if n.dealers %}<span>{{ n.dealers|indian }} dealer{{ n.dealers|pluralize }}</span>{% endif %}{% if n.total_retailers %}<span>{{ n.total_retailers|indian }} retailer{{ n.total_retailers|pluralize }}</span>{% endif %}{% if n.masons %}<span>{{ n.masons|indian }} mason{{ n.masons|pluralize }}</span>{% endif %}</span>
+  {% if not n.children %}</div>{% endif %}
+  {% if n.children %}</summary><ul>{% for c in n.children %}{% include 'erp/_network_node.html' with n=c %}{% endfor %}</ul></details>{% endif %}
+</li>

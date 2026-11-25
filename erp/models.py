@@ -182,6 +182,9 @@ class Partner(models.Model):
                                                 help_text='Makes SISTECH-brand cement or TMT under a supply agreement (supplier type only).')
     notes = models.TextField(blank=True)
     approved_application = models.ForeignKey('DealerApplication', null=True, blank=True, on_delete=models.PROTECT, related_name='+', editable=False)
+    # Channel network (erp.network): C&F → sales promoter / handling agent → dealer / distributor → retailer. Changed only through
+    # network.set_parent so the level rules and the audit trail always apply.
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT, related_name='downline', editable=False, verbose_name='Upline')
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self): return self.name

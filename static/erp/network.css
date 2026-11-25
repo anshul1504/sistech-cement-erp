@@ -1,0 +1,67 @@
+/* Channel network: People levels, network tree, partner "Channel network" card. */
+.net-levels { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.net-level { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px; border: 1px solid var(--o-line, #e4e8ef); border-radius: 14px; background: #fff; }
+.net-level-main { display: flex; gap: 10px; align-items: flex-start; color: var(--o-ink, #10213a); text-decoration: none; min-width: 0; }
+.net-level-main strong { display: block; font-size: 14px; line-height: 1.3; }
+.net-level-main small { color: var(--o-ink-3, #6b778a); font-size: 12.5px; }
+.net-level-main:hover strong { color: var(--o-brand, #082859); text-decoration: underline; }
+.net-step { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--o-brand, #082859); color: #fff; font-weight: 600; font-size: 13px; }
+.net-level-gap { margin-top: auto; font-size: 12px; color: #8a5a00; background: #fff6dc; border-radius: 8px; padding: 5px 8px; text-decoration: none; }
+.net-level-gap:hover { background: #ffedb8; }
+.net-level-ok { margin-top: auto; font-size: 12px; color: var(--o-ink-3, #6b778a); padding: 5px 0; }
+
+.net-tree-head { flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.net-tree-head p { margin: 2px 0 0; font-size: 12.5px; }
+.net-search { display: flex; gap: 8px; flex-wrap: wrap; }
+.net-search .form-control { width: 240px; max-width: 100%; }
+.net-tree, .net-tree ul { list-style: none; margin: 0; padding: 0; }
+.net-tree ul { margin-left: 13px; padding-left: 14px; border-left: 1px dashed #cfd6e1; }
+.net-node > details > summary, .net-leaf { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 10px; flex-wrap: wrap; }
+.net-node > details > summary { cursor: pointer; list-style: none; }
+.net-node > details > summary::-webkit-details-marker { display: none; }
+.net-node > details > summary:hover, .net-leaf:hover { background: #f5f7fb; }
+.net-dot { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; background: #9aa6b8; }
+.net-node > details > summary .net-dot { border-radius: 3px; transition: transform .15s; }
+.net-node > details[open] > summary .net-dot { transform: rotate(45deg); }
+.net-node.is-cf > details > summary .net-dot, .net-node.is-cf .net-leaf .net-dot { background: var(--o-brand, #082859); }
+.net-node.is-salespromoter .net-dot, .net-node.is-handlingagent .net-dot, .net-node.is-transporter .net-dot { background: #f4bd18; }
+.net-node.is-dealer .net-dot, .net-node.is-distributor .net-dot { background: #2f6fb3; }
+.net-node.is-company > details > summary .net-dot { background: #6b778a; }
+.net-name { display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px; color: var(--o-ink, #10213a); text-decoration: none; }
+.net-name strong { font-size: 13.5px; overflow-wrap: anywhere; }
+.net-name small { color: var(--o-ink-3, #6b778a); font-size: 12px; }
+a.net-name:hover strong { text-decoration: underline; }
+.net-counts { display: flex; gap: 6px; flex-wrap: wrap; }
+.net-counts span { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: #eef2f8; color: #34465f; white-space: nowrap; }
+
+.net-card-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.net-card:not(.acc-wide) .net-card-body { grid-template-columns: 1fr; }
+.net-label { margin: 0 0 8px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--o-ink-3, #6b778a); }
+.net-label small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.net-chain { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.net-chain li { position: relative; padding: 6px 10px 6px 22px; border-radius: 8px; font-size: 13px; }
+.net-chain li::before { content: ''; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #9aa6b8; }
+.net-chain li + li::after { content: ''; position: absolute; left: 11px; top: -6px; height: 10px; border-left: 1px solid #cfd6e1; }
+.net-chain li small { margin-left: 6px; color: var(--o-ink-3, #6b778a); font-size: 11.5px; }
+.net-chain li.is-self { background: #f1f5fb; font-weight: 600; }
+.net-chain li.is-self::before { background: var(--o-brand, #082859); }
+.net-upline-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.net-upline-row .form-select { flex: 1 1 200px; min-width: 0; }
+.net-upline-row .form-control { flex: 1 1 140px; min-width: 0; }
+.net-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.net-direct { max-height: 260px; overflow: auto; }
+.net-sales dl { display: grid; gap: 8px; margin: 0; }
+.net-sales dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f8fafc; }
+.net-sales dl > div:last-child { background: #eef3fb; font-weight: 600; }
+.net-sales dt { font-weight: 500; font-size: 13px; }
+.net-sales dd { margin: 0; text-align: right; font-size: 14px; }
+.net-sales dd small { display: block; font-weight: 400; color: var(--o-ink-3, #6b778a); font-size: 11.5px; }
+
+@media (max-width: 1200px) { .net-levels { grid-template-columns: repeat(3, minmax(0, 1fr)); } .net-card-body { grid-template-columns: 1fr 1fr; } .net-sales { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .net-levels { grid-template-columns: 1fr 1fr; } .net-card-body { grid-template-columns: 1fr; } .net-search .form-control { width: 100%; } .net-tree ul { margin-left: 6px; padding-left: 10px; } }
+@media (max-width: 400px) { .net-levels { grid-template-columns: 1fr; } }
+.acc-grid > .net-card.acc-wide { grid-column: 1 / -1; }
+.org-view .net-sales dl { grid-template-columns: 1fr; }
+.org-view .net-sales dt { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--o-ink, #10213a); }
+.org-view .net-sales dd { white-space: nowrap; }
+.acc-grid > .net-full { grid-column: 1 / -1; }

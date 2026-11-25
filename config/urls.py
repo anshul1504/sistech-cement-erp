@@ -84,6 +84,7 @@ urlpatterns += [
     path('partners/<int:pk>/', ptv.partner_detail, name='partner_detail'),
     path('partners/<int:pk>/edit/', ptv.partner_form, name='partners_edit'),
     path('partners/<int:pk>/status/', ptv.partner_status, name='partner_status'),
+    path('partners/<int:pk>/upline/', ptv.partner_upline, name='partner_upline'),
     path('partners/<int:pk>/delete/', ptv.partner_delete, name='partner_delete'),
     path('partners/<int:pk>/documents/new/', ptv.partner_document_new, name='partner_document_new'),
     path('partners/<int:pk>/documents/<int:doc_pk>/file/', ptv.partner_document_file, name='partner_document_file'),

@@ -1,10 +1,36 @@
-{% extends 'erp/base.html' %}
-{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% extends 'erp/base.html' %}{% load static erp_format %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}<link href="{% static 'erp/network.css' %}?v={{ asset_version }}" rel="stylesheet">{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page">
-  <div class="org-head"><div><div class="eyebrow">NETWORK</div><h1>People</h1><p>Our channel partners and mason network.</p></div></div>
-  <div class="inf-kpis" role="list">
-    {% for category in categories %}<a class="org-card" role="listitem" href="{{ category.url }}"><h2>{{ forloop.counter }}. {{ category.label }}</h2><p>{{ category.count }} active · View records →</p></a>{% endfor %}
-  </div>
+  <div class="org-head"><div><div class="eyebrow">NETWORK</div><h1>People</h1><p>Sistech's channel from C&amp;F down to the mason — who sits under whom, and what still needs linking.</p></div></div>
+
+  <ol class="net-levels" aria-label="Channel levels">
+    {% for lv in levels %}
+    <li class="net-level">
+      <a class="net-level-main" href="{{ lv.url }}"><span class="net-step">{{ lv.n }}</span><span><strong>{{ lv.label }}</strong><small>{{ lv.count|indian }} active</small></span></a>
+      {% if lv.unlinked %}<a class="net-level-gap" href="{{ lv.unlinked_url }}">{{ lv.unlinked|indian }} {{ lv.hint }}</a>{% elif lv.unlinked == 0 %}<span class="net-level-ok">All linked</span>{% else %}<span class="net-level-ok">Top level</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+
+  {% if tree %}
+  <section class="org-card net-tree-card">
+    <header class="acc-card-head net-tree-head">
+      <div><h2>Network tree</h2><p class="acc-muted">C&amp;F → promoter / agent → dealer. Retailers and masons show as counts; open a dealer to see them.</p></div>
+      <form method="get" class="net-search"><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Find name, code or city" aria-label="Find in network"><button class="org-btn is-light" type="submit">Find</button>{% if q %}<a class="org-btn is-light" href="{% url 'people' %}">Clear</a>{% endif %}</form>
+    </header>
+    {% if tree.cf or tree.direct %}
+    <ul class="net-tree">
+      {% for n in tree.cf %}{% include 'erp/_network_node.html' with n=n open=q %}{% endfor %}
+      {% if tree.direct %}
+      <li class="net-node is-company"><details{% if q or not tree.cf %} open{% endif %}><summary><span class="net-dot"></span><span class="net-name"><strong>Directly with the company</strong><small>{{ tree.direct|length }} without a C&amp;F</small></span></summary>
+        <ul>{% for n in tree.direct %}{% include 'erp/_network_node.html' with n=n open=q %}{% endfor %}</ul></details></li>
+      {% endif %}
+    </ul>
+    {% else %}
+    <div class="doc-empty"><svg><use href="#ic-handshake"/></svg><strong>{% if q %}Nothing matches “{{ q }}”{% else %}No channel partners yet{% endif %}</strong><span>Add a C&amp;F, then set the upline on each promoter, dealer and retailer page.</span></div>
+    {% endif %}
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

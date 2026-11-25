@@ -453,6 +453,17 @@ The People section groups **C&F**, **Sales Promoter / Handling Agent / Transport
 remain available. Dealer/retailer creation continues through reviewed CRM onboarding; agents/C&F use
 partner masters and masons reuse the influencer register.
 
+**Channel network (upline / downline).** Every partner can have one upline on a higher level:
+C&F → sales promoter / handling agent / transporter → dealer or distributor → retailer or project buyer;
+masons link to a dealer or retailer. The upline is optional (a dealer may deal with the company directly),
+is changed only from the partner page (*Channel network → Move under*, `change_partner` permission,
+optional reason, audited as *Upline changed*), cannot point to a lower level or loop, and is cleared if a
+type change makes it invalid. A partner with people under it cannot be deleted. `/people/` shows each
+level's count with a link to the records still missing an upline, and a searchable network tree
+(C&F → promoter/agent → dealer, with retailer and mason counts). The partner page shows the upline
+chain, the downline by type, and this month's net sales of the partner vs. its whole network.
+`/partners/?upline=<id>` and `?upline=none` filter the list. Rules: `erp/network.py`.
+
 Super administrators can link a login from **Users → User details → Manage dealer access** (or Django
 administration). The normal user-screen flow requires a reason and recent identity confirmation,
 checks active dealer/non-staff login/email eligibility and signs out previous sessions on change.
