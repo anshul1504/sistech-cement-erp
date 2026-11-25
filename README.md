@@ -444,3 +444,20 @@ Tests exercise authentication, throttling, password recovery and token expiry/si
 SQLite is for local development and evaluation. Choose PostgreSQL and test concurrent stock/credit/OTP workflows before multi-user production use. Production requires `DJANGO_DEBUG=0`, a unique `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` (for example `https://erp.sistech.co.in`), HTTPS, a production WSGI/ASGI server and static file serving. With `DJANGO_DEBUG=0`: secure cookies, HTTPS redirect and HSTS (`DJANGO_HSTS_SECONDS`, default one year) are enabled, and OTP is required for every sign-in unless `EMAIL_OTP_SKIP_FOR_USERNAME=1` is set explicitly. Behind an HTTPS reverse proxy set `DJANGO_BEHIND_HTTPS_PROXY=1`. SMTP credentials belong in the deployment environment or an ignored local `.env`.
 
 Reference documentation used for the implementation: [Django transactions](https://docs.djangoproject.com/en/5.2/topics/db/transactions/) and [Django authentication](https://docs.djangoproject.com/en/5.2/topics/auth/default/).
+
+
+## People and dealer statement self-service
+
+`/people/` groups the network as **C&F**, **Sales Promoter / Handling Agent / Transporter**,
+**Dealer**, **Retailer**, and **Mason**. Each opens the corresponding filtered master;
+Mason reuses the existing influencer records. Existing distributor, supplier and institutional
+records remain available in Dealers & suppliers. New dealers and retailers continue through
+reviewed CRM onboarding; C&F and agent records can be added through the partner form.
+
+A super administrator can create a **Dealer ledger access** record in Django admin, linking an
+existing login to exactly one dealer. The linked active user sees **My ledger** (`/my-ledger/`),
+with date filters, opening/running/closing balances and a separate CSV download. The account
+uses the existing password-first email OTP flow. This grants no company-wide finance access,
+other dealer statements, or internal transaction-detail access. Inactive links or dealers cannot
+use self-service. Account provisioning/linking is currently administrator-managed; bulk invites,
+a dealer portal dashboard and dealer-facing PDF statements are not implemented by this change.

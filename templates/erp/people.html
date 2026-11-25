@@ -1,0 +1,10 @@
+{% extends 'erp/base.html' %}
+{% block extra_head %}{% include 'erp/_master_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page">
+  <div class="org-head"><div><div class="eyebrow">NETWORK</div><h1>People</h1><p>Our channel partners and mason network.</p></div></div>
+  <div class="inf-kpis" role="list">
+    {% for category in categories %}<a class="org-card" role="listitem" href="{{ category.url }}"><h2>{{ forloop.counter }}. {{ category.label }}</h2><p>{{ category.count }} active · View records →</p></a>{% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -287,9 +287,14 @@ def credit_note_detail(request, pk):
 # ---------- Ledger & outstanding ----------
 
 @login_required
-def partner_ledger(request, pk):
-    require_company_finance(request.user)
-    permitted(request.user, 'view_receipt')
+def partner_ledger(request, pk, self_service=False):
+    if self_service:
+        from .models import DealerLedgerAccess
+        access = get_object_or_404(DealerLedgerAccess, user=request.user, active=True, partner__active=True, partner__kind='Dealer')
+        pk = access.partner_id
+    else:
+        require_company_finance(request.user)
+        permitted(request.user, 'view_receipt')
     partner = get_object_or_404(Partner, pk=pk, kind__in=CUSTOMER_KINDS)
     def parse(value):
         try:
@@ -311,7 +316,7 @@ def partner_ledger(request, pk):
         return response
     invs = open_invoices(partner)
     from .partner_views import credit_position
-    return render(request, 'erp/ledger.html', {'title': f'Ledger · {partner.name}', 'partner': partner, 'opening': opening, 'rows': rows,
+    return render(request, 'erp/my_ledger.html' if self_service else 'erp/ledger.html', {'title': f'Ledger · {partner.name}', 'partner': partner, 'opening': opening, 'rows': rows,
                                                'closing': rows[-1]['balance'] if rows else opening, 'open': invs, 'age': ageing(invs), 'buckets': AGE_BUCKETS,
                                                'credit': credit_position(partner), 'filters': {'from': request.GET.get('from', ''), 'to': request.GET.get('to', '')},
                                                'debits': sum((r['debit'] for r in rows), Decimal('0')), 'credits': sum((r['credit'] for r in rows), Decimal('0')),
@@ -349,3 +354,8 @@ def outstanding(request):
     total = ageing(invs)
     return render(request, 'erp/outstanding.html', {'title': 'Outstanding & ageing', 'rows': rows, 'total': total, 'buckets': AGE_BUCKETS, 'sort': sort,
                                                     'advances': advances, 'can_receive': request.user.has_perm('erp.add_receipt')})
+
+
+@login_required
+def my_ledger(request):
+    return partner_ledger(request, None, self_service=True)

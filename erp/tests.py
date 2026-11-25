@@ -212,3 +212,52 @@ class WorkflowTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.unit, 'MT')
         self.assertIsNone(self.product.bag_weight_kg)
+
+
+@override_settings(EMAIL_OTP_ENABLED=False)
+class PeopleAndDealerLedgerTests(TestCase):
+    def setUp(self):
+        from .models import DealerLedgerAccess
+        self.user = User.objects.create_user('dealer-login')
+        self.dealer = Partner.objects.create(code='OWN', name='Own Dealer', kind='Dealer')
+        self.other = Partner.objects.create(code='OTHER', name='Other Dealer', kind='Dealer')
+        self.access = DealerLedgerAccess.objects.create(user=self.user, partner=self.dealer)
+        self.client.force_login(self.user)
+
+    def test_dealer_can_only_export_linked_ledger(self):
+        from unittest.mock import patch
+        with patch('erp.finance_views.ledger_rows', return_value=(Decimal('123'), [])) as rows:
+            response = self.client.get(reverse('my_ledger'), {'export': 'csv', 'partner': self.other.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('ledger-OWN.csv', response['Content-Disposition'])
+        self.assertEqual(rows.call_args.args[0], self.dealer)
+        self.assertContains(response, '123')
+        self.assertEqual(self.client.get(reverse('partner_ledger', args=[self.other.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse('outstanding')).status_code, 403)
+
+    def test_revoked_or_inactive_access_is_denied(self):
+        self.access.active = False
+        self.access.save()
+        self.assertEqual(self.client.get(reverse('my_ledger')).status_code, 404)
+        self.access.active = True
+        self.access.save()
+        self.dealer.active = False
+        self.dealer.save()
+        self.assertEqual(self.client.get(reverse('my_ledger'), {'export': 'csv'}).status_code, 404)
+
+    def test_own_statement_renders_without_internal_links(self):
+        response = self.client.get(reverse('my_ledger'))
+        self.assertContains(response, 'Download ledger CSV')
+        self.assertContains(response, 'Own Dealer')
+        self.assertNotContains(response, 'Other Dealer')
+
+    def test_people_categories_and_agent_filter(self):
+        self.user.user_permissions.add(Permission.objects.get(codename='view_partner'), Permission.objects.get(codename='view_influencer'))
+        Partner.objects.create(code='CF1', name='CF Business', kind='CF')
+        Partner.objects.create(code='HA1', name='Handling Business', kind='HandlingAgent')
+        response = self.client.get(reverse('people'))
+        for label in ['C&amp;F', 'Sales Promoter / Handling Agent / Transporter', 'Dealer', 'Retailer', 'Mason']:
+            self.assertContains(response, label)
+        response = self.client.get(reverse('partners'), {'people_group': 'SalesPromoter'})
+        self.assertContains(response, 'Handling Business')
+        self.assertNotContains(response, 'CF Business')

@@ -225,7 +225,7 @@ class PartnerForm(StyledForm):
         if 'tds_rate' in self.fields:
             self.fields['tds_rate'].required = False
         self.fields['kind'].choices = [('', 'Select type'), ('Customers', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Dealer', 'Distributor', 'Retailer', 'Institutional')]),
-                                       ('Vendors', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Supplier', 'Transporter')])]
+                                       ('Vendors', [c for c in Partner._meta.get_field('kind').choices if c[0] in ('Supplier', 'Transporter', 'CF', 'SalesPromoter', 'HandlingAgent')])]
         self.fields['state'].choices = [('', 'Select state')] + list(self.fields['state'].choices)[1:]
         if 'code' in self.fields:
             self.fields['code'].widget.attrs.update(placeholder='e.g. DLR-BPL-001', style='text-transform:uppercase')
@@ -270,7 +270,7 @@ class PartnerForm(StyledForm):
                 self.add_error('gstin', f'GSTIN starts with {gstin[:2]}, but the state code is {state}.')
             if not pan:
                 data['pan'] = gstin[2:12]  # PAN is embedded in every GSTIN
-        if data.get('kind') in ('Supplier', 'Transporter'):
+        if data.get('kind') in ('Supplier', 'Transporter', 'CF', 'SalesPromoter', 'HandlingAgent'):
             data['credit_limit'] = data.get('credit_limit') or 0
         return data
 

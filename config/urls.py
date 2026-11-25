@@ -145,6 +145,8 @@ urlpatterns += [
     path('returns/<int:pk>/', rtv.return_detail, name='return_detail'),
     path('returns/<int:pk>/<slug:action>/', rtv.return_action, name='return_action'),
     path('collections/dispute/<int:pk>/resolve/', cv.dispute_resolve, name='dispute_resolve'),
+    path('people/', ptv.people, name='people'),
+    path('my-ledger/', fv.my_ledger, name='my_ledger'),
     path('partners/<int:pk>/ledger/', fv.partner_ledger, name='partner_ledger'),
 ]
 from erp import logistics_views as lv

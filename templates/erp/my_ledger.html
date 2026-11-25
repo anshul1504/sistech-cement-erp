@@ -1,0 +1,14 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><h1>My ledger</h1><p>{{ partner.name }} · {{ partner.code }}</p></div><a class="org-btn is-primary" href="?from={{ filters.from|urlencode }}&amp;to={{ filters.to|urlencode }}&amp;export=csv">Download ledger CSV</a></div>
+  <section class="org-card">
+    <form method="get" class="doc-filter"><label>From <input class="form-control" type="date" name="from" value="{{ filters.from }}"></label><label>To <input class="form-control" type="date" name="to" value="{{ filters.to }}"></label><button class="org-btn is-light">Apply</button></form>
+    <p>Opening ₹{{ opening|indian:2 }} · Debits ₹{{ debits|indian:2 }} · Credits ₹{{ credits|indian:2 }} · Closing ₹{{ closing|indian:2 }}</p>
+    <div style="overflow-x:auto"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Details</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>
+    {% for r in rows %}<tr><td>{{ r.date|date:'d M Y' }}</td><td>{{ r.kind }}</td><td>{{ r.ref }}</td><td>{{ r.note }}</td><td>{{ r.debit|indian:2 }}</td><td>{{ r.credit|indian:2 }}</td><td>{{ r.balance|indian:2 }}</td></tr>{% empty %}<tr><td colspan="7">No entries in this period.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+{% endblock %}

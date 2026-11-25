@@ -49,3 +49,11 @@ admin.site.unregister(User)
 admin.site.unregister(Group)
 admin.site.register(User, RestrictedUserAdmin)
 admin.site.register(Group, RestrictedGroupAdmin)
+
+
+from .models import DealerLedgerAccess
+
+@admin.register(DealerLedgerAccess)
+class DealerLedgerAccessAdmin(SuperuserOnlyMixin, admin.ModelAdmin):
+    list_display = ['user', 'partner', 'active']
+    search_fields = ['user__username', 'partner__name', 'partner__code']

@@ -54,6 +54,11 @@ def partners(request):
     qs = Partner.objects.annotate(order_count=Count('order'))
     if group == 'customers': qs = qs.filter(kind__in=CUSTOMER_KINDS)
     elif group == 'vendors': qs = qs.exclude(kind__in=CUSTOMER_KINDS)
+    people_group = request.GET.get('people_group', '')
+    if people_group == 'SalesPromoter':
+        qs = qs.filter(kind__in=['SalesPromoter', 'HandlingAgent', 'Transporter'])
+    elif people_group in ['CF', 'Dealer', 'Retailer']:
+        qs = qs.filter(kind=people_group)
     if kind: qs = qs.filter(kind=kind)
     if status == 'active': qs = qs.filter(active=True)
     elif status == 'inactive': qs = qs.filter(active=False)
@@ -63,7 +68,7 @@ def partners(request):
             ('vendors', 'Suppliers & transporters', active.exclude(kind__in=CUSTOMER_KINDS).count())]
     return render(request, 'erp/partners.html', {
         'title': 'Dealers & suppliers', 'partners': qs.order_by('name')[:300], 'tabs': tabs, 'kinds': PARTNER_KINDS,
-        'filters': {'group': group, 'kind': kind, 'status': status, 'q': q}, 'can_add': request.user.has_perm('erp.add_partner')})
+        'people_group': people_group, 'filters': {'group': group, 'kind': kind, 'status': status, 'q': q}, 'can_add': request.user.has_perm('erp.add_partner')})
 
 
 @login_required
@@ -105,13 +110,13 @@ def partner_form(request, pk=None):
     initial = {'kind': request.GET.get('kind')} if not pk and request.GET.get('kind') in dict(PARTNER_KINDS) else None
     form = PartnerForm(request.POST or None, instance=partner, initial=initial)
     if not partner:
-        form.fields['kind'].choices = [('', 'Select vendor type'), ('Supplier', 'Supplier'), ('Transporter', 'Transporter')]
+        form.fields['kind'].choices = [('', 'Select partner type')] + [(k, v) for k, v in PARTNER_KINDS if k not in CUSTOMER_KINDS]
     elif partner.is_customer:
         for name in PROTECTED_CUSTOMER_FIELDS + ['active']:
             form.fields[name].disabled = True
             form.fields[name].help_text = 'Use a reviewed CRM amendment to change approved customer details.' if name != 'active' else 'Use the audited status action on the customer page.'
     else:
-        form.fields['kind'].choices = [('Supplier', 'Supplier'), ('Transporter', 'Transporter')]
+        form.fields['kind'].choices = [(k, v) for k, v in PARTNER_KINDS if k not in CUSTOMER_KINDS]
     if partner and is_used(partner):
         form.fields['kind'].disabled = True  # type decides which orders use it; lock once used
     if request.method == 'POST' and form.is_valid():
@@ -200,3 +205,19 @@ def partner_document_delete(request, pk, doc_pk):
     doc.delete()
     messages.success(request, f'{label} removed.')
     return redirect('partner_detail', pk=pk)
+
+
+@login_required
+def people(request):
+    if not (request.user.has_perm('erp.view_partner') or request.user.has_perm('erp.view_influencer')):
+        raise PermissionDenied
+    from django.urls import reverse
+    categories = []
+    for label, kinds in [('C&F', ['CF']), ('Sales Promoter / Handling Agent / Transporter', ['SalesPromoter', 'HandlingAgent', 'Transporter']), ('Dealer', ['Dealer']), ('Retailer', ['Retailer'])]:
+        if request.user.has_perm('erp.view_partner'):
+            categories.append({'label': label, 'count': Partner.objects.filter(active=True, kind__in=kinds).count(),
+                               'url': reverse('partners') + '?people_group=' + kinds[0]})
+    if request.user.has_perm('erp.view_influencer'):
+        categories.append({'label': 'Mason', 'count': Influencer.objects.filter(active=True, kind='Mason').count(),
+                           'url': reverse('influencers') + '?group=Mason'})
+    return render(request, 'erp/people.html', {'title': 'People', 'categories': categories})

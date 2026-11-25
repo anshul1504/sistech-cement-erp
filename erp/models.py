@@ -141,7 +141,8 @@ class Product(models.Model):
         return None
 
 PARTNER_KINDS = [('Dealer', 'Dealer'), ('Distributor', 'Distributor'), ('Retailer', 'Retailer'), ('Institutional', 'Institutional / project buyer'),
-                 ('Supplier', 'Supplier'), ('Transporter', 'Transporter')]
+                 ('Supplier', 'Supplier'), ('Transporter', 'Transporter'), ('CF', 'C&F'),
+                 ('SalesPromoter', 'Sales Promoter'), ('HandlingAgent', 'Handling Agent')]
 CUSTOMER_KINDS = ['Dealer', 'Distributor', 'Retailer', 'Institutional']
 
 
@@ -3725,3 +3726,13 @@ class BinMove(models.Model):
 
     class Meta:
         ordering = ['-at', '-pk']
+
+
+class DealerLedgerAccess(models.Model):
+    """Explicit, administrator-managed access to one dealer's statement only."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dealer_ledger_access')
+    partner = models.ForeignKey(Partner, on_delete=models.PROTECT, limit_choices_to={'kind': 'Dealer'}, related_name='ledger_users')
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f'{self.user} → {self.partner}'
