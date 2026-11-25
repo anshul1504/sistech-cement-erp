@@ -7,6 +7,8 @@ from erp import team_views as tmv
 from erp import channel_views as chv
 from erp import dealer_request_views as drv
 from erp import secondary_views as scs
+from erp import api_views as apv
+from accounts import api_auth as apa
 from erp import insight_views as iv
 from erp import pdf_views as pdfv
 from erp import maintenance_views as mtv
@@ -21,6 +23,22 @@ from erp import tds_views as tdv
 from accounts.auth_views import SignInView
 from django.views.generic import RedirectView
 urlpatterns = [
+    # Mobile API v1 (Android apps)
+    path('api/v1/auth/login/', apa.login, name='api_login'),
+    path('api/v1/auth/verify/', apa.verify, name='api_verify'),
+    path('api/v1/auth/logout/', apa.logout, name='api_logout'),
+    path('api/v1/me/', apv.me, name='api_me'),
+    path('api/v1/dealer/summary/', apv.dealer_summary, name='api_dealer_summary'),
+    path('api/v1/dealer/invoices/', apv.dealer_invoices, name='api_dealer_invoices'),
+    path('api/v1/dealer/ledger/', apv.dealer_ledger, name='api_dealer_ledger'),
+    path('api/v1/dealer/products/', apv.dealer_products, name='api_dealer_products'),
+    path('api/v1/dealer/orders/', apv.dealer_orders, name='api_dealer_orders'),
+    path('api/v1/dealer/orders/<int:pk>/cancel/', apv.dealer_order_cancel, name='api_dealer_order_cancel'),
+    path('api/v1/dealer/secondary/', apv.dealer_secondary, name='api_dealer_secondary'),
+    path('api/v1/sales/summary/', apv.sales_summary, name='api_sales_summary'),
+    path('api/v1/sales/customers/', apv.sales_customers, name='api_sales_customers'),
+    path('api/v1/sales/orders/', apv.sales_orders, name='api_sales_orders'),
+    path('api/v1/sales/dealer-requests/', apv.sales_dealer_requests, name='api_sales_dealer_requests'),
     # Keep privileged sign-in on the same throttled, styled authentication flow.
     path('admin/login/', SignInView.as_view(), name='admin_signin'),
     path('admin/password_change/', RedirectView.as_view(pattern_name='password_change')),

@@ -171,3 +171,19 @@ class WorkHandoffItem(models.Model):
 class WorkHandoffGuard(models.Model):
     """Per-source mutex, separate from credentials/profile locks used during account disabling."""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+
+
+class ApiToken(models.Model):
+    """Mobile-app sign-in token (accounts.api_auth). Only a SHA-256 hash is stored; the raw token is shown once.
+    It dies when revoked, when it expires, when the password changes, or when the account is disabled."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='api_tokens')
+    key_hash = models.CharField(max_length=64, unique=True)
+    credential_hash = models.CharField(max_length=64)
+    device = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
