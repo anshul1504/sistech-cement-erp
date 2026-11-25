@@ -29,6 +29,7 @@ class CRMBrowserTests(StaticLiveServerTestCase):
         crm.save_target(f.maker, dict(site=f.site, owner=f.maker, month=f.today, sales_amount=Decimal(500000), new_dealers=5, note='Fictional QA target'))
         review = app.reviews.get(action='Activated')
         routes = {name: reverse(name) for name in ['crm_leads', 'crm_lead_new', 'crm_applications', 'crm_performance', 'crm_policy']}
+        routes['crm-board'] = reverse('crm_leads') + '?view=board'
         routes.update({key:reverse(name,args=args) for key,name,args in [
             ('lead','crm_lead_detail',[lead.pk]),('lead-edit','crm_lead_edit',[pending.lead_id]),('approved','crm_application_detail',[app.pk]),
             ('draft','crm_application_detail',[draft.pk]),('pending','crm_application_detail',[pending.pk]),('profile','crm_application_edit',[draft.pk]),

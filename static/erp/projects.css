@@ -14,3 +14,17 @@
 .project-page .crm-timeline a { overflow-wrap:anywhere; }
 @container crm (max-width:700px) { .project-kpis { grid-template-columns:minmax(0,1fr); } .project-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .project-row .crm-main { grid-column:1/-1; } .project-stages { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:767.98px) { .project-actions { width:100%; } .project-actions .org-btn { flex:1 1 130px; justify-content:center; } }
+
+.pipeline-board { display:flex; gap:14px; overflow-x:auto; max-width:100%; padding:8px 0 16px; align-items:flex-start; }
+.pipeline-column { flex:0 0 260px; min-width:0; background:#f3f5f8; border:1px solid #dce2e9; border-radius:12px; padding:12px; }
+.pipeline-column h2 { font-size:15px; color:#082859; overflow-wrap:anywhere; }
+.pipeline-column p { font-size:12px; color:#657389; }
+.pipeline-card { display:flex; flex-direction:column; gap:7px; padding:14px; margin:10px 0; border:1px solid #dce2e9; border-radius:10px; background:#fff; color:#24344a; text-decoration:none; font-size:13px; overflow-wrap:anywhere; }
+.pipeline-card:hover, .pipeline-card:focus-visible { border-color:#073777; outline:2px solid #f4bd18; outline-offset:2px; }
+.pipeline-card small { color:#657389; font-size:11px; }
+.pipeline-flag { color:#735600 !important; background:#fff5cf; padding:3px 6px; border-radius:4px; font-size:11px; overflow-wrap:anywhere; }
+.pipeline-forecast { overflow-x:auto; max-width:100%; }
+.project-page .crm-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.project-page .crm-filters > div { min-width:0; }
+@container crm (max-width:700px) { .project-page .crm-filters { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:575.98px) { .project-page .crm-filters { grid-template-columns:minmax(0,1fr); } .pipeline-column { flex-basis:245px; } }

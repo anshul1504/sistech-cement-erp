@@ -66,8 +66,9 @@ def partners(request):
     active = Partner.objects.filter(active=True)
     tabs = [('', 'All', active.count()), ('customers', 'Customers', active.filter(kind__in=CUSTOMER_KINDS).count()),
             ('vendors', 'Suppliers & transporters', active.exclude(kind__in=CUSTOMER_KINDS).count())]
+    category_label = {'CF': 'C&F', 'SalesPromoter': 'Sales Promoter / Handling Agent / Transporter', 'Dealer': 'Dealer', 'Retailer': 'Retailer'}.get(people_group, 'Dealers & suppliers')
     return render(request, 'erp/partners.html', {
-        'title': 'Dealers & suppliers', 'partners': qs.order_by('name')[:300], 'tabs': tabs, 'kinds': PARTNER_KINDS,
+        'title': category_label, 'list_title': category_label, 'partners': qs.order_by('name')[:300], 'tabs': tabs, 'kinds': PARTNER_KINDS,
         'people_group': people_group, 'filters': {'group': group, 'kind': kind, 'status': status, 'q': q}, 'can_add': request.user.has_perm('erp.add_partner')})
 
 

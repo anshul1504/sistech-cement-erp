@@ -1,0 +1,2 @@
+{% extends 'erp/base.html' %}
+{% block content %}<div class="org-page"><section class="org-card"><h1>Check ledger dates</h1><p>Use valid dates in YYYY-MM-DD format. From date must be on or before To date.</p>{{ period.errors }}<a href="{{ request.path }}" class="org-btn is-primary">Reset dates</a></section></div>{% endblock %}

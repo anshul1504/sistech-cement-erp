@@ -56,6 +56,10 @@ def _ctx(request, title, area=None):
 def home(request):
     """Role-based home: what is waiting for me, then the headline numbers of every dashboard I may open."""
     u = request.user
+    from .models import DealerLedgerAccess
+    if not u.is_superuser and DealerLedgerAccess.objects.filter(user=u, active=True, partner__active=True, partner__kind='Dealer').exists():
+        from django.shortcuts import redirect
+        return redirect('dealer_dashboard')
     period, sites, ctx = _ctx(request, 'Home')
     ctx['queue'] = I.my_queue(u, sites)
     ok = {a['key'] for a in ctx['areas']}

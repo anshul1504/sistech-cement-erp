@@ -97,7 +97,7 @@ def sensitive(request, match):
     if match.app_name == 'admin':
         return route not in {'login', 'logout'}
     if route in {
-        'crm_lead_merge', 'partners_new', 'partners_edit', 'organization_edit', 'crm_application_edit',
+        'dealer_access', 'crm_lead_merge', 'partners_new', 'partners_edit', 'organization_edit', 'crm_application_edit',
         'scheme_payout_new', 'scheme_payout_decide', 'damage_decide',
         'member_new', 'member_edit', 'member_status', 'member_set_password',
         'pod_correction_action', 'freight_recovery_action', 'recipe_approve', 'freight_bill_decide', 'delegation_new', 'delegation_revoke', 'approval_assign', 'work_handoff', 'beat_cover_new', 'beat_cover_action', 'dealer_transfer_new',

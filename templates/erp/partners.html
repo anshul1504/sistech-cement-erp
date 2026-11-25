@@ -3,8 +3,8 @@
 {% block content %}
 <div class="org-page acc-page adm-page mst-page">
   <div class="org-head">
-    <div><div class="eyebrow">MASTERS</div><h1>Dealers &amp; suppliers</h1><p>Customers who buy cement and TMT, and the suppliers and transporters you buy from — with GST, credit and KYC.</p></div>
-    {% if can_add %}<a class="org-btn is-primary" href="{% url 'partners_new' %}"><svg><use href="#ic-plus"/></svg>Add partner</a>{% endif %}
+    <div><div class="eyebrow"><a href="{% url 'people' %}">PEOPLE</a> · MASTERS</div><h1>{{ list_title }}</h1><p>Customers who buy cement and TMT, and the suppliers and transporters you buy from — with GST, credit and KYC.</p></div>
+    {% if people_group == 'Dealer' or people_group == 'Retailer' %}{% if perms.erp.add_crmlead %}<a class="org-btn is-primary" href="{% url 'crm_lead_new' %}">Start customer onboarding</a>{% endif %}{% elif can_add %}<a class="org-btn is-primary" href="{% url 'partners_new' %}{% if people_group %}?kind={{ people_group }}{% endif %}"><svg><use href="#ic-plus"/></svg>Add partner</a>{% endif %}
   </div>
   <nav class="org-tabs mst-cat-tabs" aria-label="Partner groups">
     {% for code, label, count in tabs %}<a class="org-tab{% if filters.group == code %} is-active{% endif %}" href="?group={{ code }}">{{ label }}<span class="org-tab-count">{{ count }}</span></a>{% endfor %}

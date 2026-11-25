@@ -184,3 +184,13 @@ Non-cash settlement: existing payment stages now support equal signed approved b
 Vendor refund receipts: existing finance stages now reserve recognized supplier/freight credits, independently approve an incoming-bank refund, record actual value date/reference and reverse without altering original bills or paid allocations. Signed credit allocations, current/cutoff subledgers and cash journals reconcile; outgoing actions/exports reject refund mode. Only-credit vendors remain visible. Customer/deposit refunds, external banking, PostgreSQL concurrency and company acceptance remain pending. See [vendor refund controls](VENDOR_REFUNDS.md).
 
 CRM duplicate prospect consolidation now uses retained source/canonical snapshots, preview fingerprints, independent site-scoped authority and canonical links. Active source review/commercial/route work must resolve first; historical documents retain original references and merged leads become read-only. Earlier open follow-up transfers without doubling opportunity value. Master/customer deduplication, approved merge correction and PostgreSQL/business acceptance remain pending. See [CRM merge controls](CRM_DUPLICATE_MERGE.md).
+
+
+## Current review — 25 November 2026
+
+The [system review and advanced pending register](SYSTEM_REVIEW_2026_11_25.md) supersedes stale
+remaining-work snapshots above. Firm order-line reservations, bin masters/put-away/moves, cost centres/
+budgets, document/report PDFs, scheduled Excel packs, delegation/routing and reviewed prospect
+consolidation are implemented. The current milestone adds People groups, dealer read-only dashboard/
+invoice register/filtered CSV+PDF statements, reasoned access-link management, and CRM/project board/
+health/forecast/handoff improvements. Their advanced extensions and production acceptance remain open.

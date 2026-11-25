@@ -2,7 +2,7 @@
 {% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
 {% block content %}
 <div class="org-page acc-page adm-page mst-page ord-page">
-  <div class="org-head"><div><h1>My ledger</h1><p>{{ partner.name }} · {{ partner.code }}</p></div><a class="org-btn is-primary" href="?from={{ filters.from|urlencode }}&amp;to={{ filters.to|urlencode }}&amp;export=csv">Download ledger CSV</a></div>
+  <div class="org-head"><div><a href="{% url 'dealer_dashboard' %}">← My dashboard</a><h1>My ledger</h1><p>{{ partner.name }} · {{ partner.code }}</p></div><a class="org-btn is-primary" href="?from={{ filters.from|urlencode }}&amp;to={{ filters.to|urlencode }}&amp;export=csv">Download ledger CSV</a><a class="org-btn is-light" href="?from={{ filters.from|urlencode }}&amp;to={{ filters.to|urlencode }}&amp;export=pdf">Download PDF</a></div>
   <section class="org-card">
     <form method="get" class="doc-filter"><label>From <input class="form-control" type="date" name="from" value="{{ filters.from }}"></label><label>To <input class="form-control" type="date" name="to" value="{{ filters.to }}"></label><button class="org-btn is-light">Apply</button></form>
     <p>Opening ₹{{ opening|indian:2 }} · Debits ₹{{ debits|indian:2 }} · Credits ₹{{ credits|indian:2 }} · Closing ₹{{ closing|indian:2 }}</p>

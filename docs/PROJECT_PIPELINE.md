@@ -66,3 +66,25 @@ RUN_BROWSER_TESTS=1 python manage.py test erp.test_projects_browser erp.test_bea
 Remaining: bulk CRM/referral migration and fuzzy duplicate merging, contacts/shared collaborators, independent calibration/configuration of forecast weights, detailed phase/product schedules, recurring plans, GPS/offline apps, APIs, notifications and dealer portals. Existing standalone quote forms keep their own workflow; only the explicit project context creates an automatic project link. Direct database edits remain outside the application audit boundary. PostgreSQL concurrency/load checks and real sales/finance UAT remain necessary; this does not complete the full SRS.
 
 Developer verification on 14 November 2026: the full suite ran 399 tests (391 passed; eight opt-in browser checks skipped by default). All eight browser tests also passed explicitly, including the project handoff. `check`, `migrate --check` and migration-drift checks passed. The migrated local database retained the recorded pre-upgrade source-business row counts; no live campaign, customer mapping, financial posting or external message was created.
+
+
+## Pipeline visibility update — 25 November 2026
+
+Dealer CRM and project index pages now provide list/board views. Boards show up to 12 cards per stage
+with a full-list link; stage changes still require their existing evidence/review path. Filters survive
+stage and view navigation. CRM counts/opportunity now follow current filters as well as the list/export.
+Project filters include visible owner/site, expected-close range, missed close, missing close and 14-day
+inactivity; invalid close ranges fail validation rather than exporting an unintended period.
+
+Project health uses the most recent recorded activity day (or creation day if none), next action and
+expected close. Stage-review days use the latest Created / Stage changed / Reopened event, so a repeated
+stage review resets that review age; it is not represented as a complete historical duration-in-stage
+analytics engine. Closed projects do not appear as follow-up risks. The fixed 14-day inactivity default
+is displayed explicitly and is not a company SLA. Monthly forecasts sum the currently filtered open
+estimates and existing per-project rounded stage weights; held weight is zero and unscheduled close
+dates remain a separate bucket. No recognized revenue or collection forecast is inferred.
+
+The detail checklist uses the same sample/quotation/approved-order evidence predicates as stage writes.
+CRM lead detail can open a prefilled new project for a visible non-lost/non-merged lead, preserving the
+CRM/customer/site/contact identity without creating anything until a valid project is explicitly saved.
+See the [system review](SYSTEM_REVIEW_2026_11_25.md) for remaining scope and verification.

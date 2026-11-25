@@ -400,14 +400,14 @@ This is a working foundation, not completion of the full multi-phase SRS. The fo
 
 | SRS area | Current status / remaining work |
 | --- | --- |
-| Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Multiple legal entities/GST registration hierarchy, cross-module territory/dealer portal isolation and sensitive-action step-up authentication remain. Monthly accounting periods are implemented; email OTP is enabled by default. |
-| CRM and dealer network | Owner/site-scoped leads, follow-ups, versioned KYC, independent credit/onboarding approvals, reviewed amendments, monthly targets and source performance implemented. Dated territory hierarchy, dealer ownership and beat planning implemented. Unified project pipeline implemented; CRM contact merging, shared collaboration and dealer portal remain. |
-| Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, derived ATP/backorder validation, holds and order revisions implemented. Firm lot/bin reservations and the dealer portal remain. |
+| Organisation and access | Single company; editable role matrices, user/site assignments and authentication workflows implemented. Multiple legal entities/GST registration hierarchy, broader cross-module access acceptance and dedicated external-portal role policy remain. Sensitive-action step-up, delegation/routing and linked dealer self-service are implemented. Monthly accounting periods are implemented; email OTP is enabled by default. |
+| CRM and dealer network | Owner/site-scoped leads, follow-ups, versioned KYC, independent credit/onboarding approvals, reviewed amendments, monthly targets and source performance implemented. Dated territory hierarchy, dealer ownership and beat planning implemented. Unified project pipeline implemented; master/contact deduplication, shared collaboration and dealer-originated order requests remain. Prospect consolidation and linked dealer read-only self-service are implemented. |
+| Sales | Price list with slabs and dealer prices, GST orders, credit/overdue blocking, partial dispatch and short-close. Quotations, derived ATP/backorder validation, holds and order revisions implemented. Firm order-line reservations and linked dealer read-only self-service are implemented; lot/bin ATP, margin floors and dealer order requests remain. |
 | Procurement | Purchase requests, reorder suggestions, RFQ with landed-cost comparison, award, PO approval by value. Inbound gate, weighment and GRN with accepted / rejected / damaged / quality-hold quantities and lab release. Supplier invoices with three-way match, duplicate check, exception queue and debit notes / returns. Supplier payments are implemented; budget checks remain. |
-| Inventory | Stock states, weighted-average valuation, stock card, transfers with in-transit and discrepancy, damaged-stock disposition, blind cycle counts with recount and approval, ageing and slow-moving. Production lot traceability is implemented; bin locations and full inventory balances by lot remain. |
+| Inventory | Stock states, weighted-average valuation, stock card, transfers with in-transit and discrepancy, damaged-stock disposition, blind cycle counts with recount and approval, ageing and slow-moving. Production lot traceability, bin masters, put-away and bin moves are implemented; bin-directed picking and full balances/reservations by lot remain. |
 | Production and quality | Versioned recipes, process orders, material issue, variance and actual costing, shift log, packing reconciliation, IS-standard specifications, immutable results, calibration control, release / deviation / reject, COA and batch traceability. Complaint-linked CAPA is implemented. Production planning against demand, PLC/SCADA data and full stock recall automation remain. |
-| Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Weighbridge hardware, GPS and trip tracking remain (Step 11). |
-| Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journal approvals, bank reconciliation, assets/depreciation, statements, historical close review and year-end retained-earnings carry-forward/reopening are implemented. E-invoice/e-way bill connectors, statutory filing, budgets, external bank evidence validation and finance UAT remain. |
+| Logistics | Gate, immutable weighments with tolerance approval, loading, invoice, gate-out, POD, freight rates and transporter bill check. Trip exceptions, return-to-origin and reviewed POD/freight corrections are implemented. Weighbridge hardware, GPS/ETA and advanced redelivery remain (Step 11). |
+| Finance and GST | GST tax invoices, receipts with allocation, credit notes, dealer ledger and ageing. GL, AP payments, journal approvals, bank reconciliation, assets/depreciation, statements, historical close review and year-end retained-earnings carry-forward/reopening are implemented. Cost centres, versioned budgets and advisor-set TDS deductions/challans are implemented. E-invoice/e-way bill connectors, statutory filing, customer advance refunds, advanced bank matching, external bank evidence validation and finance UAT remain. |
 | Schemes and claims | Versioned incentive rules, retained calculations, entitlements/accrual, approved dealer-credit/bank payouts, star programmes, complaints/CAPA and customer RMA implemented. Campaign exclusions, broader commissions, automated recoveries and external settlement integrations remain. |
 | Android and integrations | Not implemented. Scoped APIs, employee/dealer/driver apps, offline drafts, notifications, GST/bank/GPS/hardware integrations remain. |
 | Production operations | PostgreSQL migration, concurrent workload testing, audit retention hardening, monitoring, backups/restore, secure hosting and UAT remain. |
@@ -446,18 +446,29 @@ SQLite is for local development and evaluation. Choose PostgreSQL and test concu
 Reference documentation used for the implementation: [Django transactions](https://docs.djangoproject.com/en/5.2/topics/db/transactions/) and [Django authentication](https://docs.djangoproject.com/en/5.2/topics/auth/default/).
 
 
-## People and dealer statement self-service
+## People, dealer self-service and sales pipeline
 
-`/people/` groups the network as **C&F**, **Sales Promoter / Handling Agent / Transporter**,
-**Dealer**, **Retailer**, and **Mason**. Each opens the corresponding filtered master;
-Mason reuses the existing influencer records. Existing distributor, supplier and institutional
-records remain available in Dealers & suppliers. New dealers and retailers continue through
-reviewed CRM onboarding; C&F and agent records can be added through the partner form.
+The People section groups **C&F**, **Sales Promoter / Handling Agent / Transporter**, **Dealer**,
+**Retailer** and **Mason**, in that order. Existing distributors, institutional customers and suppliers
+remain available. Dealer/retailer creation continues through reviewed CRM onboarding; agents/C&F use
+partner masters and masons reuse the influencer register.
 
-A super administrator can create a **Dealer ledger access** record in Django admin, linking an
-existing login to exactly one dealer. The linked active user sees **My ledger** (`/my-ledger/`),
-with date filters, opening/running/closing balances and a separate CSV download. The account
-uses the existing password-first email OTP flow. This grants no company-wide finance access,
-other dealer statements, or internal transaction-detail access. Inactive links or dealers cannot
-use self-service. Account provisioning/linking is currently administrator-managed; bulk invites,
-a dealer portal dashboard and dealer-facing PDF statements are not implemented by this change.
+Super administrators can link a login from **Users → User details → Manage dealer access** (or Django
+administration). The normal user-screen flow requires a reason and recent identity confirmation,
+checks active dealer/non-staff login/email eligibility and signs out previous sessions on change.
+A linked active user sees `/dealer/`, their own confirmed orders/open invoices/recent receipts,
+`/dealer/invoices/`, and `/my-ledger/` with filtered CSV/PDF downloads. Account selection always comes
+from the persisted link; the link does not grant internal ERP module permissions. Existing password +
+email OTP rules still apply. Inactive links/dealers cannot use self-service. Provisioning is admin-managed;
+no automatic invitation or real email is sent by access linking.
+
+Dealer CRM and project pipelines support list/board views with preserved filters and bounded stage cards.
+Projects add owner/site/expected-close filters, overdue/slipped/inactive health flags, stage-review age,
+a source-evidence checklist and a monthly weighted planning forecast. **Create project opportunity** on
+a CRM lead pre-fills only an accessible source. Stage transitions keep their existing evidence gates.
+Forecasts are estimates, not recognized revenue; a board visit never changes a stage or posts a transaction.
+
+See the [whole-system review and advanced pending register](docs/SYSTEM_REVIEW_2026_11_25.md) for current
+module boundaries, priority order and verification evidence. Channel hierarchy/agent contracts and
+commission payouts, dealer-originated order requests, API/mobile, external integrations and production
+acceptance remain open.

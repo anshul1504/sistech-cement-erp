@@ -17,6 +17,8 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.utils.http import content_disposition_header
 
 from .gst import next_number, line_tax, money, in_words, qtxt
 from .ledger import allocate, balance, open_invoices, ageing, ledger_rows, exposure, credit_unapplied, AGE_BUCKETS
@@ -287,6 +289,7 @@ def credit_note_detail(request, pk):
 # ---------- Ledger & outstanding ----------
 
 @login_required
+@never_cache
 def partner_ledger(request, pk, self_service=False):
     if self_service:
         from .models import DealerLedgerAccess
@@ -296,23 +299,31 @@ def partner_ledger(request, pk, self_service=False):
         require_company_finance(request.user)
         permitted(request.user, 'view_receipt')
     partner = get_object_or_404(Partner, pk=pk, kind__in=CUSTOMER_KINDS)
-    def parse(value):
-        try:
-            return date.fromisoformat(value) if value else None
-        except ValueError:
-            messages.error(request, 'Choose a valid date for the ledger filter.')
-            return None
-    start, end = parse(request.GET.get('from')), parse(request.GET.get('to'))
+    from .ledger_statement import LedgerPeriodForm, spreadsheet_text
+    period = LedgerPeriodForm(request.GET)
+    if not period.is_valid():
+        return render(request, 'erp/ledger_filter_error.html', {'title': 'Invalid ledger dates', 'period': period}, status=400)
+    start, end = period.cleaned_data['from_date'], period.cleaned_data['to_date']
     opening, rows = ledger_rows(partner, start, end)
+    safe_code = re.sub(r'[^A-Za-z0-9_-]', '-', partner.code) or str(partner.pk)
     if request.GET.get('export') == 'csv':
         response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = f'attachment; filename="ledger-{partner.code}.csv"'
+        response['Content-Disposition'] = content_disposition_header(True, f'ledger-{safe_code}.csv')
         response.write('﻿')
         w = csv.writer(response)
         w.writerow(['Date', 'Type', 'Reference', 'Details', 'Debit', 'Credit', 'Balance'])
         w.writerow([start or '', 'Opening balance', '', '', '', '', opening])
         for r in rows:
-            w.writerow([r['date'].strftime('%d-%m-%Y'), r['kind'], r['ref'], r['note'], r['debit'] or '', r['credit'] or '', r['balance']])
+            w.writerow([r['date'].strftime('%d-%m-%Y'), r['kind'], spreadsheet_text(r['ref']), spreadsheet_text(r['note']), r['debit'] or '', r['credit'] or '', r['balance']])
+        AuditEvent.objects.create(actor=request.user, action='Ledger CSV downloaded', reference=f'partner:{partner.pk}', detail=f"From {start or 'beginning'} to {end or 'latest'}")
+        response['Cache-Control'] = 'private, no-store'
+        return response
+    if self_service and request.GET.get('export') == 'pdf':
+        from .pdf_docs import statement_spec
+        from .pdf_views import _send
+        spec = statement_spec(partner, start, end, opening, rows)
+        response = _send(request, spec, f'ledger-{safe_code}.pdf', f'partner:{partner.pk}')
+        response['Content-Disposition'] = content_disposition_header(True, f'ledger-{safe_code}.pdf')
         return response
     invs = open_invoices(partner)
     from .partner_views import credit_position

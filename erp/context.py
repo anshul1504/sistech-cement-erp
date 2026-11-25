@@ -18,7 +18,7 @@ def _soon(label, icon):
     return {'route': None, 'label': label, 'icon': icon, 'perm': None, 'match': (), 'superuser': False, 'soon': True}
 
 
-ASSET_VERSION = '0.20.3'
+ASSET_VERSION = '0.21.0'
 
 NAV_GROUPS = [
     ('Overview', [
@@ -84,6 +84,7 @@ NAV_GROUPS = [
     ('Masters', [
         _item('products', 'Products & materials', 'package', 'view_product', match=('products_new', 'products_edit', 'product_detail', 'product_duplicate')),
         _item('people', 'People', 'handshake'),
+        _item('dealer_dashboard', 'My dealer account', 'handshake', match=('dealer_invoices',)),
         _item('my_ledger', 'My ledger', 'book'),
         _item('partners', 'Dealers & suppliers', 'handshake', 'view_partner', match=('partners_new', 'partners_edit', 'partner_detail', 'partner_document_new')),
         _item('sites', 'Plants & depots', 'building', 'view_site', match=('sites_new', 'sites_edit', 'site_detail')),
@@ -94,7 +95,7 @@ NAV_GROUPS = [
     ]),
     ('Administration', [
         _item('access_control', 'Users', 'crm', superuser=True,
-              match=('member_new', 'member_detail', 'member_edit', 'member_set_password')),
+              match=('member_new', 'member_detail', 'member_edit', 'member_set_password', 'dealer_access')),
         _item('roles', 'Roles & permissions', 'shield', superuser=True,
               match=('role_new', 'role_detail', 'role_edit', 'role_duplicate')),
         _item('tickets', 'Help & support', 'phone', match=('ticket_new', 'ticket_detail')),
@@ -108,7 +109,7 @@ NAV_GROUPS = [
 def _can_see(user, item):
     if item['route'] == 'people':
         return user.has_perm('erp.view_partner') or user.has_perm('erp.view_influencer')
-    if item['route'] == 'my_ledger':
+    if item['route'] in {'my_ledger', 'dealer_dashboard'}:
         from .models import DealerLedgerAccess
         return DealerLedgerAccess.objects.filter(user=user, active=True, partner__active=True, partner__kind='Dealer').exists()
     if item['route'] in ('journals', 'payments', 'receipts', 'outstanding', 'collections', 'deposits', 'tds') and not user.has_perm('erp.access_company_finance'):

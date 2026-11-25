@@ -26,7 +26,7 @@ class ProjectBrowserTests(StaticLiveServerTestCase):
         projects.change_stage(f.rep,closed.pk,'won','QA approved order confirmed')
         rep=Client();rep.force_login(f.rep)
         manager=Client();manager.force_login(f.maker)
-        routes=[('pipeline','rep',reverse('projects')),('new','rep',reverse('project_new')),('edit','rep',reverse('project_edit',args=[p.pk])),
+        routes=[('pipeline','rep',reverse('projects')),('pipeline-board','rep',reverse('projects')+'?view=board'),('new','rep',reverse('project_new')),('edit','rep',reverse('project_edit',args=[p.pk])),
                 ('detail','rep',reverse('project_detail',args=[p.pk])),('closed','manager',reverse('project_detail',args=[closed.pk])),
                 ('quotation-handoff','rep',reverse('quotation_new')+f'?project_id={p.pk}')]
         out=Path(settings.BASE_DIR)/'test-results'/'projects';out.mkdir(parents=True,exist_ok=True)

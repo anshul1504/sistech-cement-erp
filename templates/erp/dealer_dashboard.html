@@ -1,0 +1,15 @@
+{% extends 'erp/base.html' %}{% load erp_format %}
+{% block extra_head %}{% include 'erp/_order_head.html' %}{% endblock %}
+{% block content %}
+<div class="org-page acc-page adm-page mst-page ord-page">
+  <div class="org-head"><div><div class="eyebrow">MY DEALER ACCOUNT</div><h1>{{ partner.name }}</h1><p>{{ partner.code }}{% if partner.city %} · {{ partner.city }}{% endif %}</p></div><div class="doc-head-actions"><a class="org-btn is-primary" href="{% url 'my_ledger' %}">My ledger &amp; downloads</a><a class="org-btn is-light" href="{% url 'dealer_invoices' %}">My invoices</a></div></div>
+  <div class="inf-kpis" role="list">
+    <div class="inf-kpi" role="listitem"><span>Account balance</span><strong>₹{{ balance|indian:2 }}</strong><small>Positive = due · negative = advance</small></div>
+    <div class="inf-kpi" role="listitem"><span>Overdue invoices</span><strong>₹{{ age.overdue|indian:2 }}</strong><small>Current unpaid invoice balance</small></div>
+    <div class="inf-kpi" role="listitem"><span>Not yet due</span><strong>₹{{ age.current|indian:2 }}</strong><small>Within invoice payment terms</small></div>
+  </div>
+  <section class="org-card"><h2>Open invoices</h2><div style="overflow-x:auto"><table class="table"><thead><tr><th>Invoice</th><th>Date</th><th>Due date</th><th>Unpaid</th></tr></thead><tbody>{% for inv in open_invoices %}<tr><td>{{ inv.number }}</td><td>{{ inv.date|date:'d M Y' }}</td><td>{{ inv.due_date|date:'d M Y' }}</td><td>₹{{ inv.outstanding|indian:2 }}</td></tr>{% empty %}<tr><td colspan="4">No open invoices.</td></tr>{% endfor %}</tbody></table></div></section>
+  <section class="org-card"><h2>Recent confirmed orders</h2><p>Latest 10 orders. Draft and pending-review orders appear after confirmation.</p><div style="overflow-x:auto"><table class="table"><thead><tr><th>Order</th><th>Plant / depot</th><th>Delivery due</th><th>Status</th></tr></thead><tbody>{% for order in orders %}<tr><td>{{ order.number }}</td><td>{{ order.site.name }}</td><td>{{ order.due_date|date:'d M Y' }}</td><td>{{ order.status }}</td></tr>{% empty %}<tr><td colspan="4">No confirmed orders yet.</td></tr>{% endfor %}</tbody></table></div></section>
+  <section class="org-card"><h2>Recent payments received</h2><div style="overflow-x:auto"><table class="table"><thead><tr><th>Receipt</th><th>Date</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead><tbody>{% for receipt in receipts %}<tr><td>{{ receipt.number }}</td><td>{{ receipt.date|date:'d M Y' }}</td><td>{{ receipt.get_mode_display }}</td><td>{{ receipt.get_status_display }}</td><td>₹{{ receipt.amount|indian:2 }}</td></tr>{% empty %}<tr><td colspan="5">No receipts yet.</td></tr>{% endfor %}</tbody></table></div></section>
+</div>
+{% endblock %}

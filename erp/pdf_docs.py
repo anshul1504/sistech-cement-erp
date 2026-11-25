@@ -150,17 +150,23 @@ def statement(user, pk):
     today = timezone.localdate()
     start = date(today.year if today.month >= 4 else today.year - 1, 4, 1)
     opening, rows = ledger.ledger_rows(p, start, today)
+    return statement_spec(p, start, today, opening, rows), f'statement-{p.code}-{today}.pdf'
+
+
+def statement_spec(p, start, end, opening, rows):
+    """Render already-authorized ledger data; callers enforce account ownership."""
+    from . import ledger
     data = [[d(r['date']), r['kind'], r['ref'], r['note'], money(r['debit']) if r['debit'] else '', money(r['credit']) if r['credit'] else '', money(r['balance'])] for r in rows]
     closing = rows[-1]['balance'] if rows else opening
     age = ledger.ageing(ledger.open_invoices(p))
-    spec = {'title': 'Statement of account', 'number': p.code, 'date': f'{d(start)} to {d(today)}',
+    spec = {'title': 'Statement of account', 'number': p.code, 'date': f"{d(start) or 'Beginning'} to {d(end) or 'Latest'}",
             'meta': [('Opening balance', R(opening)), ('Closing balance', R(closing)), ('Credit limit', R(p.credit_limit, 0)), ('Payment terms', f'{p.payment_terms_days} days'),
                      ('Not due', R(age['current'])), ('Overdue', R(age['overdue'])), ('90+ days', R(age['d90p']))],
             'parties': [('Customer', [p.name, p.full_address, f'GSTIN {p.gstin}' if p.gstin else ''])],
             'sections': [{'headers': ['Date', 'Type', 'Document', 'Details', 'Debit ₹', 'Credit ₹', 'Balance ₹'], 'widths': [.1, .12, .15, .25, .12, .12, .14], 'numeric': {4, 5, 6},
                           'rows': [['', 'Opening', '', '', '', '', money(opening)]] + data, 'total_row': ['', 'Closing', '', '', '', '', money(closing)]}],
             'notes': ['Positive balance = amount due to us. Please report any difference within 15 days.'], 'bank': True}
-    return spec, f'statement-{p.code}-{today}.pdf'
+    return spec
 
 
 def return_request(user, pk):

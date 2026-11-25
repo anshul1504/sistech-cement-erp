@@ -77,6 +77,7 @@ urlpatterns += [
     path('sites/<int:pk>/delete/', sv.site_delete, name='site_delete'),
 ]
 from erp import partner_views as ptv
+from erp import dealer_views as dlv
 urlpatterns += [
     path('partners/', ptv.partners, name='partners'),
     path('partners/new/', ptv.partner_form, name='partners_new'),
@@ -146,6 +147,8 @@ urlpatterns += [
     path('returns/<int:pk>/<slug:action>/', rtv.return_action, name='return_action'),
     path('collections/dispute/<int:pk>/resolve/', cv.dispute_resolve, name='dispute_resolve'),
     path('people/', ptv.people, name='people'),
+    path('dealer/', dlv.dashboard, name='dealer_dashboard'),
+    path('dealer/invoices/', dlv.invoices, name='dealer_invoices'),
     path('my-ledger/', fv.my_ledger, name='my_ledger'),
     path('partners/<int:pk>/ledger/', fv.partner_ledger, name='partner_ledger'),
 ]

@@ -5,23 +5,30 @@ Current objective: complete the remaining requirements module by module, retain 
 
 Implemented core workflows are recorded in [ROADMAP](ROADMAP.md). A checked implementation milestone is developer evidence, not company acceptance of the entire SRS. No overall completion percentage is asserted.
 
+## Current review
+
+The [25 November system review](SYSTEM_REVIEW_2026_11_25.md) reconciles older snapshots and records
+People groups, dealer self-service/dashboard/filtered PDF, administrator link management and pipeline
+board/health/forecast improvements. It is the current advanced pending register; full SRS and business
+acceptance remain open.
+
 ## Build order and remaining scope
 
 | Area | Implemented baseline | Remaining scope / acceptance gate |
 |---|---|---|
 | Identity and access (§3) | Password/email OTP, throttling, roles/sites, sessions, temporary expiry, sensitive-action reauthentication, dated delegation, configured approval routing, eligible unavailable-staff handoff, reviewed CRM/beat ownership transitions | Remaining approval integrations/cross-module audit, batch staffing orchestration, deployment scheduling and security acceptance |
-| Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, cost centres, versioned alternate units and dimensional access |
+| Organisation / masters (§2) | Single company, products, sites, counterparties | Multi-entity/GST hierarchy, versioned alternate units and dimensional access (cost centres/budgets are implemented) |
 | CRM (§5.1) | Leads, onboarding, routed/delegated KYC/credit/activation reviews, targets, territories/beats, reviewed dated ownership transfer, audited prospect consolidation, project pipeline | Customer/master deduplication and broader identity matching, parent channels, project pricing/schedules, advanced targets, secondary sales, field GPS/mobile |
-| Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Firm allocations, complete lot/bin ATP, margin floor, full concurrency proof, dealer self-service |
+| Sales (§5.2) | Prices, quotations, orders, overrides, backorders, revisions | Complete lot/bin ATP, margin floor, PostgreSQL concurrency proof and dealer-originated order requests (firm order-line allocations and linked dealer read-only self-service are implemented) |
 | Schemes (§5.3) | Versioned rules, retained eligibility, accrual, payouts, recognition with routed/delegated reviews and retained delivery actor | Per-unit/margin and progressive scheme rules, budgets/stacking, agent/distributor commission beneficiaries, full automatic reversal lifecycle |
 | Procurement (§5.4) | PR/RFQ/PO, inbound/GRN, matching, returns and AP | Demand/budget planning, deeper supplier verification, hardware/evidence acceptance |
-| Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Bin-directed picking, lot balances per bin, versioned conversions and recall coverage |
+| Inventory (§5.5) | Stock ledger, exact WAC value, transfers/counts/damage | Bin-directed picking, lot balances per bin, versioned conversions and recall coverage (bin master, put-away and moves are implemented) |
 | Production / QC (§5.6–5.7) | Recipes with routed/delegated approval and effective-version rollback protection, issues, shifts/packing, results, release, certificates, calibration, CAPA | Own-plant capacity/MRP, complete cost allocation, rework/write-off, automated quarantine/recall |
 | Dispatch (§5.8) | Gate/weighments/loading/dispatch with independently routed weight review, POD records with independent retained corrections, freight, routed/delegated bill review with retained rejection evidence, atomic validated entry, POD-bound pending approval and reviewed post-approval recovery/vendor credits | Hardware, GPS/ETA, mobile delivery proof, re-delivery of refused loads to another customer and advanced freight |
 | Billing / finance (§5.9–5.10, §9) | GST billing, GL/AR/AP, independently reviewed manual reversals, payments, independent non-cash offsets/reversals, incoming vendor-credit refunds, CSV bank match, assets, close | IRN/EWB, profit-centre/intercompany dimensions, TDS return filing, combined/split matching, beneficiary approval, signed finance reconciliation |
 | Collections / service (§5.11–5.12) | Collections desk, tickets/complaints/CAPA with routed/delegated independent reviews, inspected RMA and credit | Mobile cash evidence, customer advance refunds, channel ingestion and all downstream corrections |
 | API / Android (§6) | Responsive web only | Versioned API, employee/dealer/driver apps, token/device controls, encrypted offline sync and conflicts |
-| Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | PDF packs, saved filters, complete dimensional analytics |
+| Reports (§11) | Role dashboards, source drill-downs, CSV, KPI definitions | Dashboard PDF packs, saved filters, complete dimensional analytics (document/report PDFs and scheduled Excel packs are implemented) |
 | Integrations (§12) | Email implementation and selected web sharing | GSP/IRP/EWB, bank/gateway, WhatsApp/SMS/push, bridge/GPS/scanners/PLC/LIMS, legacy connectors |
 | Nonfunctional / rollout (§13–15) | Automated developer checks, local migration backups | PostgreSQL load/race tests, accessibility/localisation, observability, restore drills, actual opening-data migration, training, business UAT/sign-off |
 

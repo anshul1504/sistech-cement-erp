@@ -7,14 +7,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Max, Sum, Subquery, OuterRef
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
-from . import crm
+from . import crm, pipeline
 from .crm_forms import LeadForm, ActivityForm, DealerProfileForm, DealerUploadForm, PolicyForm, TargetForm, PROFILE_FIELDS
 from .models import (CRMLead, CRMPolicy, DealerApplication, DealerDocument, SalesTarget, Partner, AuditEvent, LEAD_STAGES, CUSTOMER_KINDS,
                      APPLICATION_STATES, PARTNER_DOCUMENT_TYPES, DealerReview, Invoice, CreditNote, Settlement)
@@ -52,6 +52,7 @@ def _csv(request, filename, header, rows, action):
     for row in rows:
         writer.writerow([_safe(value) for value in row])
     AuditEvent.objects.create(actor=request.user, action=action, reference='CRM CSV', detail='Exported currently scoped and filtered records')
+    response['Cache-Control'] = 'private, no-store'
     return response
 
 
@@ -59,26 +60,48 @@ def _csv(request, filename, header, rows, action):
 def leads(request):
     permitted(request.user, 'view_crmlead')
     base = crm.lead_scope(CRMLead.objects.select_related('site', 'owner', 'partner'), request.user)
-    qs = base
+    qs = base.annotate(last_contact_on=Max('activities__happened_on')).order_by('-updated_at','-pk')
+    mode = 'board' if request.GET.get('view') == 'board' else 'list'
+    kind = request.GET.get('kind', '')
     q, stage, due = request.GET.get('q', '').strip(), request.GET.get('stage', ''), request.GET.get('due', '')
     site, owner = request.GET.get('site', ''), request.GET.get('owner', '')
     if q:
         qs = qs.filter(Q(number__icontains=q) | Q(business_name__icontains=q) | Q(mobile__icontains=q) | Q(district__icontains=q) | Q(territory__icontains=q))
     if stage in dict(LEAD_STAGES): qs = qs.filter(stage=stage)
-    if site.isdigit(): qs = qs.filter(site_id=site)
-    if owner.isdigit(): qs = qs.filter(owner_id=owner)
+    if kind in CUSTOMER_KINDS: qs = qs.filter(kind=kind)
+    for key,value in [('site',site),('owner',owner)]:
+        if value:
+            qs = qs.filter(**{key+'_id':int(value)}) if value.isascii() and value.isdecimal() and len(value)<12 else qs.none()
     today = timezone.localdate()
     if due == 'overdue': qs = qs.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost', 'merged'])
     elif due == 'today': qs = qs.filter(next_follow_up=today).exclude(stage__in=['won', 'lost', 'merged'])
+    elif due == 'missing': qs = qs.filter(next_follow_up__isnull=True).exclude(stage__in=['won', 'lost', 'merged'])
+    elif due == 'stale': qs = qs.filter(pipeline.stale_projects(today)).exclude(stage__in=['won', 'lost', 'merged'])
     if request.GET.get('export') == 'csv':
         return _csv(request, f'crm-pipeline-{today}.csv', ['Lead', 'Business', 'Contact', 'Mobile', 'District', 'Territory', 'Site', 'Owner', 'Stage', 'Follow-up', 'Estimated opportunity'],
             ([l.number, l.business_name, l.contact_name, l.mobile, l.district, l.territory, l.site.code, l.owner.get_username(), l.get_stage_display(), l.next_follow_up or '', l.estimated_value] for l in qs), 'CRM pipeline exported')
-    counts = dict(base.values_list('stage').annotate(n=Count('pk')))
+    counts = dict(qs.values_list('stage').order_by('stage').annotate(n=Count('pk', distinct=True)))
+    stages=[dict(key=k,label=label,count=counts.get(k,0),url=pipeline.query_link(request.GET,stage=k)) for k,label in LEAD_STAGES]
+    columns=[]
+    if mode=='board':
+        for row in stages:
+            cards=list(qs.filter(stage=row['key']).annotate(
+                pending_review=Subquery(DealerApplication.objects.filter(lead_id=OuterRef('pk'),status__in=crm.OPEN_APPLICATIONS).order_by('-created_at').values('status')[:1])
+            ).order_by('next_follow_up','-estimated_value','pk')[:12])
+            for lead in cards:
+                lead.next_step=(('Onboarding: '+dict(APPLICATION_STATES).get(lead.pending_review,lead.pending_review)) if lead.pending_review else
+                                'Customer active — prepare project / quotation' if lead.stage=='won' else
+                                'Closed — review retained history' if lead.stage in ['lost','merged'] else
+                                'Schedule the next conversation' if not lead.next_follow_up else
+                                'Complete follow-up and record its outcome')
+            columns.append(dict(row,cards=cards,more=max(0,row['count']-len(cards))))
     return render(request, 'erp/crm_leads.html', dict(title='Dealer CRM', page=Paginator(qs, 30).get_page(request.GET.get('page')), q=q, stage=stage, due=due, site=site, owner=owner,
         sites=crm.sites_for(request.user), owners=crm.owners_for(request.user) if request.user.has_perm('erp.view_team_crm') else [request.user],
-        stages=[dict(key=k, label=label, count=counts.get(k, 0)) for k, label in LEAD_STAGES],
-        open_count=base.exclude(stage__in=['won', 'lost', 'merged']).count(), overdue=base.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost', 'merged']).count(),
-        converted=base.filter(stage='won').count(), opportunity=sum((l.estimated_value for l in base.exclude(stage__in=['won', 'lost', 'merged'])), Decimal(0)),
+        stages=stages, mode=mode, columns=columns,kind=kind,kinds=[(k,k) for k in CUSTOMER_KINDS],
+        list_url=pipeline.query_link(request.GET,view='list'),board_url=pipeline.query_link(request.GET,view='board'),
+        open_count=qs.exclude(stage__in=['won', 'lost', 'merged']).count(), overdue=qs.filter(next_follow_up__lt=today).exclude(stage__in=['won', 'lost', 'merged']).count(),
+        missing_follow_up=qs.filter(next_follow_up__isnull=True).exclude(stage__in=['won','lost','merged']).count(),
+        converted=qs.filter(stage='won').count(), opportunity=qs.exclude(stage__in=['won','lost','merged']).aggregate(total=Sum('estimated_value'))['total'] or Decimal(0),
         can_add=request.user.has_perm('erp.add_crmlead'), can_export=request.user.has_perm('erp.export_crmlead')))
 
 
