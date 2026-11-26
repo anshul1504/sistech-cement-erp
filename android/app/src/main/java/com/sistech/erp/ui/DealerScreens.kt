@@ -5,7 +5,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,31 +58,35 @@ fun DealerLedgerScreen(api: Api, back: () -> Unit, openWeb: (String) -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     val ledger = rememberLoader { api.get("dealer/ledger/") }
     val invoices = rememberLoader { api.get("dealer/invoices/") }
-    Page("Ledger & invoices", back, eyebrow = "My dealer account", actions = { TextButton(onClick = { openWeb("/my-ledger/") }) { Text("PDF / CSV") } }) {
-        PrimaryTabRow(selectedTabIndex = tab, containerColor = Surface) {
-            Tab(tab == 0, { tab = 0 }, text = { Text("Statement") })
-            Tab(tab == 1, { tab = 1 }, text = { Text("Invoices") })
-        }
+    Page("Ledger & invoices", back, eyebrow = "My dealer account", actions = { HeaderAction("PDF / CSV", Icons.Filled.Download) { openWeb("/my-ledger/") } }) {
+        Segmented(listOf("Statement", "Invoices"), tab, { tab = it })
         if (tab == 0) LoadState(ledger) { d ->
             val rows = d.getJSONArray("rows").objects().reversed()
-            LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
-                item { KpiRow({ Kpi("Closing balance", rupees(d.str("closing"), true), "latest first below", modifier = it) }) }
+            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                item {
+                    KpiRow({ Kpi("Opening", rupees(d.str("opening")), "start of period", modifier = it) },
+                        { Kpi("Closing balance", rupees(d.str("closing")), "positive = you owe", if ((d.str("closing").toBigDecimalOrNull()?.signum() ?: 0) > 0) KpiTone.Warn else KpiTone.Good, it) })
+                }
+                item { Spacer(Modifier.height(8.dp)) }
                 items(rows) { r ->
                     val dr = r.str("debit").toBigDecimalOrNull()?.signum() ?: 0
-                    ListRow("${r.str("type")} · ${r.str("ref")}", "${r.str("date")} · ${r.str("note")}",
-                        if (dr > 0) rupees(r.str("debit"), true) else "−" + rupees(r.str("credit"), true), "bal ${rupees(r.str("balance"))}")
+                    ListRow("${r.str("type")} · ${r.str("ref")}", prettyDate(r.str("date")) + (if (r.str("note").isNotBlank()) " · ${r.str("note")}" else ""),
+                        if (dr > 0) rupees(r.str("debit"), true) else "−" + rupees(r.str("credit"), true), "bal ${rupees(r.str("balance"))}",
+                        icon = if (dr > 0) Icons.Filled.NorthEast else Icons.Filled.SouthWest, tone = if (dr > 0) Tone(Danger, Color(0xFFFDECEC)) else Tone(Good, Color(0xFFE9F6F1)),
+                        trailingColor = if (dr > 0) Ink else Good)
                 }
-                if (rows.isEmpty()) item { Empty("No entries yet.") }
+                if (rows.isEmpty()) item { Empty("Invoices and payments will show here.", Icons.AutoMirrored.Filled.ReceiptLong, "No entries yet") }
             }
         } else LoadState(invoices) { d ->
             val rows = d.getJSONArray("invoices").objects()
-            LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
+            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(rows) { r ->
                     val unpaid = r.str("unpaid").toBigDecimalOrNull()?.signum() ?: 0
-                    ListRow(r.str("number"), "${r.str("date")} · due ${r.str("due_date")}", rupees(r.str("total"), true),
-                        if (unpaid > 0) "unpaid ${rupees(r.str("unpaid"))}" else "paid", chip = if (unpaid > 0) "Unpaid" else "", chipTone = Warn)
+                    ListRow(r.str("number"), "${prettyDate(r.str("date"))} · due ${prettyDate(r.str("due_date"))}", rupees(r.str("total"), true),
+                        if (unpaid > 0) "unpaid ${rupees(r.str("unpaid"))}" else "", chip = if (unpaid > 0) "Unpaid" else "Paid", chipTone = if (unpaid > 0) Warn else Good,
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong, tone = moduleTone("finance")) { openWeb("/pdf/invoice/${r.getInt("id")}/") }
                 }
-                if (rows.isEmpty()) item { Empty("No invoices yet.") }
+                if (rows.isEmpty()) item { Empty("Your Sistech invoices will show here.", Icons.AutoMirrored.Filled.ReceiptLong, "No invoices yet") }
             }
         }
     }
@@ -149,7 +157,7 @@ fun DealerOrderScreen(api: Api, back: () -> Unit) {
                         Column {
                             rows.forEach { r ->
                                 val order = r.optJSONObject("order")
-                                ListRow(r.str("number"), "needed by ${r.str("required_by")}" + (order?.let { " · order ${it.str("number")} (${it.str("status")})" } ?: "") +
+                                ListRow(r.str("number"), "needed by ${prettyDate(r.str("required_by"))}" + (order?.let { " · order ${it.str("number")} (${it.str("status")})" } ?: "") +
                                     (if (r.str("reason").isNotBlank()) " · ${r.str("reason")}" else ""), rupees(r.str("estimate")), chip = r.str("status_label"), chipTone = statusTone(r.str("status")))
                             }
                             if (rows.isEmpty()) Empty("No requests yet.")
@@ -203,7 +211,7 @@ fun DealerSecondaryScreen(api: Api, back: () -> Unit) {
                 }
                 item { SectionTitle("My entries") }
                 items(d.getJSONArray("entries").objects()) { e ->
-                    ListRow(e.str("buyer"), "${e.str("date")} · ${e.str("product")}", "${qty(e.str("quantity"))} ${e.str("unit")}",
+                    ListRow(e.str("buyer"), "${prettyDate(e.str("date"))} · ${e.str("product")}", "${qty(e.str("quantity"))} ${e.str("unit")}",
                         chip = if (e.str("status") == "cancelled") "Cancelled" else "", chipTone = Danger)
                 }
             }

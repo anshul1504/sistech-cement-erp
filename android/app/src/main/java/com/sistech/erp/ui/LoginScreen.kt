@@ -112,4 +112,5 @@ fun LoginScreen(api: Api, session: Session, onSignedIn: () -> Unit) {
         }
         Text("Design & developed by The Webfix", style = MaterialTheme.typography.bodySmall, modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 16.dp))
     }
+    Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Navy2))
 }

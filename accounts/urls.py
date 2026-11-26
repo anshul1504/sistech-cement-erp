@@ -7,6 +7,7 @@ from .reauth_views import reauthenticate
 from . import delegation_views as dv
 from . import handoff_views as hv
 from . import dealer_access_views as dav
+from . import driver_access_views as drv
 
 urlpatterns = [
     path('approval-inbox/', hv.inbox, name='approval_inbox'),
@@ -48,6 +49,7 @@ urlpatterns = [
     path('access/users/new/', v.member_edit, name='member_new'),
     path('access/users/<int:pk>/', v.member_detail, name='member_detail'),
     path('access/users/<int:pk>/dealer-access/', dav.dealer_access, name='dealer_access'),
+    path('access/users/<int:pk>/driver-access/', drv.driver_access, name='driver_access'),
     path('access/users/<int:pk>/edit/', v.member_edit, name='member_edit'),
     path('access/users/<int:pk>/status/', v.member_status, name='member_status'),
     path('access/users/<int:pk>/sign-out/', v.member_sign_out, name='member_sign_out'),

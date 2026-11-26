@@ -51,8 +51,13 @@ def _line_section(rows, unit_attr=True):
 
 def invoice(user, pk, copy='Original for recipient'):
     from .models import Invoice
-    permitted(user, 'view_invoice')
-    inv = get_object_or_404(scope(Invoice.objects.select_related('site', 'partner', 'order'), user), pk=pk)
+    from .api_views import _dealer
+    dealer = None if user.has_perm('erp.view_invoice') else _dealer(user)
+    if dealer:  # dealer self-service: only invoices billed to the linked dealer
+        inv = get_object_or_404(Invoice.objects.select_related('site', 'partner', 'order'), pk=pk, partner=dealer)
+    else:
+        permitted(user, 'view_invoice')
+        inv = get_object_or_404(scope(Invoice.objects.select_related('site', 'partner', 'order'), user), pk=pk)
     lines = list(inv.lines.select_related('product'))
     rows = [{'line': l, 'taxable': l.taxable, 'total': l.total} for l in lines]
     tax = {'taxable': inv.taxable, 'cgst': inv.cgst, 'sgst': inv.sgst, 'igst': inv.igst, 'round_off': inv.round_off}

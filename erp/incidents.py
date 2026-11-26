@@ -25,6 +25,11 @@ def report(user, dispatch_pk, kind, note, location='', new_ship_to=''):
         raise PermissionDenied
     d = Dispatch.objects.select_for_update().select_related('site').get(pk=dispatch_pk)
     require_site(user, d.site)
+    return create(user, d, kind, note, location, new_ship_to)
+
+
+def create(user, d, kind, note, location='', new_ship_to='', via=''):
+    """Exception on a locked trip. Callers check who may report (staff: perm + plant; driver app: own trip)."""
     if d.status != 'gate_out':
         raise ValidationError('Exceptions are reported while the truck is in transit.')
     if kind not in dict(INCIDENT_KINDS):
@@ -37,7 +42,7 @@ def report(user, dispatch_pk, kind, note, location='', new_ship_to=''):
         raise ValidationError('A diversion or refusal is already waiting for a decision on this trip.')
     x = DispatchIncident.objects.create(dispatch=d, kind=kind, note=note.strip()[:300], location=(location or '').strip()[:120],
                                         new_ship_to=(new_ship_to or '').strip()[:300] if kind == 'diversion' else '', reported_by=user)
-    _log(user, d, f'Trip exception: {x.get_kind_display()}', f'{x.note} {x.location}'.strip())
+    _log(user, d, f'Trip exception: {x.get_kind_display()}', f'{x.note} {x.location} {via}'.strip())
     return x
 
 

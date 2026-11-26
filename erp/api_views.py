@@ -67,9 +67,14 @@ def me(request):
         apps.append('dealer')
     if is_sales(u):
         apps.append('sales')
+    from .driver_app import driver_for
+    drv = driver_for(u)
+    if drv:
+        apps.append('driver')
     return ok(user={'id': u.pk, 'username': u.get_username(), 'name': u.get_full_name() or u.get_username(), 'email': u.email},
               roles=list(u.groups.values_list('name', flat=True)), apps=apps,
               dealer={'id': dealer.pk, 'name': dealer.name, 'code': dealer.code} if dealer else None,
+              driver={'id': drv.pk, 'name': drv.name, 'mobile': drv.mobile} if drv else None,
               can={'create_order': order_permission(u, 'Sale', 'create'), 'record_secondary': u.has_perm('erp.manage_secondarysale')})
 
 
@@ -243,3 +248,90 @@ def work(request):
     items = I.my_queue(request.user)
     return ok(total=sum(i['count'] for i in items),
               items=[{'label': i['label'], 'count': i['count'], 'hint': i['hint'], 'tone': i.get('tone', 'warn'), 'path': i['url']} for i in items])
+
+
+# ---------- Driver app ----------
+
+def _is_driver(user):
+    from .driver_app import is_driver
+    return is_driver(user)
+
+
+def _trip_json(d, full=False):
+    from .driver_app import ship_to
+    p = d.order.partner
+    out = {'id': d.pk, 'number': d.number, 'status': d.status, 'status_label': d.get_status_display(), 'planned_for': d.planned_for.isoformat(),
+           'site': d.site.code, 'site_name': d.site.name, 'vehicle': d.vehicle.registration, 'customer': p.name, 'city': p.city,
+           'quantity': ', '.join(f'{l.order_line.product.name} × {l.quantity.normalize():f} {l.order_line.product.unit}' for l in d.lines.all()),
+           'gate_out_at': d.gate_out_at.isoformat() if d.gate_out_at else None, 'delivered_at': d.delivered_at.isoformat() if d.delivered_at else None,
+           'can_update': d.status == 'gate_out'}
+    if full:
+        inv = getattr(d, 'invoice', None)
+        out.update(ship_to=ship_to(d), contact=p.contact_person, phone=p.phone, alt_phone=p.alt_phone, instructions=d.order.delivery_instructions,
+                   order=d.order.number, invoice=inv.number if inv else None, lr_number=d.lr_number, seal=d.seal_number,
+                   transporter=d.transporter.name if d.transporter else None, net_kg=s(d.net_kg),
+                   pod={'received_by': d.received_by, 'mobile': d.receiver_mobile, 'shortage': s(d.shortage_qty), 'damaged': s(d.damaged_qty),
+                        'notes': d.pod_notes, 'has_file': bool(d.pod_file)} if d.status == 'delivered' else None,
+                   incidents=[{'id': x.pk, 'kind': x.kind, 'kind_label': x.get_kind_display(), 'note': x.note, 'location': x.location, 'status': x.status,
+                               'status_label': x.get_status_display(), 'reported_at': x.reported_at.isoformat(), 'decision_note': x.decision_note}
+                              for x in d.incidents.all()])
+    return out
+
+
+@api(perm=_is_driver)
+def driver_summary(request):
+    from . import driver_app as DA
+    d = DA.driver_for(request.user)
+    sm = DA.summary(d)
+    return ok(driver={'name': d.name, 'mobile': d.mobile, 'licence': d.licence_number, 'licence_valid_until': sm['licence_valid_until'].isoformat(),
+                      'licence_valid': sm['licence_valid'], 'transporter': d.transporter.name if d.transporter else None},
+              on_road=sm['on_road'], at_plant=sm['at_plant'], delivered_today=sm['delivered_today'], delivered_month=sm['delivered_month'])
+
+
+@api(perm=_is_driver)
+def driver_trips(request):
+    from . import driver_app as DA
+    rows = list(DA.trips(DA.driver_for(request.user)))
+    order = {'gate_out': 0, 'weighed': 1, 'loaded': 1, 'loading': 1, 'tared': 1, 'gate_in': 1, 'planned': 2}
+    rows.sort(key=lambda d: (order.get(d.status, 3), -(d.delivered_at or d.created_at).timestamp()))
+    return ok(trips=[_trip_json(d) for d in rows])
+
+
+@api(perm=_is_driver)
+def driver_trip(request, pk):
+    from . import driver_app as DA
+    from .models import INCIDENT_KINDS
+    try:
+        d = DA.trip(DA.driver_for(request.user), pk)
+    except PermissionDenied:
+        return error('Trip not found.', 404)
+    return ok(trip=_trip_json(d, full=True), incident_kinds=[{'key': k, 'label': v} for k, v in INCIDENT_KINDS])
+
+
+@api(methods=('POST',), perm=_is_driver)
+def driver_deliver(request, pk):
+    """multipart/form-data: received_by, receiver_mobile, shortage, damaged, notes, photo (JPEG/PNG/WebP/PDF ≤ 5 MB)."""
+    from . import driver_app as DA
+    f = request.FILES.get('photo')
+    file = (f.read(), f.content_type) if f and f.size <= 5 * 1024 * 1024 else (b'', 'x') if f else None
+    P = request.POST
+    try:
+        DA.deliver(request.user, pk, P.get('received_by', ''), P.get('receiver_mobile', ''), P.get('shortage') or 0, P.get('damaged') or 0, P.get('notes', ''), file)
+    except PermissionDenied:
+        return error('Trip not found.', 404)
+    except ValidationError as e:
+        return error(' '.join(e.messages))
+    return ok(trip=_trip_json(DA.trip(DA.driver_for(request.user), pk), full=True))
+
+
+@api(methods=('POST',), perm=_is_driver)
+def driver_incident(request, pk):
+    from . import driver_app as DA
+    data = body(request)
+    try:
+        DA.report(request.user, pk, data.get('kind', ''), data.get('note', ''), data.get('location', ''), data.get('new_ship_to', ''))
+    except PermissionDenied:
+        return error('Trip not found.', 404)
+    except ValidationError as e:
+        return error(' '.join(e.messages))
+    return ok(trip=_trip_json(DA.trip(DA.driver_for(request.user), pk), full=True))

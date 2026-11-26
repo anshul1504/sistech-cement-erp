@@ -96,3 +96,9 @@ fun rupeesShort(v: String?): String {
 }
 
 fun qty(v: String?): String = v?.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: "—"
+
+/** "2026-11-26" → "26 Nov 2026"; anything else unchanged. */
+fun prettyDate(v: String?): String = runCatching { java.time.LocalDate.parse(v).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")) }.getOrDefault(v ?: "")
+
+/** "15000.0" → "15,000" (Indian grouping, no decimals). */
+fun kg(v: String?): String = v?.toBigDecimalOrNull()?.let { inr.format(it) } ?: "—"

@@ -1081,6 +1081,9 @@ class Driver(models.Model):
     transporter = models.ForeignKey(Partner, null=True, blank=True, on_delete=models.PROTECT, related_name='drivers', limit_choices_to={'kind': 'Transporter'})
     active = models.BooleanField(default=True)
     notes = models.CharField(max_length=200, blank=True)
+    # Driver app login: set only by an administrator (user page → Driver app access), with a reason in the audit log.
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='driver_profile', editable=False)
+    app_enabled = models.BooleanField('Driver app enabled', default=False, editable=False)
 
     class Meta:
         ordering = ['name']

@@ -85,6 +85,17 @@ class ApiTests(TestCase):
         self.assertEqual(post(self.client, reverse('api_dealer_order_cancel', args=[foreign.pk]), {}, t).status_code, 400)
         self.assertEqual(get(self.client, reverse('api_sales_summary'), t).status_code, 403)   # dealer is not sales staff
 
+    def test_dealer_downloads_only_own_invoice_pdf(self):
+        from accounts.test_support import force_login_recent
+        from .models import Invoice
+        own = Invoice.objects.get(partner=self.customer)
+        foreign = invoice_fixture(self, [(self.bag, D('500'))], partner=self.other)
+        force_login_recent(self.client, self.dealer_user)
+        r = self.client.get(reverse('document_pdf', args=['invoice', own.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertIn(self.client.get(reverse('document_pdf', args=['invoice', foreign.pk])).status_code, (403, 404))
+
     def test_sales_endpoints(self):
         rep = User.objects.create_user('api-rep', 'rep@sistech-qa.in', PASS)
         rep.user_permissions.set(Permission.objects.filter(codename__in=['create_sales_order', 'view_sales_order']))

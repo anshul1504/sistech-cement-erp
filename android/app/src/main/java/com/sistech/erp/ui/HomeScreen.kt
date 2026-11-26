@@ -35,20 +35,23 @@ fun HomeScreen(api: Api, me: JSONObject, modules: List<JSONObject>, go: (String)
     val user = me.getJSONObject("user")
     val isDealer = "dealer" in apps
     val isSales = "sales" in apps
+    val isDriver = "driver" in apps
     val work = rememberLoader { api.get("work/") }
     val dealer = if (isDealer) rememberLoader { api.get("dealer/summary/") } else null
     val sales = if (isSales) rememberLoader { api.get("sales/summary/") } else null
     val hour = LocalTime.now().hour
     val greeting = if (hour < 12) "Good morning" else if (hour < 17) "Good afternoon" else "Good evening"
     val waiting = work.data?.optInt("total") ?: 0
+    val lift = if (isDriver || isDealer || isSales) 34 else 0  // numbers float over the hero edge
 
     LazyColumn(Modifier.fillMaxSize().background(Surface), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Hero(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")), "$greeting,\n${user.str("name").substringBefore(' ')}",
                 subtitle = if (isDealer && !me.isNull("dealer")) me.getJSONObject("dealer").str("name")
+                    else if (isDriver && !me.isNull("driver")) "Driver · " + me.getJSONObject("driver").str("mobile")
                     else me.optJSONArray("roles")?.let { r -> (0 until r.length()).joinToString(" · ") { r.getString(it) } }.orEmpty(),
-                trailing = { Avatar(user.str("name")) { go("account") } }) {
-                Row(Modifier.padding(top = 14.dp).clip(CircleShape).background(if (waiting > 0) Gold else Color(0x33FFFFFF)).clickable { go("work") }
+                overlap = lift, trailing = { Avatar(user.str("name")) { go("account") } }) {
+                if (!(isDriver && modules.isEmpty())) Row(Modifier.padding(top = 14.dp).clip(CircleShape).background(if (waiting > 0) Gold else Color(0x33FFFFFF)).clickable { go("work") }
                     .padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.NotificationsActive, null, tint = if (waiting > 0) Navy else Color.White, modifier = Modifier.size(16.dp))
                     Text(if (waiting > 0) "  $waiting waiting for you" else "  Nothing waiting for you",
@@ -57,9 +60,10 @@ fun HomeScreen(api: Api, me: JSONObject, modules: List<JSONObject>, go: (String)
             }
         }
         item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
+            Column(Modifier.padding(horizontal = 16.dp).offset(y = (-lift).dp)) {
+                if (isDriver) DriverHomeSection(api, go)
                 if (dealer != null) {
-                    SectionHeader("My account", "Details") { go("dealer") }
+                    if (isDriver) SectionHeader("My account", "Details") { go("dealer") }
                     LoadState(dealer) { d ->
                         val credit = d.getJSONObject("credit")
                         val overdue = (d.str("overdue").toBigDecimalOrNull()?.signum() ?: 0) > 0
@@ -79,7 +83,7 @@ fun HomeScreen(api: Api, me: JSONObject, modules: List<JSONObject>, go: (String)
                     ))
                 }
                 if (sales != null) {
-                    SectionHeader("This month", "My charts") { openErp("/sales/team/${user.optInt("id")}/") }
+                    if (isDriver || dealer != null) SectionHeader("This month", "My charts") { openErp("/sales/team/${user.optInt("id")}/") }
                     LoadState(sales) { d ->
                         val m = d.getJSONObject("month")
                         val pct = m.str("target_pct").toBigDecimalOrNull()
@@ -147,7 +151,7 @@ fun WorkScreen(api: Api, openErp: (String) -> Unit) {
             Column(Modifier.padding(16.dp)) {
                 LoadState(work) { d ->
                     val items = d.getJSONArray("items").objects()
-                    if (items.isEmpty()) Panel { Text("All clear", style = MaterialTheme.typography.titleMedium.copy(color = Good)); Text("No approvals, deliveries or follow-ups are waiting for you.", style = MaterialTheme.typography.bodySmall) }
+                    if (items.isEmpty()) Panel { Empty("No approvals, deliveries or follow-ups are waiting for you.", Icons.Filled.TaskAlt, "All clear", SuccessTone) }
                     else Panel(padding = 10) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items.forEach { w -> WorkRow(w.optInt("count"), w.str("label"), w.str("hint"), w.str("tone") == "danger") { openErp(w.str("path")) } }

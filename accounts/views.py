@@ -78,10 +78,12 @@ def member_detail(request, pk):
     member = get_object_or_404(User.objects.prefetch_related('groups'), pk=pk)
     from erp.models import DealerLedgerAccess
     dealer_access = DealerLedgerAccess.objects.filter(user=member).select_related('partner').first()
+    from erp.models import Driver
+    driver_link = Driver.objects.filter(user=member).first()
     sessions = sessions_for(member)
     tracked = [x for x in sessions if x['signed_in_at']]
     return render(request, 'accounts/user_detail.html', {
-        'title': member.get_full_name() or member.username, 'member': member, 'dealer_access': dealer_access,
+        'title': member.get_full_name() or member.username, 'member': member, 'dealer_access': dealer_access, 'driver_link': driver_link,
         'member_profile': UserProfile.objects.filter(user=member).first(),
         'assigned_sites': member.siteaccess_set.select_related('site').order_by('site__code'),
         'access': access_summary(member), 'sessions': sessions,

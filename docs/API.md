@@ -14,7 +14,7 @@ quantities are **strings** (exact decimals — parse as BigDecimal); dates are `
 
 ## Common
 - `GET work/` → everything waiting for this user (same as the web bell), each with a web `path`.
-- `GET me/` → user, roles, `apps` (`dealer`, `sales`), linked dealer, `can` flags.
+- `GET me/` → user, roles, `apps` (`dealer`, `sales`, `driver`), linked dealer / driver, `can` flags.
 
 ## Dealer app (login linked to a dealer account)
 - `GET dealer/summary/` balance, overdue, not yet due, credit limit/available/used, this month bought vs sold MT.
@@ -30,6 +30,19 @@ quantities are **strings** (exact decimals — parse as BigDecimal); dates are `
 - `GET sales/customers/?q=` customers with credit limit, available and overdue.
 - `GET sales/orders/?mine=0|1` recent sales orders (plant-scoped).
 - `GET sales/dealer-requests/` dealer order requests waiting (for users who may create sales orders).
+
+## Driver app (login linked to a driver record by an administrator)
+An administrator links one non-staff login (with email, for OTP) to one active driver: *Users → user → Driver app access*,
+with a reason; the change is audited and ends the login's sessions and app tokens. The driver sees only trips assigned to
+them and changes a trip only while it is in transit. No location is collected — GPS tracking is out of scope.
+- `GET driver/summary/` driver, licence validity, trips on the road / at the plant, delivered today / this month.
+- `GET driver/trips/` open trips first, then trips of the last 30 days.
+- `GET driver/trips/<id>/` one trip: deliver-to address, contact and phone, instructions, load, vehicle, invoice, LR, seal,
+  net weight, POD (when delivered), road exceptions with the office decision, and the exception kinds.
+- `POST driver/trips/<id>/deliver/` multipart: `received_by`, `receiver_mobile`, `shortage`, `damaged`, `notes`, `photo`
+  (JPEG/PNG/WebP/PDF ≤ 5 MB, required). Same rules as the office POD; audit says "driver app".
+- `POST driver/trips/<id>/incident/` `{"kind": "breakdown|delay|diversion|refused", "note", "location", "new_ship_to"}`.
+  Diversion and refusal wait for a decision by an office user.
 
 ## Full ERP inside the app
 - `GET modules/` modules (and their pages) this user may open — same rules as the web launcher.

@@ -15,6 +15,8 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -45,12 +47,13 @@ class MainActivity : ComponentActivity() {
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val selected: ImageVector)
 
-private val tabs = listOf(
+private val allTabs = listOf(
     Tab("home", "Home", Icons.Outlined.Home, Icons.Filled.Home),
     Tab("erp", "ERP", Icons.Outlined.GridView, Icons.Filled.GridView),
     Tab("work", "Work", Icons.Outlined.NotificationsNone, Icons.Filled.Notifications),
     Tab("account", "Account", Icons.Outlined.AccountCircle, Icons.Filled.AccountCircle),
 )
+private val tripsTab = Tab("driver", "Trips", Icons.Outlined.LocalShipping, Icons.Filled.LocalShipping)
 
 /** One app for everyone: after sign-in every screen follows this login's roles (dealer, sales, every ERP module). */
 @Composable
@@ -78,12 +81,37 @@ fun SistechApp(api: Api, session: Session) {
     if (!signedIn) { LoginScreen(api, session) { signedIn = true }; return }
     val user = me
     if (user == null) {
-        Box(Modifier.fillMaxSize().background(Surface).statusBarsPadding().padding(24.dp)) {
-            loadError?.let { ErrorBox(it) { loadMe() } } ?: CircularProgressIndicator(color = Navy)
+        StatusBarIcons(onDark = true)
+        // Branded splash while the profile loads (or a retry card if the server can't be reached).
+        Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Navy, Navy2))).statusBarsPadding().padding(28.dp),
+            verticalArrangement = Arrangement.Center, horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            Box(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(Color.White).padding(horizontal = 22.dp, vertical = 14.dp)) {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_full), "Sistech", Modifier.width(170.dp))
+            }
+            Box(Modifier.padding(top = 2.dp).width(214.dp).height(4.dp).background(Gold))
+            Spacer(Modifier.height(36.dp))
+            val err = loadError
+            if (err != null) {
+                Text(err, style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { loadMe() }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy)) { Text("Try again") }
+                TextButton(onClick = { scope.launch { api.logout() } }) { Text("Sign out", color = Color(0xFFC9D6EA)) }
+            } else {
+                CircularProgressIndicator(color = Gold, strokeWidth = 3.dp, modifier = Modifier.size(30.dp))
+                Text("Loading your workspace…", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC9D6EA)), modifier = Modifier.padding(top = 14.dp))
+            }
         }
         return
     }
 
+    val apps = user.optJSONArray("apps")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
+    val tabs = buildList {
+        add(allTabs[0])
+        if ("driver" in apps) add(tripsTab)
+        if (modules.isNotEmpty()) add(allTabs[1])
+        if (modules.isNotEmpty() || "driver" !in apps) add(allTabs[2])
+        add(allTabs[3])
+    }
     val nav = rememberNavController()
     val back: () -> Unit = { nav.popBackStack() }
     val go: (String) -> Unit = { route ->
@@ -95,7 +123,8 @@ fun SistechApp(api: Api, session: Session) {
 
     Scaffold(containerColor = Surface, contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
+            NavigationBar(containerColor = Color.White, tonalElevation = 0.dp,
+                modifier = Modifier.shadow(16.dp, ambientColor = Color(0x220B2A5B), spotColor = Color(0x330B2A5B))) {
                 tabs.forEach { t ->
                     val on = current == t.route
                     NavigationBarItem(selected = on, onClick = { go(t.route) },
@@ -110,7 +139,8 @@ fun SistechApp(api: Api, session: Session) {
                 }
             }
         }) { pad ->
-        NavHost(nav, startDestination = "home", modifier = Modifier.padding(pad)) {
+        Box(Modifier.padding(pad)) {
+        NavHost(nav, startDestination = "home", modifier = Modifier.fillMaxSize()) {
             composable("home") { HomeScreen(api, user, modules, go, openWeb) }
             composable("erp") { ModulesScreen(modules, openWeb) }
             composable("work") { WorkScreen(api, openWeb) }
@@ -123,9 +153,16 @@ fun SistechApp(api: Api, session: Session) {
             composable("sales/customers") { CustomersScreen(api, back, openWeb) }
             composable("sales/requests") { DealerRequestsScreen(api, back, openWeb) }
             composable("sales/orders") { OrdersScreen(api, back, openWeb) }
+            composable("driver") { DriverTripsScreen(api, back, go) }
+            composable("driver/trip/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { e -> DriverTripScreen(api, e.arguments!!.getInt("id"), back, go) }
+            composable("driver/trip/{id}/pod", arguments = listOf(navArgument("id") { type = NavType.IntType })) { e -> DriverPodScreen(api, e.arguments!!.getInt("id"), back) }
+            composable("driver/trip/{id}/issue", arguments = listOf(navArgument("id") { type = NavType.IntType })) { e -> DriverIssueScreen(api, e.arguments!!.getInt("id"), back) }
             composable("web?path={path}", arguments = listOf(navArgument("path") { type = NavType.StringType; defaultValue = "/" })) { entry ->
                 ErpWebScreen(api, entry.arguments?.getString("path") ?: "/", back)
             }
+        }
+        // Solid navy behind the status bar so scrolled content never runs under the clock and icons.
+        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Navy2))
         }
     }
 }

@@ -383,6 +383,11 @@ def refresh_order(order):
 def deliver(user, pk, received_by, receiver_mobile='', shortage=0, damaged=0, notes='', file=None):
     _need(user, 'pod_dispatch')
     d = _lock(pk, user)
+    return record_pod(user, d, received_by, receiver_mobile, shortage, damaged, notes, file)
+
+
+def record_pod(user, d, received_by, receiver_mobile='', shortage=0, damaged=0, notes='', file=None, via=''):
+    """POD on a locked, in-transit trip. Callers check who may do it (staff: perm + plant; driver app: own trip)."""
     _state(d, 'gate_out')
     from .pod import details,validate_file
     from accounts.security import access_allowed
@@ -395,7 +400,7 @@ def deliver(user, pk, received_by, receiver_mobile='', shortage=0, damaged=0, no
     if file:
         d.pod_file, d.pod_file_type = file
     d.save()
-    _log(user, d, 'Delivered (POD)', f'{d.received_by}' + (f' · short {qtxt(shortage)} · damaged {qtxt(damaged)}' if shortage or damaged else ''))
+    _log(user, d, 'Delivered (POD)', f'{d.received_by}' + (f' · short {qtxt(shortage)} · damaged {qtxt(damaged)}' if shortage or damaged else '') + (f' · {via}' if via else ''))
     return d
 
 

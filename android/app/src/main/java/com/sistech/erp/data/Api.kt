@@ -62,6 +62,37 @@ class Api(private val session: Session) {
         }
     }
 
+    /** multipart/form-data POST (text fields + one optional file), e.g. POD with the delivery photo. */
+    suspend fun postForm(path: String, fields: Map<String, String>, fileField: String? = null, file: ByteArray? = null, mime: String = "image/jpeg"): JSONObject =
+        withContext(Dispatchers.IO) {
+            val boundary = "----Sistech" + System.currentTimeMillis()
+            val conn = (URL("$baseUrl/api/v1/$path").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"; connectTimeout = 15_000; readTimeout = 60_000; doOutput = true
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                session.token?.let { setRequestProperty("Authorization", "Bearer $it") }
+            }
+            try {
+                conn.outputStream.use { out ->
+                    fun w(s: String) = out.write(s.toByteArray())
+                    fields.forEach { (k, v) -> w("--$boundary\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n") }
+                    if (fileField != null && file != null) {
+                        w("--$boundary\r\nContent-Disposition: form-data; name=\"$fileField\"; filename=\"pod.jpg\"\r\nContent-Type: $mime\r\n\r\n")
+                        out.write(file); w("\r\n")
+                    }
+                    w("--$boundary--\r\n")
+                }
+                val status = conn.responseCode
+                val text = (if (status < 400) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val json = runCatching { JSONObject(text) }.getOrElse { JSONObject().put("ok", false).put("error", "The server sent an unexpected reply ($status).") }
+                if (status == 401) session.clear()
+                if (status >= 400 || !json.optBoolean("ok")) throw ApiException(json.optString("error", "Something went wrong ($status)."), status)
+                json
+            } catch (e: IOException) {
+                throw ApiException("Upload failed. Check your internet connection and try again.")
+            } finally { conn.disconnect() }
+        }
+
     // ---------- Sign-in ----------
     suspend fun login(username: String, password: String): JSONObject =
         post("auth/login/", JSONObject().put("username", username).put("password", password).put("device", deviceName()))

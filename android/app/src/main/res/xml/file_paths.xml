@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Camera photos for proof of delivery: app cache only, deleted after upload. -->
+<paths>
+    <cache-path name="pod" path="pod/" />
+    <cache-path name="docs" path="docs/" />
+</paths>
